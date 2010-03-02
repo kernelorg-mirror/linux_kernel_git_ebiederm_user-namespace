@@ -754,7 +754,7 @@ static int ip6fl_seq_open(struct inode *inode, struct file *file)
 		seq = file->private_data;
 		state = ip6fl_seq_private(seq);
 		rcu_read_lock();
-		state->pid_ns = get_pid_ns(current->nsproxy->pid_ns);
+		state->pid_ns = get_pid_ns(task_active_pid_ns(current));
 		rcu_read_unlock();
 	}
 	return err;
