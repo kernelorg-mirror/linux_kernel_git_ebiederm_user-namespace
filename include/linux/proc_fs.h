@@ -259,6 +259,7 @@ extern const struct proc_ns_operations utsns_operations;
 extern const struct proc_ns_operations ipcns_operations;
 extern const struct proc_ns_operations userns_operations;
 extern const struct proc_ns_operations mntns_operations;
+extern const struct proc_ns_operations pidns_operations;
 
 union proc_op {
 	int (*proc_get_link)(struct dentry *, struct path *);
