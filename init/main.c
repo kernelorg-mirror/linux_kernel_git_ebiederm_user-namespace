@@ -806,7 +806,6 @@ static noinline int init_post(void)
 	system_state = SYSTEM_RUNNING;
 	numa_default_policy();
 
-	current->signal->flags |= SIGNAL_UNKILLABLE;
 	flush_delayed_fput();
 
 	if (ramdisk_execute_command) {
