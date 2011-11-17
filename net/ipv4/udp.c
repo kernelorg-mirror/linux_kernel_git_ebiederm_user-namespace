@@ -2048,6 +2048,7 @@ int udp_seq_open(struct inode *inode, struct file *file)
 		return err;
 
 	s = ((struct seq_file *)file->private_data)->private;
+	s->file			= file;
 	s->family		= afinfo->family;
 	s->udp_table		= afinfo->udp_table;
 	return err;
@@ -2082,6 +2083,7 @@ EXPORT_SYMBOL(udp_proc_unregister);
 static void udp4_format_sock(struct sock *sp, struct seq_file *f,
 		int bucket, int *len)
 {
+	struct udp_iter_state *state = f->private;
 	struct inet_sock *inet = inet_sk(sp);
 	__be32 dest = inet->inet_daddr;
 	__be32 src  = inet->inet_rcv_saddr;
@@ -2093,7 +2095,9 @@ static void udp4_format_sock(struct sock *sp, struct seq_file *f,
 		bucket, src, srcp, dest, destp, sp->sk_state,
 		sk_wmem_alloc_get(sp),
 		sk_rmem_alloc_get(sp),
-		0, 0L, 0, sock_i_uid(sp), 0, sock_i_ino(sp),
+		0, 0L, 0,
+		from_kuid_munged(state->file->f_cred->user_ns, sock_i_uid(sp)),
+		0, sock_i_ino(sp),
 		atomic_read(&sp->sk_refcnt), sp,
 		atomic_read(&sp->sk_drops), len);
 }
