@@ -171,13 +171,17 @@ enum nfs4_acl_whotype {
 
 #ifdef __KERNEL__
 #include <linux/list.h>
+#include <linux/uidgid.h>
 
 struct nfs4_ace {
 	uint32_t	type;
 	uint32_t	flag;
 	uint32_t	access_mask;
 	int		whotype;
-	uid_t		who;
+	union {
+		kuid_t	who_uid;
+		kgid_t	who_gid;
+	};
 };
 
 struct nfs4_acl {
