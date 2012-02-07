@@ -27,20 +27,6 @@
 #include "xfs_qm.h"
 #include <linux/quota.h>
 
-
-STATIC int
-xfs_quota_type(int type)
-{
-	switch (type) {
-	case USRQUOTA:
-		return XFS_DQ_USER;
-	case GRPQUOTA:
-		return XFS_DQ_GROUP;
-	default:
-		return XFS_DQ_PROJ;
-	}
-}
-
 STATIC int
 xfs_fs_get_xstate(
 	struct super_block	*sb,
@@ -107,8 +93,7 @@ xfs_fs_get_dqblk(
 	if (!XFS_IS_QUOTA_ON(mp))
 		return -ESRCH;
 
-	return -xfs_qm_scall_getquota(mp, from_kqid(&init_user_ns, qid),
-				      xfs_quota_type(qid.type), fdq);
+	return -xfs_qm_scall_getquota(mp, qid, fdq);
 }
 
 STATIC int
@@ -126,8 +111,7 @@ xfs_fs_set_dqblk(
 	if (!XFS_IS_QUOTA_ON(mp))
 		return -ESRCH;
 
-	return -xfs_qm_scall_setqlim(mp, from_kqid(&init_user_ns, qid),
-				     xfs_quota_type(qid.type), fdq);
+	return -xfs_qm_scall_setqlim(mp, qid, fdq);
 }
 
 const struct quotactl_ops xfs_quotactl_operations = {
