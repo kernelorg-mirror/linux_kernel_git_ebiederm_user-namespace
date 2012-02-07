@@ -312,26 +312,30 @@ nfsd4_decode_fattr(struct nfsd4_compoundargs *argp, u32 *bmval,
 		iattr->ia_valid |= ATTR_MODE;
 	}
 	if (bmval[1] & FATTR4_WORD1_OWNER) {
+		uid_t ia_uid;
 		READ_BUF(4);
 		len += 4;
 		READ32(dummy32);
 		READ_BUF(dummy32);
 		len += (XDR_QUADLEN(dummy32) << 2);
 		READMEM(buf, dummy32);
-		if ((status = nfsd_map_name_to_uid(argp->rqstp, buf, dummy32, &iattr->ia_uid)))
+		if ((status = nfsd_map_name_to_uid(argp->rqstp, buf, dummy32, &ia_uid)))
 			return status;
 		iattr->ia_valid |= ATTR_UID;
+		iattr->ia_uid = make_kuid(&init_user_ns, ia_uid);
 	}
 	if (bmval[1] & FATTR4_WORD1_OWNER_GROUP) {
+		gid_t ia_gid;
 		READ_BUF(4);
 		len += 4;
 		READ32(dummy32);
 		READ_BUF(dummy32);
 		len += (XDR_QUADLEN(dummy32) << 2);
 		READMEM(buf, dummy32);
-		if ((status = nfsd_map_name_to_gid(argp->rqstp, buf, dummy32, &iattr->ia_gid)))
+		if ((status = nfsd_map_name_to_gid(argp->rqstp, buf, dummy32, &ia_gid)))
 			return status;
 		iattr->ia_valid |= ATTR_GID;
+		iattr->ia_gid = make_kgid(&init_user_ns, ia_gid);
 	}
 	if (bmval[1] & FATTR4_WORD1_TIME_ACCESS_SET) {
 		READ_BUF(4);
