@@ -869,7 +869,6 @@ config UIDGID_CONVERTED
 	depends on EVM = n
 
 	# Networking
-	depends on NET_9P = n
 	depends on IPX = n
 	depends on PHONET = n
 	depends on NET_CLS_FLOW = n
@@ -883,7 +882,6 @@ config UIDGID_CONVERTED
 	depends on DEVTMPFS = n
 	depends on XENFS = n
 
-	depends on 9P_FS = n
 	depends on ADFS_FS = n
 	depends on AFFS_FS = n
 	depends on AFS_FS = n
