@@ -1064,7 +1064,6 @@ config UIDGID_CONVERTED
 	default y
 
 	# Filesystems
-	depends on XFS_FS = n
 
 config UIDGID_STRICT_TYPE_CHECKS
 	bool "Require conversions between uid/gids and their internal representation"
