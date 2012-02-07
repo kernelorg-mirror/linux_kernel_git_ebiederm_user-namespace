@@ -815,7 +815,7 @@ xfs_ioc_fsgetxattr(
 	xfs_ilock(ip, XFS_ILOCK_SHARED);
 	fa.fsx_xflags = xfs_ip2xflags(ip);
 	fa.fsx_extsize = ip->i_d.di_extsize << ip->i_mount->m_sb.sb_blocklog;
-	fa.fsx_projid = xfs_get_projid(ip);
+	fa.fsx_projid = from_kprojid_munged(current_user_ns(), ip->i_d.di_projid);
 
 	if (attr) {
 		if (ip->i_afp) {
@@ -925,6 +925,7 @@ xfs_ioctl_setattr(
 	struct xfs_dquot	*gdqp = NULL;
 	struct xfs_dquot	*olddquot = NULL;
 	int			code;
+	kprojid_t		projid = INVALID_PROJID;
 
 	trace_xfs_ioctl_setattr(ip);
 
@@ -941,6 +942,15 @@ xfs_ioctl_setattr(
 		return XFS_ERROR(EINVAL);
 
 	/*
+	 * Verify the specifid project id is valid.
+	 */
+	if (mask & FSX_PROJID) {
+		projid = make_kprojid(current_user_ns(), fa->fsx_projid);
+		if (!projid_valid(projid))
+			return XFS_ERROR(EINVAL);
+	}
+
+	/*
 	 * If disk quotas is on, we make sure that the dquots do exist on disk,
 	 * before we start any other transactions. Trying to do this later
 	 * is messy. We don't care to take a readlock to look at the ids
@@ -950,7 +960,7 @@ xfs_ioctl_setattr(
 	 */
 	if (XFS_IS_QUOTA_ON(mp) && (mask & FSX_PROJID)) {
 		code = xfs_qm_vop_dqalloc(ip, ip->i_d.di_uid,
-					 ip->i_d.di_gid, fa->fsx_projid,
+					 ip->i_d.di_gid, projid,
 					 XFS_QMOPT_PQUOTA, &udqp, &gdqp);
 		if (code)
 			return code;
@@ -975,7 +985,8 @@ xfs_ioctl_setattr(
 	 * to the file owner ID, except in cases where the
 	 * CAP_FSETID capability is applicable.
 	 */
-	if (current_fsuid() != ip->i_d.di_uid && !capable(CAP_FOWNER)) {
+	if (!uid_eq(current_fsuid(), ip->i_d.di_uid) &&
+	    !capable(CAP_FOWNER)) {
 		code = XFS_ERROR(EPERM);
 		goto error_return;
 	}
@@ -986,7 +997,7 @@ xfs_ioctl_setattr(
 	if (mask & FSX_PROJID) {
 		if (XFS_IS_QUOTA_RUNNING(mp) &&
 		    XFS_IS_PQUOTA_ON(mp) &&
-		    xfs_get_projid(ip) != fa->fsx_projid) {
+		    !projid_eq(ip->i_d.di_projid, projid)) {
 			ASSERT(tp);
 			code = xfs_qm_vop_chown_reserve(tp, ip, udqp, gdqp,
 						capable(CAP_FOWNER) ?
@@ -1104,12 +1115,12 @@ xfs_ioctl_setattr(
 		 * Change the ownerships and register quota modifications
 		 * in the transaction.
 		 */
-		if (xfs_get_projid(ip) != fa->fsx_projid) {
+		if (!projid_eq(ip->i_d.di_projid, projid)) {
 			if (XFS_IS_QUOTA_RUNNING(mp) && XFS_IS_PQUOTA_ON(mp)) {
 				olddquot = xfs_qm_vop_chown(tp, ip,
 							&ip->i_gdquot, gdqp);
 			}
-			xfs_set_projid(ip, fa->fsx_projid);
+			ip->i_d.di_projid = projid;
 
 			/*
 			 * We may have to rev the inode as well as
@@ -1604,22 +1615,42 @@ xfs_file_ioctl(
 		return -error;
 
 	case XFS_IOC_FREE_EOFBLOCKS: {
-		struct xfs_eofblocks eofb;
+		struct xfs_eofblocks ueofb;
+		struct xfs_internal_eofblocks keofb;
 
-		if (copy_from_user(&eofb, arg, sizeof(eofb)))
+		if (copy_from_user(&ueofb, arg, sizeof(ueofb)))
 			return -XFS_ERROR(EFAULT);
 
-		if (eofb.eof_version != XFS_EOFBLOCKS_VERSION)
+		if (ueofb.eof_version != XFS_EOFBLOCKS_VERSION)
 			return -XFS_ERROR(EINVAL);
 
-		if (eofb.eof_flags & ~XFS_EOF_FLAGS_VALID)
+		if (ueofb.eof_flags & ~XFS_EOF_FLAGS_VALID)
 			return -XFS_ERROR(EINVAL);
 
-		if (memchr_inv(&eofb.pad32, 0, sizeof(eofb.pad32)) ||
-		    memchr_inv(eofb.pad64, 0, sizeof(eofb.pad64)))
+		if (memchr_inv(&ueofb.pad32, 0, sizeof(ueofb.pad32)) ||
+		    memchr_inv(ueofb.pad64, 0, sizeof(ueofb.pad64)))
 			return -XFS_ERROR(EINVAL);
 
-		error = xfs_icache_free_eofblocks(mp, &eofb);
+		keofb.eof_version = ueofb.eof_version;
+		keofb.eof_flags   = ueofb.eof_flags;
+		if (ueofb.eof_flags & XFS_EOF_FLAGS_UID) {
+			keofb.eof_uid = make_kuid(current_user_ns(), ueofb.eof_uid);
+			if (!uid_valid(keofb.eof_uid))
+				return -XFS_ERROR(EINVAL);
+		}
+		if (ueofb.eof_flags & XFS_EOF_FLAGS_GID) {
+			keofb.eof_gid = make_kgid(current_user_ns(), ueofb.eof_gid);
+			if (!gid_valid(keofb.eof_gid))
+				return -XFS_ERROR(EINVAL);
+		}
+		if (ueofb.eof_flags & XFS_EOF_FLAGS_PRID) {
+			keofb.eof_projid = make_kprojid(current_user_ns(), ueofb.eof_prid);
+			if (!projid_valid(keofb.eof_projid))
+				return -XFS_ERROR(EINVAL);
+		}
+		keofb.eof_min_file_size = ueofb.eof_min_file_size;
+
+		error = xfs_icache_free_eofblocks(mp, &keofb);
 		return -error;
 	}
 

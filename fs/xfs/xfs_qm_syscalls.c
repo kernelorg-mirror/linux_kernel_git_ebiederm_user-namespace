@@ -473,8 +473,7 @@ xfs_qm_scall_getqstat(
 int
 xfs_qm_scall_setqlim(
 	xfs_mount_t		*mp,
-	xfs_dqid_t		id,
-	uint			type,
+	struct kqid		id,
 	fs_disk_quota_t		*newlim)
 {
 	struct xfs_quotainfo	*q = mp->m_quotainfo;
@@ -483,6 +482,7 @@ xfs_qm_scall_setqlim(
 	xfs_trans_t		*tp;
 	int			error;
 	xfs_qcnt_t		hard, soft;
+	bool			root_qid;
 
 	if (newlim->d_fieldmask & ~XFS_DQ_MASK)
 		return EINVAL;
@@ -496,6 +496,9 @@ xfs_qm_scall_setqlim(
 		return (error);
 	}
 
+	/* Are we setting the root users quota? */
+	root_qid = qid_eq(id, make_kqid(&init_user_ns, id.type, 0));
+
 	/*
 	 * We don't want to race with a quotaoff so take the quotaoff lock.
 	 * (We don't hold an inode lock, so there's nothing else to stop
@@ -508,7 +511,7 @@ xfs_qm_scall_setqlim(
 	 * Get the dquot (locked), and join it to the transaction.
 	 * Allocate the dquot if this doesn't exist.
 	 */
-	if ((error = xfs_qm_dqget(mp, NULL, id, type, XFS_QMOPT_DQALLOC, &dqp))) {
+	if ((error = xfs_qm_dqget(mp, NULL, id, XFS_QMOPT_DQALLOC, &dqp))) {
 		xfs_trans_cancel(tp, XFS_TRANS_ABORT);
 		ASSERT(error != ENOENT);
 		goto out_unlock;
@@ -528,7 +531,7 @@ xfs_qm_scall_setqlim(
 	if (hard == 0 || hard >= soft) {
 		ddq->d_blk_hardlimit = cpu_to_be64(hard);
 		ddq->d_blk_softlimit = cpu_to_be64(soft);
-		if (id == 0) {
+		if (root_qid) {
 			q->qi_bhardlimit = hard;
 			q->qi_bsoftlimit = soft;
 		}
@@ -544,7 +547,7 @@ xfs_qm_scall_setqlim(
 	if (hard == 0 || hard >= soft) {
 		ddq->d_rtb_hardlimit = cpu_to_be64(hard);
 		ddq->d_rtb_softlimit = cpu_to_be64(soft);
-		if (id == 0) {
+		if (root_qid) {
 			q->qi_rtbhardlimit = hard;
 			q->qi_rtbsoftlimit = soft;
 		}
@@ -561,7 +564,7 @@ xfs_qm_scall_setqlim(
 	if (hard == 0 || hard >= soft) {
 		ddq->d_ino_hardlimit = cpu_to_be64(hard);
 		ddq->d_ino_softlimit = cpu_to_be64(soft);
-		if (id == 0) {
+		if (root_qid) {
 			q->qi_ihardlimit = hard;
 			q->qi_isoftlimit = soft;
 		}
@@ -579,7 +582,7 @@ xfs_qm_scall_setqlim(
 	if (newlim->d_fieldmask & FS_DQ_RTBWARNS)
 		ddq->d_rtbwarns = cpu_to_be16(newlim->d_rtbwarns);
 
-	if (id == 0) {
+	if (root_qid) {
 		/*
 		 * Timelimits for the super user set the relative time
 		 * the other users can be over quota for this file system.
@@ -717,8 +720,7 @@ error0:
 int
 xfs_qm_scall_getquota(
 	struct xfs_mount	*mp,
-	xfs_dqid_t		id,
-	uint			type,
+	struct kqid		id,
 	struct fs_disk_quota	*dst)
 {
 	struct xfs_dquot	*dqp;
@@ -729,7 +731,7 @@ xfs_qm_scall_getquota(
 	 * we aren't passing the XFS_QMOPT_DOALLOC flag. If it doesn't
 	 * exist, we'll get ENOENT back.
 	 */
-	error = xfs_qm_dqget(mp, NULL, id, type, 0, &dqp);
+	error = xfs_qm_dqget(mp, NULL, id, 0, &dqp);
 	if (error)
 		return error;
 
@@ -745,7 +747,7 @@ xfs_qm_scall_getquota(
 	memset(dst, 0, sizeof(*dst));
 	dst->d_version = FS_DQUOT_VERSION;
 	dst->d_flags = xfs_qm_export_qtype_flags(dqp->q_core.d_flags);
-	dst->d_id = be32_to_cpu(dqp->q_core.d_id);
+	dst->d_id = from_kqid_munged(current_user_ns(), dqp->dq_id);
 	dst->d_blk_hardlimit =
 		XFS_FSB_TO_BB(mp, be64_to_cpu(dqp->q_core.d_blk_hardlimit));
 	dst->d_blk_softlimit =
