@@ -27,20 +27,6 @@
 #include "xfs_qm.h"
 #include <linux/quota.h>
 
-
-STATIC int
-xfs_quota_type(int type)
-{
-	switch (type) {
-	case USRQUOTA:
-		return XFS_DQ_USER;
-	case GRPQUOTA:
-		return XFS_DQ_GROUP;
-	default:
-		return XFS_DQ_PROJ;
-	}
-}
-
 STATIC int
 xfs_fs_get_xstate(
 	struct super_block	*sb,
@@ -101,15 +87,13 @@ xfs_fs_get_dqblk(
 	struct fs_disk_quota	*fdq)
 {
 	struct xfs_mount	*mp = XFS_M(sb);
-	xfs_dqid_t		xfs_id;
 
 	if (!XFS_IS_QUOTA_RUNNING(mp))
 		return -ENOSYS;
 	if (!XFS_IS_QUOTA_ON(mp))
 		return -ESRCH;
 
-	xfs_id = from_kqid(&init_user_ns, qid);
-	return -xfs_qm_scall_getquota(mp, xfs_id, xfs_quota_type(qid.type), fdq);
+	return -xfs_qm_scall_getquota(mp, qid, fdq);
 }
 
 STATIC int
@@ -119,7 +103,6 @@ xfs_fs_set_dqblk(
 	struct fs_disk_quota	*fdq)
 {
 	struct xfs_mount	*mp = XFS_M(sb);
-	xfs_dqid_t		xfs_id;
 
 	if (sb->s_flags & MS_RDONLY)
 		return -EROFS;
@@ -128,8 +111,7 @@ xfs_fs_set_dqblk(
 	if (!XFS_IS_QUOTA_ON(mp))
 		return -ESRCH;
 
-	xfs_id = from_kqid(&init_user_ns, qid);
-	return -xfs_qm_scall_setqlim(mp, xfs_id, xfs_quota_type(qid.type), fdq);
+	return -xfs_qm_scall_setqlim(mp, qid, fdq);
 }
 
 const struct quotactl_ops xfs_quotactl_operations = {
