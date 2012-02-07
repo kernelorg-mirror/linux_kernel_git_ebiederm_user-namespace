@@ -91,12 +91,12 @@ xfs_bulkstat_one_int(
 	 * further change.
 	 */
 	buf->bs_nlink = dic->di_nlink;
-	buf->bs_projid_lo = dic->di_projid_lo;
-	buf->bs_projid_hi = dic->di_projid_hi;
+	buf->bs_projid_lo = from_kprojid(current_user_ns(), dic->di_projid) & 0xffff;
+	buf->bs_projid_hi = from_kprojid(current_user_ns(), dic->di_projid) >> 16;
 	buf->bs_ino = ino;
 	buf->bs_mode = dic->di_mode;
-	buf->bs_uid = dic->di_uid;
-	buf->bs_gid = dic->di_gid;
+	buf->bs_uid = from_kuid(&init_user_ns, dic->di_uid);
+	buf->bs_gid = from_kgid(&init_user_ns, dic->di_gid);
 	buf->bs_size = dic->di_size;
 	buf->bs_atime.tv_sec = dic->di_atime.t_sec;
 	buf->bs_atime.tv_nsec = dic->di_atime.t_nsec;

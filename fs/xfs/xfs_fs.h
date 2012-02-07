@@ -348,7 +348,7 @@ struct xfs_eofblocks {
 	__u32		eof_flags;
 	uid_t		eof_uid;
 	gid_t		eof_gid;
-	prid_t		eof_prid;
+	__u32		eof_prid;
 	__u32		pad32;
 	__u64		eof_min_file_size;
 	__u64		pad64[12];

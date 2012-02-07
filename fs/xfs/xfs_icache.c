@@ -1199,18 +1199,18 @@ xfs_reclaim_inodes_count(
 STATIC int
 xfs_inode_match_id(
 	struct xfs_inode	*ip,
-	struct xfs_eofblocks	*eofb)
+	struct xfs_internal_eofblocks	*eofb)
 {
 	if (eofb->eof_flags & XFS_EOF_FLAGS_UID &&
-	    ip->i_d.di_uid != eofb->eof_uid)
+	    !uid_eq(ip->i_d.di_uid, eofb->eof_uid))
 		return 0;
 
 	if (eofb->eof_flags & XFS_EOF_FLAGS_GID &&
-	    ip->i_d.di_gid != eofb->eof_gid)
+	    !gid_eq(ip->i_d.di_gid, eofb->eof_gid))
 		return 0;
 
 	if (eofb->eof_flags & XFS_EOF_FLAGS_PRID &&
-	    xfs_get_projid(ip) != eofb->eof_prid)
+	    !projid_eq(ip->i_d.di_projid, eofb->eof_projid))
 		return 0;
 
 	return 1;
@@ -1224,7 +1224,7 @@ xfs_inode_free_eofblocks(
 	void			*args)
 {
 	int ret;
-	struct xfs_eofblocks *eofb = args;
+	struct xfs_internal_eofblocks *eofb = args;
 
 	if (!xfs_can_free_eofblocks(ip, false)) {
 		/* inode could be preallocated or append-only */
@@ -1263,7 +1263,7 @@ xfs_inode_free_eofblocks(
 int
 xfs_icache_free_eofblocks(
 	struct xfs_mount	*mp,
-	struct xfs_eofblocks	*eofb)
+	struct xfs_internal_eofblocks	*eofb)
 {
 	int flags = SYNC_TRYLOCK;
 
