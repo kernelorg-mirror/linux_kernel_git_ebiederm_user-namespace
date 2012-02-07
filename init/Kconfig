@@ -1064,7 +1064,6 @@ config UIDGID_CONVERTED
 	default y
 
 	# Filesystems
-	depends on CODA_FS = n
 	depends on GFS2_FS = n
 	depends on NCP_FS = n
 	depends on NFSD = n
