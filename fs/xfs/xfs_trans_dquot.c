@@ -575,12 +575,14 @@ xfs_quota_warn(
 	struct xfs_dquot	*dqp,
 	int			type)
 {
+	enum quota_type qtype;
+	qown_t qown;
 	/* no warnings for project quotas - we just return ENOSPC later */
 	if (dqp->dq_flags & XFS_DQ_PROJ)
 		return;
-	quota_send_warning((dqp->dq_flags & XFS_DQ_USER) ? USRQUOTA : GRPQUOTA,
-			   be32_to_cpu(dqp->q_core.d_id), mp->m_super->s_dev,
-			   type);
+	qtype = (dqp->dq_flags & XFS_DQ_USER) ? USRQUOTA : GRPQUOTA;
+	qown = make_qown(&init_user_ns, qtype, be32_to_cpu(dqp->q_core.d_id));
+	quota_send_warning(qtype, qown, mp->m_super->s_dev, type);
 }
 
 /*
