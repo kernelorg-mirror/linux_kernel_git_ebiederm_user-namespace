@@ -365,13 +365,13 @@ static int create_ok(struct gfs2_inode *dip, const struct qstr *name,
 }
 
 static void munge_mode_uid_gid(struct gfs2_inode *dip, umode_t *mode,
-			       unsigned int *uid, unsigned int *gid)
+			       kuid_t *uid, kgid_t *gid)
 {
 	if (GFS2_SB(&dip->i_inode)->sd_args.ar_suiddir &&
-	    (dip->i_inode.i_mode & S_ISUID) && dip->i_inode.i_uid) {
+	    (dip->i_inode.i_mode & S_ISUID) && i_uid_read(&dip->i_inode)) {
 		if (S_ISDIR(*mode))
 			*mode |= S_ISUID;
-		else if (dip->i_inode.i_uid != current_fsuid())
+		else if (!uid_eq(dip->i_inode.i_uid, current_fsuid()))
 			*mode &= ~07111;
 		*uid = dip->i_inode.i_uid;
 	} else
@@ -444,7 +444,7 @@ static void gfs2_init_dir(struct buffer_head *dibh,
 
 static void init_dinode(struct gfs2_inode *dip, struct gfs2_glock *gl,
 			const struct gfs2_inum_host *inum, umode_t mode,
-			unsigned int uid, unsigned int gid,
+			kuid_t uid, kgid_t gid,
 			const u64 *generation, dev_t dev, const char *symname,
 			unsigned size, struct buffer_head **bhp)
 {
@@ -462,8 +462,8 @@ static void init_dinode(struct gfs2_inode *dip, struct gfs2_glock *gl,
 	di->di_num.no_formal_ino = cpu_to_be64(inum->no_formal_ino);
 	di->di_num.no_addr = cpu_to_be64(inum->no_addr);
 	di->di_mode = cpu_to_be32(mode);
-	di->di_uid = cpu_to_be32(uid);
-	di->di_gid = cpu_to_be32(gid);
+	di->di_uid = cpu_to_be32(from_kuid(&init_user_ns, uid));
+	di->di_gid = cpu_to_be32(from_kgid(&init_user_ns, gid));
 	di->di_nlink = 0;
 	di->di_size = cpu_to_be64(size);
 	di->di_blocks = cpu_to_be64(1);
@@ -517,7 +517,8 @@ static int make_dinode(struct gfs2_inode *dip, struct gfs2_glock *gl,
 		       unsigned int size, struct buffer_head **bhp)
 {
 	struct gfs2_sbd *sdp = GFS2_SB(&dip->i_inode);
-	unsigned int uid, gid;
+	kuid_t uid;
+	kgid_t gid;
 	int error;
 
 	munge_mode_uid_gid(dip, &mode, &uid, &gid);
@@ -558,7 +559,7 @@ static int link_dinode(struct gfs2_inode *dip, const struct qstr *name,
 	if (error)
 		return error;
 
-	error = gfs2_quota_lock(dip, NO_QUOTA_CHANGE, NO_QUOTA_CHANGE);
+	error = gfs2_quota_lock(dip, NO_UID_QUOTA_CHANGE, NO_GID_QUOTA_CHANGE);
 	if (error)
 		goto fail;
 
@@ -955,8 +956,8 @@ static int gfs2_unlink_ok(struct gfs2_inode *dip, const struct qstr *name,
 		return -EPERM;
 
 	if ((dip->i_inode.i_mode & S_ISVTX) &&
-	    dip->i_inode.i_uid != current_fsuid() &&
-	    ip->i_inode.i_uid != current_fsuid() && !capable(CAP_FOWNER))
+	    !uid_eq(dip->i_inode.i_uid, current_fsuid()) &&
+	    !uid_eq(ip->i_inode.i_uid, current_fsuid()) && !capable(CAP_FOWNER))
 		return -EPERM;
 
 	if (IS_APPEND(&dip->i_inode))
@@ -1571,7 +1572,8 @@ static int setattr_chown(struct inode *inode, struct iattr *attr)
 {
 	struct gfs2_inode *ip = GFS2_I(inode);
 	struct gfs2_sbd *sdp = GFS2_SB(inode);
-	u32 ouid, ogid, nuid, ngid;
+	kuid_t ouid, nuid;
+	kgid_t ogid, ngid;
 	int error;
 
 	ouid = inode->i_uid;
@@ -1579,16 +1581,16 @@ static int setattr_chown(struct inode *inode, struct iattr *attr)
 	nuid = attr->ia_uid;
 	ngid = attr->ia_gid;
 
-	if (!(attr->ia_valid & ATTR_UID) || ouid == nuid)
-		ouid = nuid = NO_QUOTA_CHANGE;
-	if (!(attr->ia_valid & ATTR_GID) || ogid == ngid)
-		ogid = ngid = NO_QUOTA_CHANGE;
+	if (!(attr->ia_valid & ATTR_UID) || uid_eq(ouid, nuid))
+		ouid = nuid = NO_UID_QUOTA_CHANGE;
+	if (!(attr->ia_valid & ATTR_GID) || gid_eq(ogid, ngid))
+		ogid = ngid = NO_GID_QUOTA_CHANGE;
 
 	error = gfs2_quota_lock(ip, nuid, ngid);
 	if (error)
 		return error;
 
-	if (ouid != NO_QUOTA_CHANGE || ogid != NO_QUOTA_CHANGE) {
+	if (uid_valid(ouid) || gid_valid(ogid)) {
 		error = gfs2_quota_check(ip, nuid, ngid);
 		if (error)
 			goto out_gunlock_q;
@@ -1602,7 +1604,7 @@ static int setattr_chown(struct inode *inode, struct iattr *attr)
 	if (error)
 		goto out_end_trans;
 
-	if (ouid != NO_QUOTA_CHANGE || ogid != NO_QUOTA_CHANGE) {
+	if (uid_valid(ouid) || gid_valid(ogid)) {
 		u64 blocks = gfs2_get_inode_blocks(&ip->i_inode);
 		gfs2_quota_change(ip, -blocks, ouid, ogid);
 		gfs2_quota_change(ip, blocks, nuid, ngid);
