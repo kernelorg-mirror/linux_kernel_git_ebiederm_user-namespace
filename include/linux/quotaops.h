@@ -44,13 +44,23 @@ void inode_sub_rsv_space(struct inode *inode, qsize_t number);
 
 void dquot_initialize(struct inode *inode);
 void dquot_drop(struct inode *inode);
-struct dquot *dqget(struct super_block *sb, unsigned int id, int type);
+struct dquot *dqget(struct super_block *sb, qown_t id, enum quota_type type);
 void dqput(struct dquot *dquot);
 int dquot_scan_active(struct super_block *sb,
 		      int (*fn)(struct dquot *dquot, unsigned long priv),
 		      unsigned long priv);
 struct dquot *dquot_alloc(struct super_block *sb, int type);
 void dquot_destroy(struct dquot *dquot);
+static inline struct dquot *dqgetusr(struct super_block *sb, kuid_t uid)
+{
+	qown_t id = { .uid = uid };
+	return dqget(sb, id, USRQUOTA);
+}
+static inline struct dquot *dqgetgrp(struct super_block *sb, kgid_t gid)
+{
+	qown_t id = { .gid = gid };
+	return dqget(sb, id, GRPQUOTA);
+}
 
 int __dquot_alloc_space(struct inode *inode, qsize_t number, int flags);
 void __dquot_free_space(struct inode *inode, qsize_t number, int flags);
@@ -87,15 +97,15 @@ int dquot_writeback_dquots(struct super_block *sb, int type);
 int dquot_quota_sync(struct super_block *sb, int type);
 int dquot_get_dqinfo(struct super_block *sb, int type, struct if_dqinfo *ii);
 int dquot_set_dqinfo(struct super_block *sb, int type, struct if_dqinfo *ii);
-int dquot_get_dqblk(struct super_block *sb, int type, qid_t id,
+int dquot_get_dqblk(struct super_block *sb, enum quota_type type, qown_t id,
 		struct fs_disk_quota *di);
-int dquot_set_dqblk(struct super_block *sb, int type, qid_t id,
+int dquot_set_dqblk(struct super_block *sb, enum quota_type type, qown_t id,
 		struct fs_disk_quota *di);
 
 int __dquot_transfer(struct inode *inode, struct dquot **transfer_to);
 int dquot_transfer(struct inode *inode, struct iattr *iattr);
 
-static inline struct mem_dqinfo *sb_dqinfo(struct super_block *sb, int type)
+static inline struct mem_dqinfo *sb_dqinfo(struct super_block *sb, enum quota_type type)
 {
 	return sb_dqopt(sb)->info + type;
 }
