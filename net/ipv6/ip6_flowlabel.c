@@ -396,7 +396,7 @@ fl_create(struct net *net, struct sock *sk, struct in6_flowlabel_req *freq,
 		fl->owner = current->pid;
 		break;
 	case IPV6_FL_S_USER:
-		fl->owner = current_euid();
+		fl->owner = from_kuid(&init_user_ns, current_euid());
 		break;
 	default:
 		err = -EINVAL;
