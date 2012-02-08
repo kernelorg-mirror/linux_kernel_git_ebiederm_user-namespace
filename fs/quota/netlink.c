@@ -30,7 +30,7 @@ static struct genl_family quota_genl_family = {
  *
  */
 
-void quota_send_warning(short type, unsigned int id, dev_t dev,
+void quota_send_warning(enum quota_type type, qown_t id, dev_t dev,
 			const char warntype)
 {
 	static atomic_t seq;
@@ -59,7 +59,8 @@ void quota_send_warning(short type, unsigned int id, dev_t dev,
 	ret = nla_put_u32(skb, QUOTA_NL_A_QTYPE, type);
 	if (ret)
 		goto attr_err_out;
-	ret = nla_put_u64(skb, QUOTA_NL_A_EXCESS_ID, id);
+	ret = nla_put_u64(skb, QUOTA_NL_A_EXCESS_ID,
+			  from_qown_munged(&init_user_ns, type, id));
 	if (ret)
 		goto attr_err_out;
 	ret = nla_put_u32(skb, QUOTA_NL_A_WARNING, warntype);
@@ -71,7 +72,11 @@ void quota_send_warning(short type, unsigned int id, dev_t dev,
 	ret = nla_put_u32(skb, QUOTA_NL_A_DEV_MINOR, MINOR(dev));
 	if (ret)
 		goto attr_err_out;
-	ret = nla_put_u64(skb, QUOTA_NL_A_CAUSED_ID, current_uid());
+	/* Report the current user as seen by the filesystem that issues
+	 * quota warning.
+	 */
+	ret = nla_put_u64(skb, QUOTA_NL_A_CAUSED_ID,
+			  from_kuid_munged(&init_user_ns, current_uid()));
 	if (ret)
 		goto attr_err_out;
 	genlmsg_end(skb, msg_head);
