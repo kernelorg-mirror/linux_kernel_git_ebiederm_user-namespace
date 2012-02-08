@@ -5820,6 +5820,13 @@ cifs_fill_unix_set_info(FILE_UNIX_BASIC_INFO *data_offset,
 			const struct cifs_unix_set_info_args *args)
 {
 	u64 mode = args->mode;
+	__u64 uid;
+	__u64 gid;
+
+	uid = uid_eq(args->uid, NO_CHANGE_UID) ? NO_CHANGE_64:
+		(__u64)from_kuid(&init_user_ns, args->uid);
+	gid = gid_eq(args->gid, NO_CHANGE_GID) ? NO_CHANGE_64:
+		(__u64)from_kgid(&init_user_ns, args->gid);
 
 	/*
 	 * Samba server ignores set of file size to zero due to bugs in some
@@ -5833,8 +5840,8 @@ cifs_fill_unix_set_info(FILE_UNIX_BASIC_INFO *data_offset,
 	data_offset->LastStatusChange = cpu_to_le64(args->ctime);
 	data_offset->LastAccessTime = cpu_to_le64(args->atime);
 	data_offset->LastModificationTime = cpu_to_le64(args->mtime);
-	data_offset->Uid = cpu_to_le64(args->uid);
-	data_offset->Gid = cpu_to_le64(args->gid);
+	data_offset->Uid = cpu_to_le64(uid);
+	data_offset->Gid = cpu_to_le64(gid);
 	/* better to leave device as zero when it is  */
 	data_offset->DevMajor = cpu_to_le64(MAJOR(args->device));
 	data_offset->DevMinor = cpu_to_le64(MINOR(args->device));
