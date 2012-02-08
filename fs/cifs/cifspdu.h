@@ -278,6 +278,8 @@
 
 #define NO_CHANGE_64          0xFFFFFFFFFFFFFFFFULL
 #define NO_CHANGE_32          0xFFFFFFFFUL
+#define NO_CHANGE_UID         INVALID_UID
+#define NO_CHANGE_GID         INVALID_GID
 
 /* IPC$ in ASCII */
 #define CIFS_IPC_RESOURCE "\x49\x50\x43\x24"
