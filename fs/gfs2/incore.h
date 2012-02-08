@@ -393,7 +393,7 @@ struct gfs2_quota_data {
 
 	atomic_t qd_count;
 
-	u32 qd_id;
+	qown_t qd_id;
 	unsigned long qd_flags;		/* QDF_... */
 
 	s64 qd_change;
