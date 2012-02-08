@@ -1057,6 +1057,8 @@ int gfs2_quota_check(struct gfs2_inode *ip, u32 uid, u32 gid)
                 return 0;
 
 	for (x = 0; x < ip->i_res->rs_qa_qd_num; x++) {
+		enum quota_type qtype;
+		qown_t qown;
 		qd = ip->i_res->rs_qa_qd[x];
 
 		if (!((qd->qd_id == uid && test_bit(QDF_USER, &qd->qd_flags)) ||
@@ -1068,10 +1070,11 @@ int gfs2_quota_check(struct gfs2_inode *ip, u32 uid, u32 gid)
 		value += qd->qd_change;
 		spin_unlock(&qd_lru_lock);
 
+		qtype = test_bit(QDF_USER, &qd->qd_flags) ? USRQUOTA : GRPQUOTA;
+		qown = make_qown(&init_user_ns, qtype, qd->qd_id);
 		if (be64_to_cpu(qd->qd_qb.qb_limit) && (s64)be64_to_cpu(qd->qd_qb.qb_limit) < value) {
 			print_message(qd, "exceeded");
-			quota_send_warning(test_bit(QDF_USER, &qd->qd_flags) ?
-					   USRQUOTA : GRPQUOTA, qd->qd_id,
+			quota_send_warning(qtype, qown,
 					   sdp->sd_vfs->s_dev, QUOTA_NL_BHARDWARN);
 
 			error = -EDQUOT;
@@ -1081,8 +1084,7 @@ int gfs2_quota_check(struct gfs2_inode *ip, u32 uid, u32 gid)
 			   time_after_eq(jiffies, qd->qd_last_warn +
 					 gfs2_tune_get(sdp,
 						gt_quota_warn_period) * HZ)) {
-			quota_send_warning(test_bit(QDF_USER, &qd->qd_flags) ?
-					   USRQUOTA : GRPQUOTA, qd->qd_id,
+			quota_send_warning(qtype, qown,
 					   sdp->sd_vfs->s_dev, QUOTA_NL_BSOFTWARN);
 			error = print_message(qd, "warning");
 			qd->qd_last_warn = jiffies;
@@ -1469,28 +1471,32 @@ static int gfs2_quota_get_xstate(struct super_block *sb,
 	return 0;
 }
 
-static int gfs2_get_dqblk(struct super_block *sb, int type, qid_t id,
-			  struct fs_disk_quota *fdq)
+static int gfs2_get_dqblk(struct super_block *sb, enum quota_type type,
+			  qown_t id, struct fs_disk_quota *fdq)
 {
 	struct gfs2_sbd *sdp = sb->s_fs_info;
 	struct gfs2_quota_lvb *qlvb;
 	struct gfs2_quota_data *qd;
 	struct gfs2_holder q_gh;
 	int error;
+	int user;
+	u32 gfs_id;
 
 	memset(fdq, 0, sizeof(struct fs_disk_quota));
 
 	if (sdp->sd_args.ar_quota == GFS2_QUOTA_OFF)
 		return -ESRCH; /* Crazy XFS error code */
 
+	gfs_id = from_qown(&init_user_ns, type, id);
+
 	if (type == USRQUOTA)
-		type = QUOTA_USER;
+		user = QUOTA_USER;
 	else if (type == GRPQUOTA)
-		type = QUOTA_GROUP;
+		user = QUOTA_GROUP;
 	else
 		return -EINVAL;
 
-	error = qd_get(sdp, type, id, &qd);
+	error = qd_get(sdp, user, gfs_id, &qd);
 	if (error)
 		return error;
 	error = do_glock(qd, FORCE, &q_gh);
@@ -1499,8 +1505,8 @@ static int gfs2_get_dqblk(struct super_block *sb, int type, qid_t id,
 
 	qlvb = (struct gfs2_quota_lvb *)qd->qd_gl->gl_lvb;
 	fdq->d_version = FS_DQUOT_VERSION;
-	fdq->d_flags = (type == QUOTA_USER) ? FS_USER_QUOTA : FS_GROUP_QUOTA;
-	fdq->d_id = id;
+	fdq->d_flags = (user == QUOTA_USER) ? FS_USER_QUOTA : FS_GROUP_QUOTA;
+	fdq->d_id = gfs_id;
 	fdq->d_blk_hardlimit = be64_to_cpu(qlvb->qb_limit) << sdp->sd_fsb2bb_shift;
 	fdq->d_blk_softlimit = be64_to_cpu(qlvb->qb_warn) << sdp->sd_fsb2bb_shift;
 	fdq->d_bcount = be64_to_cpu(qlvb->qb_value) << sdp->sd_fsb2bb_shift;
@@ -1514,8 +1520,8 @@ out:
 /* GFS2 only supports a subset of the XFS fields */
 #define GFS2_FIELDMASK (FS_DQ_BSOFT|FS_DQ_BHARD|FS_DQ_BCOUNT)
 
-static int gfs2_set_dqblk(struct super_block *sb, int type, qid_t id,
-			  struct fs_disk_quota *fdq)
+static int gfs2_set_dqblk(struct super_block *sb, enum quota_type type,
+			  qown_t id, struct fs_disk_quota *fdq)
 {
 	struct gfs2_sbd *sdp = sb->s_fs_info;
 	struct gfs2_inode *ip = GFS2_I(sdp->sd_quota_inode);
@@ -1526,18 +1532,22 @@ static int gfs2_set_dqblk(struct super_block *sb, int type, qid_t id,
 	int alloc_required;
 	loff_t offset;
 	int error;
+	int user;
+	u32 gfs_id;
 
 	if (sdp->sd_args.ar_quota == GFS2_QUOTA_OFF)
 		return -ESRCH; /* Crazy XFS error code */
 
+	gfs_id = from_qown(&init_user_ns, type, id);
+
 	switch(type) {
 	case USRQUOTA:
-		type = QUOTA_USER;
+		user = QUOTA_USER;
 		if (fdq->d_flags != FS_USER_QUOTA)
 			return -EINVAL;
 		break;
 	case GRPQUOTA:
-		type = QUOTA_GROUP;
+		user = QUOTA_GROUP;
 		if (fdq->d_flags != FS_GROUP_QUOTA)
 			return -EINVAL;
 		break;
@@ -1547,10 +1557,10 @@ static int gfs2_set_dqblk(struct super_block *sb, int type, qid_t id,
 
 	if (fdq->d_fieldmask & ~GFS2_FIELDMASK)
 		return -EINVAL;
-	if (fdq->d_id != id)
+	if (fdq->d_id != gfs_id)
 		return -EINVAL;
 
-	error = qd_get(sdp, type, id, &qd);
+	error = qd_get(sdp, user, gfs_id, &qd);
 	if (error)
 		return error;
 

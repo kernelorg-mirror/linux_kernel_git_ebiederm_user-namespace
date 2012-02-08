@@ -253,10 +253,12 @@ static qsize_t inode_get_rsv_space(struct inode *inode);
 static void __dquot_initialize(struct inode *inode, int type);
 
 static inline unsigned int
-hashfn(const struct super_block *sb, unsigned int id, int type)
+hashfn(const struct super_block *sb, qown_t qown, enum quota_type type)
 {
+	unsigned int id;
 	unsigned long tmp;
 
+	id = from_qown(&init_user_ns, type, qown);
 	tmp = (((unsigned long)sb>>L1_CACHE_SHIFT) ^ id) * (MAXQUOTAS - type);
 	return (tmp + (tmp >> dq_hash_bits)) & dq_hash_mask;
 }
@@ -277,15 +279,15 @@ static inline void remove_dquot_hash(struct dquot *dquot)
 }
 
 static struct dquot *find_dquot(unsigned int hashent, struct super_block *sb,
-				unsigned int id, int type)
+				qown_t id, enum quota_type type)
 {
 	struct hlist_node *node;
 	struct dquot *dquot;
 
 	hlist_for_each (node, dquot_hash+hashent) {
 		dquot = hlist_entry(node, struct dquot, dq_hash);
-		if (dquot->dq_sb == sb && dquot->dq_id == id &&
-		    dquot->dq_type == type)
+		if (dquot->dq_sb == sb && dquot->dq_type == type &&
+		    qown_eq(dquot->dq_id, id, type))
 			return dquot;
 	}
 	return NULL;
@@ -741,7 +743,9 @@ void dqput(struct dquot *dquot)
 #ifdef CONFIG_QUOTA_DEBUG
 	if (!atomic_read(&dquot->dq_count)) {
 		quota_error(dquot->dq_sb, "trying to free free dquot of %s %d",
-			    quotatypes[dquot->dq_type], dquot->dq_id);
+			    quotatypes[dquot->dq_type],
+			    from_qown(&init_user_ns, dquot->dq_type,
+				      dquot->dq_id));
 		BUG();
 	}
 #endif
@@ -829,7 +833,7 @@ static struct dquot *get_empty_dquot(struct super_block *sb, int type)
  *   a) checking for quota flags under dq_list_lock and
  *   b) getting a reference to dquot before we release dq_list_lock
  */
-struct dquot *dqget(struct super_block *sb, unsigned int id, int type)
+struct dquot *dqget(struct super_block *sb, qown_t id, enum quota_type type)
 {
 	unsigned int hashent = hashfn(sb, id, type);
 	struct dquot *dquot = NULL, *empty = NULL;
@@ -1129,7 +1133,7 @@ static void dquot_decr_space(struct dquot *dquot, qsize_t number)
 
 struct dquot_warn {
 	struct super_block *w_sb;
-	qid_t w_dq_id;
+	qown_t w_dq_id;
 	short w_dq_type;
 	short w_type;
 };
@@ -1156,9 +1160,9 @@ static int need_print_warning(struct dquot_warn *warn)
 
 	switch (warn->w_dq_type) {
 		case USRQUOTA:
-			return current_fsuid() == warn->w_dq_id;
+			return uid_eq(current_fsuid(), warn->w_dq_id.uid);
 		case GRPQUOTA:
-			return in_group_p(warn->w_dq_id);
+			return in_group_p(warn->w_dq_id.gid);
 	}
 	return 0;
 }
@@ -1390,7 +1394,6 @@ static int dquot_active(const struct inode *inode)
  */
 static void __dquot_initialize(struct inode *inode, int type)
 {
-	unsigned int id = 0;
 	int cnt;
 	struct dquot *got[MAXQUOTAS];
 	struct super_block *sb = inode->i_sb;
@@ -1403,15 +1406,16 @@ static void __dquot_initialize(struct inode *inode, int type)
 
 	/* First get references to structures we might need. */
 	for (cnt = 0; cnt < MAXQUOTAS; cnt++) {
+		qown_t id;
 		got[cnt] = NULL;
 		if (type != -1 && cnt != type)
 			continue;
 		switch (cnt) {
 		case USRQUOTA:
-			id = inode->i_uid;
+			id.uid = inode->i_uid;
 			break;
 		case GRPQUOTA:
-			id = inode->i_gid;
+			id.gid = inode->i_gid;
 			break;
 		}
 		got[cnt] = dqget(sb, id, cnt);
@@ -1897,10 +1901,10 @@ int dquot_transfer(struct inode *inode, struct iattr *iattr)
 	if (!dquot_active(inode))
 		return 0;
 
-	if (iattr->ia_valid & ATTR_UID && iattr->ia_uid != inode->i_uid)
-		transfer_to[USRQUOTA] = dqget(sb, iattr->ia_uid, USRQUOTA);
-	if (iattr->ia_valid & ATTR_GID && iattr->ia_gid != inode->i_gid)
-		transfer_to[GRPQUOTA] = dqget(sb, iattr->ia_gid, GRPQUOTA);
+	if (iattr->ia_valid & ATTR_UID && !uid_eq(iattr->ia_uid, inode->i_uid))
+		transfer_to[USRQUOTA] = dqgetusr(sb, iattr->ia_uid);
+	if (iattr->ia_valid & ATTR_GID && !gid_eq(iattr->ia_gid, inode->i_gid))
+		transfer_to[GRPQUOTA] = dqgetgrp(sb, iattr->ia_gid);
 
 	ret = __dquot_transfer(inode, transfer_to);
 	dqput_all(transfer_to);
@@ -2362,7 +2366,8 @@ static void do_get_dqblk(struct dquot *dquot, struct fs_disk_quota *di)
 	di->d_version = FS_DQUOT_VERSION;
 	di->d_flags = dquot->dq_type == USRQUOTA ?
 			FS_USER_QUOTA : FS_GROUP_QUOTA;
-	di->d_id = dquot->dq_id;
+	di->d_id = from_qown_munged(current_user_ns(), dquot->dq_type,
+				    dquot->dq_id);
 
 	spin_lock(&dq_data_lock);
 	di->d_blk_hardlimit = stoqb(dm->dqb_bhardlimit);
@@ -2376,7 +2381,7 @@ static void do_get_dqblk(struct dquot *dquot, struct fs_disk_quota *di)
 	spin_unlock(&dq_data_lock);
 }
 
-int dquot_get_dqblk(struct super_block *sb, int type, qid_t id,
+int dquot_get_dqblk(struct super_block *sb, enum quota_type type, qown_t id,
 		    struct fs_disk_quota *di)
 {
 	struct dquot *dquot;
@@ -2488,7 +2493,7 @@ static int do_set_dqblk(struct dquot *dquot, struct fs_disk_quota *di)
 	return 0;
 }
 
-int dquot_set_dqblk(struct super_block *sb, int type, qid_t id,
+int dquot_set_dqblk(struct super_block *sb, enum quota_type type, qown_t id,
 		  struct fs_disk_quota *di)
 {
 	struct dquot *dquot;

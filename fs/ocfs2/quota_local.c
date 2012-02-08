@@ -501,7 +501,10 @@ static int ocfs2_recover_local_quota_file(struct inode *lqinode,
 			}
 			dqblk = (struct ocfs2_local_disk_dqblk *)(qbh->b_data +
 				ol_dqblk_block_off(sb, chunk, bit));
-			dquot = dqget(sb, le64_to_cpu(dqblk->dqb_id), type);
+			dquot = dqget(sb,
+				      make_qown(&init_user_ns, type,
+						le64_to_cpu(dqblk->dqb_id)),
+				      type);
 			if (!dquot) {
 				status = -EIO;
 				mlog(ML_ERROR, "Failed to get quota structure "
@@ -881,7 +884,9 @@ static void olq_set_dquot(struct buffer_head *bh, void *private)
 	dqblk = (struct ocfs2_local_disk_dqblk *)(bh->b_data
 		+ ol_dqblk_block_offset(sb, od->dq_local_off));
 
-	dqblk->dqb_id = cpu_to_le64(od->dq_dquot.dq_id);
+	dqblk->dqb_id = cpu_to_le64(from_qown(&init_user_ns,
+					      od->dq_dquot.dq_type,
+					      od->dq_dquot.dq_id));
 	spin_lock(&dq_data_lock);
 	dqblk->dqb_spacemod = cpu_to_le64(od->dq_dquot.dq_dqb.dqb_curspace -
 					  od->dq_origspace);
@@ -891,7 +896,8 @@ static void olq_set_dquot(struct buffer_head *bh, void *private)
 	trace_olq_set_dquot(
 		(unsigned long long)le64_to_cpu(dqblk->dqb_spacemod),
 		(unsigned long long)le64_to_cpu(dqblk->dqb_inodemod),
-		od->dq_dquot.dq_id);
+		from_qown(&init_user_ns, od->dq_dquot.dq_type,
+			  od->dq_dquot.dq_id));
 }
 
 /* Write dquot to local quota file */
