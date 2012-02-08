@@ -36,8 +36,11 @@
 #define ACCESS_ALLOWED	0
 #define ACCESS_DENIED	1
 
-#define SIDOWNER 1
-#define SIDGROUP 2
+enum sidtype {
+	SIDOWNER = 1,
+	SIDGROUP = 2,
+};
+#define SIDLEN 150 /* S- 1 revision- 6 authorities- max 5 sub authorities */
 
 /*
  * Security Descriptor length containing DACL with 3 ACEs (one each for

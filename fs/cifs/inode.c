@@ -247,12 +247,12 @@ cifs_unix_basic_to_fattr(struct cifs_fattr *fattr, FILE_UNIX_BASIC_INFO *info,
 	if (cifs_sb->mnt_cifs_flags & CIFS_MOUNT_OVERR_UID)
 		fattr->cf_uid = cifs_sb->mnt_uid;
 	else
-		fattr->cf_uid = le64_to_cpu(info->Uid);
+		fattr->cf_uid = make_kuid(&init_user_ns, le64_to_cpu(info->Uid));
 
 	if (cifs_sb->mnt_cifs_flags & CIFS_MOUNT_OVERR_GID)
 		fattr->cf_gid = cifs_sb->mnt_gid;
 	else
-		fattr->cf_gid = le64_to_cpu(info->Gid);
+		fattr->cf_gid = make_kgid(&init_user_ns, le64_to_cpu(info->Gid));
 
 	fattr->cf_nlink = le64_to_cpu(info->Nlinks);
 }
@@ -1245,14 +1245,14 @@ cifs_mkdir_qinfo(struct inode *parent, struct dentry *dentry, umode_t mode,
 			.device	= 0,
 		};
 		if (cifs_sb->mnt_cifs_flags & CIFS_MOUNT_SET_UID) {
-			args.uid = (__u64)current_fsuid();
-			if (parent->i_mode & S_ISGID)
-				args.gid = (__u64)parent->i_gid;
+			args.uid = current_fsuid();
+			if (inode->i_mode & S_ISGID)
+				args.gid = inode->i_gid;
 			else
-				args.gid = (__u64)current_fsgid();
+				args.gid = current_fsgid();
 		} else {
-			args.uid = NO_CHANGE_64;
-			args.gid = NO_CHANGE_64;
+			args.uid = INVALID_UID;
+			args.gid = INVALID_GID;
 		}
 		CIFSSMBUnixSetPathInfo(xid, tcon, full_path, &args,
 				       cifs_sb->local_nls,
@@ -2013,12 +2013,12 @@ cifs_setattr_unix(struct dentry *direntry, struct iattr *attrs)
 	if (attrs->ia_valid & ATTR_UID)
 		args->uid = attrs->ia_uid;
 	else
-		args->uid = NO_CHANGE_64;
+		args->uid = NO_CHANGE_UID;
 
 	if (attrs->ia_valid & ATTR_GID)
 		args->gid = attrs->ia_gid;
 	else
-		args->gid = NO_CHANGE_64;
+		args->gid = NO_CHANGE_GID;
 
 	if (attrs->ia_valid & ATTR_ATIME)
 		args->atime = cifs_UnixTimeToNT(attrs->ia_atime);
@@ -2086,8 +2086,8 @@ static int
 cifs_setattr_nounix(struct dentry *direntry, struct iattr *attrs)
 {
 	unsigned int xid;
-	uid_t uid = NO_CHANGE_32;
-	gid_t gid = NO_CHANGE_32;
+	kuid_t uid = NO_CHANGE_UID;
+	kgid_t gid = NO_CHANGE_GID;
 	struct inode *inode = direntry->d_inode;
 	struct cifs_sb_info *cifs_sb = CIFS_SB(inode->i_sb);
 	struct cifsInodeInfo *cifsInode = CIFS_I(inode);
@@ -2146,7 +2146,7 @@ cifs_setattr_nounix(struct dentry *direntry, struct iattr *attrs)
 
 #ifdef CONFIG_CIFS_ACL
 	if (cifs_sb->mnt_cifs_flags & CIFS_MOUNT_CIFS_ACL) {
-		if (uid != NO_CHANGE_32 || gid != NO_CHANGE_32) {
+		if (!uid_eq(uid, NO_CHANGE_UID) || !gid_eq(gid, NO_CHANGE_GID)) {
 			rc = id_mode_to_cifs_acl(inode, full_path, NO_CHANGE_64,
 							uid, gid);
 			if (rc) {
@@ -2170,7 +2170,7 @@ cifs_setattr_nounix(struct dentry *direntry, struct iattr *attrs)
 #ifdef CONFIG_CIFS_ACL
 		if (cifs_sb->mnt_cifs_flags & CIFS_MOUNT_CIFS_ACL) {
 			rc = id_mode_to_cifs_acl(inode, full_path, mode,
-						NO_CHANGE_32, NO_CHANGE_32);
+						NO_CHANGE_UID, NO_CHANGE_GID);
 			if (rc) {
 				cFYI(1, "%s: Setting ACL failed with error: %d",
 					__func__, rc);
