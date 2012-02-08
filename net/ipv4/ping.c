@@ -201,7 +201,7 @@ static void inet_get_ping_group_range_net(struct net *net, gid_t *low,
 static int ping_init_sock(struct sock *sk)
 {
 	struct net *net = sock_net(sk);
-	gid_t group = current_egid();
+	kgid_t group = current_egid();
 	gid_t range[2];
 	struct group_info *group_info = get_current_groups();
 	int i, j, count = group_info->ngroups;
@@ -213,7 +213,7 @@ static int ping_init_sock(struct sock *sk)
 	if (!gid_valid(low) || !gid_valid(high) || gid_lt(high, low))
 		return -EACCES;
 
-	if (range[0] <= group && group <= range[1])
+	if (gid_lte(low, group) && gid_lte(group, high))
 		return 0;
 
 	for (i = 0; i < group_info->nblocks; i++) {
@@ -841,7 +841,9 @@ static void ping_format_sock(struct sock *sp, struct seq_file *f,
 		bucket, src, srcp, dest, destp, sp->sk_state,
 		sk_wmem_alloc_get(sp),
 		sk_rmem_alloc_get(sp),
-		0, 0L, 0, sock_i_uid(sp), 0, sock_i_ino(sp),
+		0, 0L, 0,
+		from_kuid_munged(current_user_ns(), sock_i_uid(sp)),
+		0, sock_i_ino(sp),
 		atomic_read(&sp->sk_refcnt), sp,
 		atomic_read(&sp->sk_drops), len);
 }
