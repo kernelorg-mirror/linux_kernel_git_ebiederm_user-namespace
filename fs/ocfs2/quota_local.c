@@ -462,7 +462,7 @@ out:
  * The function expects local quota file to be already locked and
  * dqonoff_mutex locked. */
 static int ocfs2_recover_local_quota_file(struct inode *lqinode,
-					  int type,
+					  enum quota_type type,
 					  struct ocfs2_quota_recovery *rec)
 {
 	struct super_block *sb = lqinode->i_sb;
