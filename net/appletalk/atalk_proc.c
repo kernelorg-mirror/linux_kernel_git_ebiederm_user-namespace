@@ -183,7 +183,8 @@ static int atalk_seq_socket_show(struct seq_file *seq, void *v)
 		   ntohs(at->dest_net), at->dest_node, at->dest_port,
 		   sk_wmem_alloc_get(s),
 		   sk_rmem_alloc_get(s),
-		   s->sk_state, SOCK_INODE(s->sk_socket)->i_uid);
+		   s->sk_state,
+		   from_kuid_munged(current_user_ns(), SOCK_INODE(s->sk_socket)->i_uid));
 out:
 	return 0;
 }

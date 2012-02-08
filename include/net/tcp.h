@@ -1430,10 +1430,12 @@ struct tcp_seq_afinfo {
 
 struct tcp_iter_state {
 	struct seq_net_private	p;
+	struct file		*file;
 	sa_family_t		family;
 	enum tcp_seq_states	state;
 	struct sock		*syn_wait_sk;
-	int			bucket, offset, sbucket, num, uid;
+	int			bucket, offset, sbucket, num;
+	kuid_t			uid;
 	loff_t			last_pos;
 };
 

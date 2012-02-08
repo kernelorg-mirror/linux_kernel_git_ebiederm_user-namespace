@@ -41,6 +41,7 @@ extern void raw_proc_exit(void);
 
 struct raw_iter_state {
 	struct seq_net_private p;
+	struct file *file;
 	int bucket;
 	struct raw_hashinfo *h;
 };

@@ -1228,6 +1228,7 @@ struct proto rawv6_prot = {
 #ifdef CONFIG_PROC_FS
 static void raw6_sock_seq_show(struct seq_file *seq, struct sock *sp, int i)
 {
+	struct raw_iter_state *state = raw_seq_private(seq);
 	struct ipv6_pinfo *np = inet6_sk(sp);
 	const struct in6_addr *dest, *src;
 	__u16 destp, srcp;
@@ -1248,7 +1249,8 @@ static void raw6_sock_seq_show(struct seq_file *seq, struct sock *sp, int i)
 		   sk_wmem_alloc_get(sp),
 		   sk_rmem_alloc_get(sp),
 		   0, 0L, 0,
-		   sock_i_uid(sp), 0,
+		   from_kuid_munged(state->file->f_cred->user_ns, sock_i_uid(sp)),
+		   0,
 		   sock_i_ino(sp),
 		   atomic_read(&sp->sk_refcnt), sp, atomic_read(&sp->sk_drops));
 }
