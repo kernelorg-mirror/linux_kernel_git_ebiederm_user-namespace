@@ -126,7 +126,7 @@ int inet_sk_diag_fill(struct sock *sk, struct inet_connection_sock *icsk,
 	}
 #endif
 
-	r->idiag_uid = sock_i_uid(sk);
+	r->idiag_uid = from_kuid_munged(current_user_ns(), sock_i_uid(sk));
 	r->idiag_inode = sock_i_ino(sk);
 
 	if (minfo) {
@@ -620,7 +620,7 @@ static int inet_diag_fill_req(struct sk_buff *skb, struct sock *sk,
 	r->idiag_expires = jiffies_to_msecs(tmo);
 	r->idiag_rqueue = 0;
 	r->idiag_wqueue = 0;
-	r->idiag_uid = sock_i_uid(sk);
+	r->idiag_uid = from_kuid_munged(current_user_ns(), sock_i_uid(sk));
 	r->idiag_inode = 0;
 #if IS_ENABLED(CONFIG_IPV6)
 	if (r->idiag_family == AF_INET6) {
