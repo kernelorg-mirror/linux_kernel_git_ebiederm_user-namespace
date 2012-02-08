@@ -176,6 +176,7 @@ static ssize_t quota_refresh_user_store(struct gfs2_sbd *sdp, const char *buf,
 					size_t len)
 {
 	int error;
+	qown_t qown;
 	u32 id;
 
 	if (!capable(CAP_SYS_ADMIN))
@@ -183,7 +184,12 @@ static ssize_t quota_refresh_user_store(struct gfs2_sbd *sdp, const char *buf,
 
 	id = simple_strtoul(buf, NULL, 0);
 
-	error = gfs2_quota_refresh(sdp, 1, id);
+	
+	qown = make_qown(&init_user_ns, USRQUOTA, id);
+	if (!qown_valid(USRQUOTA, qown))
+		return -EINVAL;
+
+	error = gfs2_quota_refresh(sdp, 1, qown);
 	return error ? error : len;
 }
 
@@ -191,6 +197,7 @@ static ssize_t quota_refresh_group_store(struct gfs2_sbd *sdp, const char *buf,
 					 size_t len)
 {
 	int error;
+	qown_t qown;
 	u32 id;
 
 	if (!capable(CAP_SYS_ADMIN))
@@ -198,7 +205,11 @@ static ssize_t quota_refresh_group_store(struct gfs2_sbd *sdp, const char *buf,
 
 	id = simple_strtoul(buf, NULL, 0);
 
-	error = gfs2_quota_refresh(sdp, 0, id);
+	qown = make_qown(&init_user_ns, GRPQUOTA, id);
+	if (!qown_valid(GRPQUOTA, qown))
+		return -EINVAL;
+
+	error = gfs2_quota_refresh(sdp, 0, qown);
 	return error ? error : len;
 }
 
