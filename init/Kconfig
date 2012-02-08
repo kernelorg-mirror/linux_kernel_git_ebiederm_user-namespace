@@ -876,7 +876,6 @@ config UIDGID_CONVERTED
 	depends on NETFILTER_XT_TARGET_LOG = n
 
 	# Filesystems
-	depends on USB_GADGETFS = n
 	depends on USB_FUNCTIONFS = n
 	depends on DEVTMPFS = n
 	depends on XENFS = n
