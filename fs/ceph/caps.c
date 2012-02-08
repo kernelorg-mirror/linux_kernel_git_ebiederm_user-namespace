@@ -928,7 +928,7 @@ static int send_cap_msg(struct ceph_mds_session *session,
 			u64 size, u64 max_size,
 			struct timespec *mtime, struct timespec *atime,
 			u64 time_warp_seq,
-			uid_t uid, gid_t gid, umode_t mode,
+			kuid_t uid, kgid_t gid, umode_t mode,
 			u64 xattr_version,
 			struct ceph_buffer *xattrs_buf,
 			u64 follows)
@@ -972,8 +972,8 @@ static int send_cap_msg(struct ceph_mds_session *session,
 		ceph_encode_timespec(&fc->atime, atime);
 	fc->time_warp_seq = cpu_to_le32(time_warp_seq);
 
-	fc->uid = cpu_to_le32(uid);
-	fc->gid = cpu_to_le32(gid);
+	fc->uid = cpu_to_le32(from_kuid(&init_user_ns, uid));
+	fc->gid = cpu_to_le32(from_kgid(&init_user_ns, gid));
 	fc->mode = cpu_to_le32(mode);
 
 	fc->xattr_version = cpu_to_le64(xattr_version);
@@ -1079,8 +1079,8 @@ static int __send_cap(struct ceph_mds_client *mdsc, struct ceph_cap *cap,
 	struct timespec mtime, atime;
 	int wake = 0;
 	umode_t mode;
-	uid_t uid;
-	gid_t gid;
+	kuid_t uid;
+	kgid_t gid;
 	struct ceph_mds_session *session;
 	u64 xattr_version = 0;
 	struct ceph_buffer *xattr_blob = NULL;
@@ -2353,10 +2353,10 @@ static void handle_cap_grant(struct inode *inode, struct ceph_mds_caps *grant,
 
 	if ((issued & CEPH_CAP_AUTH_EXCL) == 0) {
 		inode->i_mode = le32_to_cpu(grant->mode);
-		inode->i_uid = le32_to_cpu(grant->uid);
-		inode->i_gid = le32_to_cpu(grant->gid);
+		i_uid_write(inode, le32_to_cpu(grant->uid));
+		i_gid_write(inode, le32_to_cpu(grant->gid));
 		dout("%p mode 0%o uid.gid %d.%d\n", inode, inode->i_mode,
-		     inode->i_uid, inode->i_gid);
+		     i_uid_read(inode), i_gid_read(inode));
 	}
 
 	if ((issued & CEPH_CAP_LINK_EXCL) == 0)
