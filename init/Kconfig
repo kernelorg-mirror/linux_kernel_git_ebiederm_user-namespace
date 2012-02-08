@@ -876,7 +876,6 @@ config UIDGID_CONVERTED
 	depends on NETFILTER_XT_TARGET_LOG = n
 
 	# Filesystems
-	depends on HFS_FS = n
 	depends on HFSPLUS_FS = n
 	depends on HPFS_FS = n
 	depends on ISO9660_FS = n
