@@ -44,6 +44,42 @@ static const struct cifs_sid sid_user = {1, 2 , {0, 0, 0, 0, 0, 5}, {} };
 
 static const struct cred *root_cred;
 
+struct cifs_id {
+	enum sidtype type;
+	union {
+		kuid_t uid;
+		kgid_t gid;
+	};
+};
+
+static inline struct cifs_id kuid_to_cid(kuid_t uid)
+{
+	struct cifs_id cid;
+	cid.type = SIDOWNER;
+	cid.uid = uid;
+	return cid;
+}
+
+static inline struct cifs_id kgid_to_cid(kgid_t gid)
+{
+	struct cifs_id cid;
+	cid.type = SIDGROUP;
+	cid.gid = gid;
+	return cid;
+}
+
+static unsigned from_cid(struct user_namespace *user_ns, struct cifs_id cid)
+{
+	switch (cid.type) {
+	case SIDOWNER:
+		return from_kuid(user_ns, cid.uid);
+	case SIDGROUP:
+		return from_kgid(user_ns, cid.gid);
+	default:
+		BUG();
+	}
+}
+
 static int
 cifs_idmap_key_instantiate(struct key *key, struct key_preparsed_payload *prep)
 {
@@ -89,7 +125,7 @@ static struct key_type cifs_idmap_key_type = {
 };
 
 static char *
-sid_to_key_str(struct cifs_sid *sidptr, unsigned int type)
+sid_to_key_str(struct cifs_sid *sidptr, enum sidtype type)
 {
 	int i, len;
 	unsigned int saval;
@@ -200,7 +236,7 @@ cifs_copy_sid(struct cifs_sid *dst, const struct cifs_sid *src)
 }
 
 static int
-id_to_sid(unsigned int cid, uint sidtype, struct cifs_sid *ssid)
+id_to_sid(struct cifs_id cid, struct cifs_sid *ssid)
 {
 	int rc;
 	struct key *sidkey;
@@ -210,7 +246,8 @@ id_to_sid(unsigned int cid, uint sidtype, struct cifs_sid *ssid)
 	const struct cred *saved_cred;
 
 	rc = snprintf(desc, sizeof(desc), "%ci:%u",
-			sidtype == SIDOWNER ? 'o' : 'g', cid);
+			cid.type == SIDOWNER ? 'o' : 'g',
+			from_cid(&init_user_ns, cid));
 	if (rc >= sizeof(desc))
 		return -EINVAL;
 
@@ -220,7 +257,8 @@ id_to_sid(unsigned int cid, uint sidtype, struct cifs_sid *ssid)
 	if (IS_ERR(sidkey)) {
 		rc = -EINVAL;
 		cFYI(1, "%s: Can't map %cid %u to a SID", __func__,
-			sidtype == SIDOWNER ? 'u' : 'g', cid);
+			cid.type == SIDOWNER ? 'u' : 'g',
+			from_cid(&init_user_ns, cid));
 		goto out_revert_creds;
 	} else if (sidkey->datalen < CIFS_SID_BASE_SIZE) {
 		rc = -EIO;
@@ -260,14 +298,14 @@ invalidate_key:
 
 static int
 sid_to_id(struct cifs_sb_info *cifs_sb, struct cifs_sid *psid,
-		struct cifs_fattr *fattr, uint sidtype)
+		struct cifs_fattr *fattr, enum sidtype sidtype)
 {
 	int rc;
 	struct key *sidkey;
 	char *sidstr;
 	const struct cred *saved_cred;
-	uid_t fuid = cifs_sb->mnt_uid;
-	gid_t fgid = cifs_sb->mnt_gid;
+	kuid_t fuid = cifs_sb->mnt_uid;
+	kgid_t fgid = cifs_sb->mnt_gid;
 
 	/*
 	 * If we have too many subauthorities, then something is really wrong.
@@ -305,10 +343,16 @@ sid_to_id(struct cifs_sb_info *cifs_sb, struct cifs_sid *psid,
 		goto out_key_put;
 	}
 
-	if (sidtype == SIDOWNER)
-		memcpy(&fuid, &sidkey->payload.value, sizeof(uid_t));
-	else
-		memcpy(&fgid, &sidkey->payload.value, sizeof(gid_t));
+	if (sidtype == SIDOWNER) {
+		uid_t uid;
+		memcpy(&uid, &sidkey->payload.value, sizeof(uid_t));
+		fuid = make_kuid(&init_user_ns, uid);
+	}
+	else {
+		gid_t gid;
+		memcpy(&gid, &sidkey->payload.value, sizeof(gid_t));
+		fgid = make_kgid(&init_user_ns, gid);
+	}
 
 out_key_put:
 	key_put(sidkey);
@@ -346,7 +390,8 @@ init_cifs_idmap(void)
 	if (!cred)
 		return -ENOMEM;
 
-	keyring = keyring_alloc(".cifs_idmap", 0, 0, cred,
+	keyring = keyring_alloc(".cifs_idmap",
+				GLOBAL_ROOT_UID, GLOBAL_ROOT_GID, cred,
 				(KEY_POS_ALL & ~KEY_POS_SETATTR) |
 				KEY_USR_VIEW | KEY_USR_READ,
 				KEY_ALLOC_NOT_IN_QUOTA, NULL);
@@ -774,7 +819,7 @@ static int parse_sec_desc(struct cifs_sb_info *cifs_sb,
 
 /* Convert permission bits from mode to equivalent CIFS ACL */
 static int build_sec_desc(struct cifs_ntsd *pntsd, struct cifs_ntsd *pnntsd,
-	__u32 secdesclen, __u64 nmode, uid_t uid, gid_t gid, int *aclflag)
+	__u32 secdesclen, __u64 nmode, kuid_t uid, kgid_t gid, int *aclflag)
 {
 	int rc = 0;
 	__u32 dacloffset;
@@ -806,17 +851,18 @@ static int build_sec_desc(struct cifs_ntsd *pntsd, struct cifs_ntsd *pnntsd,
 		*aclflag = CIFS_ACL_DACL;
 	} else {
 		memcpy(pnntsd, pntsd, secdesclen);
-		if (uid != NO_CHANGE_32) { /* chown */
+		if (!uid_eq(uid, NO_CHANGE_UID)) { /* chown */
 			owner_sid_ptr = (struct cifs_sid *)((char *)pnntsd +
 					le32_to_cpu(pnntsd->osidoffset));
 			nowner_sid_ptr = kmalloc(sizeof(struct cifs_sid),
 								GFP_KERNEL);
 			if (!nowner_sid_ptr)
 				return -ENOMEM;
-			rc = id_to_sid(uid, SIDOWNER, nowner_sid_ptr);
+			rc = id_to_sid(kuid_to_cid(uid), nowner_sid_ptr);
 			if (rc) {
 				cFYI(1, "%s: Mapping error %d for owner id %d",
-						__func__, rc, uid);
+						__func__, rc,
+						from_kuid(&init_user_ns, uid));
 				kfree(nowner_sid_ptr);
 				return rc;
 			}
@@ -824,17 +870,18 @@ static int build_sec_desc(struct cifs_ntsd *pntsd, struct cifs_ntsd *pnntsd,
 			kfree(nowner_sid_ptr);
 			*aclflag = CIFS_ACL_OWNER;
 		}
-		if (gid != NO_CHANGE_32) { /* chgrp */
+		if (!gid_eq(gid, NO_CHANGE_GID)) { /* chgrp */
 			group_sid_ptr = (struct cifs_sid *)((char *)pnntsd +
 					le32_to_cpu(pnntsd->gsidoffset));
 			ngroup_sid_ptr = kmalloc(sizeof(struct cifs_sid),
 								GFP_KERNEL);
 			if (!ngroup_sid_ptr)
 				return -ENOMEM;
-			rc = id_to_sid(gid, SIDGROUP, ngroup_sid_ptr);
+			rc = id_to_sid(kgid_to_cid(gid), ngroup_sid_ptr);
 			if (rc) {
 				cFYI(1, "%s: Mapping error %d for group id %d",
-						__func__, rc, gid);
+						__func__, rc,
+						from_kgid(&init_user_ns, gid));
 				kfree(ngroup_sid_ptr);
 				return rc;
 			}
@@ -1002,7 +1049,7 @@ cifs_acl_to_fattr(struct cifs_sb_info *cifs_sb, struct cifs_fattr *fattr,
 /* Convert mode bits to an ACL so we can update the ACL on the server */
 int
 id_mode_to_cifs_acl(struct inode *inode, const char *path, __u64 nmode,
-			uid_t uid, gid_t gid)
+			kuid_t uid, kgid_t gid)
 {
 	int rc = 0;
 	int aclflag = CIFS_ACL_DACL; /* default flag to set */
