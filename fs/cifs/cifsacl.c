@@ -44,6 +44,55 @@ static const struct cifs_sid sid_user = {1, 2 , {0, 0, 0, 0, 0, 5}, {} };
 
 const struct cred *root_cred;
 
+static inline struct cifs_id kuid_to_cid(kuid_t uid)
+{
+	struct cifs_id cid;
+	cid.type = SIDOWNER;
+	cid.uid = uid;
+	return cid;
+}
+
+static inline struct cifs_id kgid_to_cid(kgid_t gid)
+{
+	struct cifs_id cid;
+	cid.type = SIDGROUP;
+	cid.gid = gid;
+	return cid;
+}
+
+static unsigned long from_cid(struct user_namespace *user_ns, struct cifs_id cid)
+{
+	switch (cid.type) {
+	case SIDOWNER:
+		return from_kuid(user_ns, cid.uid);
+	case SIDGROUP:
+		return from_kgid(user_ns, cid.gid);
+	default:
+		BUG();
+	}
+}
+
+static bool cid_lt(struct cifs_id left, struct cifs_id right)
+{
+	if (left.type < right.type)
+		return true;
+	if (left.type > right.type)
+		return false;
+	switch (left.type) {
+	case SIDOWNER:
+		return uid_lt(left.uid, right.uid);
+	case SIDGROUP:
+		return gid_lt(left.gid, right.gid);
+	default:
+		BUG();
+	}
+}
+
+static inline bool cid_gt(struct cifs_id left, struct cifs_id right)
+{
+	return cid_lt(right, left);
+}
+
 static void
 shrink_idmap_tree(struct rb_root *root, int nr_to_scan, int *nr_rem,
 			int *nr_del)
@@ -105,7 +154,7 @@ cifs_idmap_shrinker(struct shrinker *shrink, struct shrink_control *sc)
 }
 
 static void
-sid_rb_insert(struct rb_root *root, unsigned long cid,
+sid_rb_insert(struct rb_root *root, struct cifs_id cid,
 		struct cifs_sid_id **psidid, char *typestr)
 {
 	char *strptr;
@@ -117,11 +166,11 @@ sid_rb_insert(struct rb_root *root, unsigned long cid,
 	while (node) {
 		lsidid = rb_entry(node, struct cifs_sid_id, rbnode);
 		parent = node;
-		if (cid > lsidid->id) {
+		if (cid_gt(cid, lsidid->id)) {
 			linkto = &(node->rb_left);
 			node = node->rb_left;
 		}
-		if (cid < lsidid->id) {
+		if (cid_lt(cid, lsidid->id)) {
 			linkto = &(node->rb_right);
 			node = node->rb_right;
 		}
@@ -133,7 +182,7 @@ sid_rb_insert(struct rb_root *root, unsigned long cid,
 
 	sprintf((*psidid)->sidstr, "%s", typestr);
 	strptr = (*psidid)->sidstr + strlen((*psidid)->sidstr);
-	sprintf(strptr, "%ld", cid);
+	sprintf(strptr, "%ld", from_cid(&init_user_ns, cid));
 
 	clear_bit(SID_ID_PENDING, &(*psidid)->state);
 	clear_bit(SID_ID_MAPPED, &(*psidid)->state);
@@ -143,16 +192,16 @@ sid_rb_insert(struct rb_root *root, unsigned long cid,
 }
 
 static struct cifs_sid_id *
-sid_rb_search(struct rb_root *root, unsigned long cid)
+sid_rb_search(struct rb_root *root, struct cifs_id cid)
 {
 	struct rb_node *node = root->rb_node;
 	struct cifs_sid_id *lsidid;
 
 	while (node) {
 		lsidid = rb_entry(node, struct cifs_sid_id, rbnode);
-		if (cid > lsidid->id)
+		if (cid_gt(cid, lsidid->id))
 			node = node->rb_left;
-		else if (cid < lsidid->id)
+		else if (cid_lt(cid, lsidid->id))
 			node = node->rb_right;
 		else /* node found */
 			return lsidid;
@@ -292,7 +341,7 @@ sidid_pending_wait(void *unused)
 }
 
 static int
-id_to_sid(unsigned long cid, uint sidtype, struct cifs_sid *ssid)
+id_to_sid(struct cifs_id cid, struct cifs_sid *ssid)
 {
 	int rc = 0;
 	struct key *sidkey;
@@ -302,10 +351,10 @@ id_to_sid(unsigned long cid, uint sidtype, struct cifs_sid *ssid)
 	struct rb_root *cidtree;
 	spinlock_t *cidlock;
 
-	if (sidtype == SIDOWNER) {
+	if (cid.type == SIDOWNER) {
 		cidlock = &siduidlock;
 		cidtree = &uidtree;
-	} else if (sidtype == SIDGROUP) {
+	} else if (cid.type == SIDGROUP) {
 		cidlock = &sidgidlock;
 		cidtree = &gidtree;
 	} else
@@ -336,7 +385,7 @@ id_to_sid(unsigned long cid, uint sidtype, struct cifs_sid *ssid)
 		} else {
 			psidid = npsidid;
 			sid_rb_insert(cidtree, cid, &psidid,
-					sidtype == SIDOWNER ? "oi:" : "gi:");
+					cid.type == SIDOWNER ? "oi:" : "gi:");
 			++psidid->refcount;
 			spin_unlock(cidlock);
 		}
@@ -410,7 +459,7 @@ sid_to_id(struct cifs_sb_info *cifs_sb, struct cifs_sid *psid,
 		struct cifs_fattr *fattr, uint sidtype)
 {
 	int rc;
-	unsigned long cid;
+	struct cifs_id cid;
 	struct key *idkey;
 	const struct cred *saved_cred;
 	struct cifs_sid_id *psidid, *npsidid;
@@ -418,11 +467,11 @@ sid_to_id(struct cifs_sb_info *cifs_sb, struct cifs_sid *psid,
 	spinlock_t *cidlock;
 
 	if (sidtype == SIDOWNER) {
-		cid = cifs_sb->mnt_uid; /* default uid, in case upcall fails */
+		cid = kuid_to_cid(cifs_sb->mnt_uid); /* default uid, in case upcall fails */
 		cidlock = &siduidlock;
 		cidtree = &uidtree;
 	} else if (sidtype == SIDGROUP) {
-		cid = cifs_sb->mnt_gid; /* default gid, in case upcall fails */
+		cid = kgid_to_cid(cifs_sb->mnt_gid); /* default gid, in case upcall fails */
 		cidlock = &sidgidlock;
 		cidtree = &gidtree;
 	} else
@@ -471,7 +520,7 @@ sid_to_id(struct cifs_sb_info *cifs_sb, struct cifs_sid *psid,
 	 * any fields of the node after a reference is put .
 	 */
 	if (test_bit(SID_ID_MAPPED, &psidid->state)) {
-		cid = psidid->id;
+		//cid = psidid->id;
 		psidid->time = jiffies; /* update ts for accessing */
 		goto sid_to_id_out;
 	}
@@ -485,8 +534,13 @@ sid_to_id(struct cifs_sb_info *cifs_sb, struct cifs_sid *psid,
 		if (IS_ERR(idkey))
 			cFYI(1, "%s: Can't map SID to an id", __func__);
 		else {
-			cid = *(unsigned long *)idkey->payload.value;
-			psidid->id = cid;
+			u32 id;
+			id = *(u32 *)idkey->payload.value;
+			psidid->id.type = sidtype;
+			if (sidtype == SIDOWNER)
+				psidid->id.uid = make_kuid(&init_user_ns, id);
+			else
+				psidid->id.gid = make_kgid(&init_user_ns, id);
 			set_bit(SID_ID_MAPPED, &psidid->state);
 			key_put(idkey);
 			kfree(psidid->sidstr);
@@ -510,10 +564,10 @@ sid_to_id(struct cifs_sb_info *cifs_sb, struct cifs_sid *psid,
 
 sid_to_id_out:
 	--psidid->refcount; /* decremented without spinlock */
-	if (sidtype == SIDOWNER)
-		fattr->cf_uid = cid;
+	if (cid.type == SIDOWNER)
+		fattr->cf_uid = cid.uid;
 	else
-		fattr->cf_gid = cid;
+		fattr->cf_gid = cid.gid;
 
 	return 0;
 }
@@ -537,7 +591,8 @@ init_cifs_idmap(void)
 	if (!cred)
 		return -ENOMEM;
 
-	keyring = key_alloc(&key_type_keyring, ".cifs_idmap", 0, 0, cred,
+	keyring = key_alloc(&key_type_keyring, ".cifs_idmap",
+			    GLOBAL_ROOT_UID, GLOBAL_ROOT_GID, cred,
 			    (KEY_POS_ALL & ~KEY_POS_SETATTR) |
 			    KEY_USR_VIEW | KEY_USR_READ,
 			    KEY_ALLOC_NOT_IN_QUOTA);
@@ -1074,7 +1129,7 @@ static int parse_sec_desc(struct cifs_sb_info *cifs_sb,
 
 /* Convert permission bits from mode to equivalent CIFS ACL */
 static int build_sec_desc(struct cifs_ntsd *pntsd, struct cifs_ntsd *pnntsd,
-	__u32 secdesclen, __u64 nmode, uid_t uid, gid_t gid, int *aclflag)
+	__u32 secdesclen, __u64 nmode, kuid_t uid, kgid_t gid, int *aclflag)
 {
 	int rc = 0;
 	__u32 dacloffset;
@@ -1106,17 +1161,18 @@ static int build_sec_desc(struct cifs_ntsd *pntsd, struct cifs_ntsd *pnntsd,
 		*aclflag = CIFS_ACL_DACL;
 	} else {
 		memcpy(pnntsd, pntsd, secdesclen);
-		if (uid != NO_CHANGE_32) { /* chown */
+		if (!uid_eq(uid, NO_CHANGE_UID)) { /* chown */
 			owner_sid_ptr = (struct cifs_sid *)((char *)pnntsd +
 					le32_to_cpu(pnntsd->osidoffset));
 			nowner_sid_ptr = kmalloc(sizeof(struct cifs_sid),
 								GFP_KERNEL);
 			if (!nowner_sid_ptr)
 				return -ENOMEM;
-			rc = id_to_sid(uid, SIDOWNER, nowner_sid_ptr);
+			rc = id_to_sid(kuid_to_cid(uid), nowner_sid_ptr);
 			if (rc) {
 				cFYI(1, "%s: Mapping error %d for owner id %d",
-						__func__, rc, uid);
+						__func__, rc,
+						from_kuid(&init_user_ns, uid));
 				kfree(nowner_sid_ptr);
 				return rc;
 			}
@@ -1125,17 +1181,18 @@ static int build_sec_desc(struct cifs_ntsd *pntsd, struct cifs_ntsd *pnntsd,
 			kfree(nowner_sid_ptr);
 			*aclflag = CIFS_ACL_OWNER;
 		}
-		if (gid != NO_CHANGE_32) { /* chgrp */
+		if (!gid_eq(gid, NO_CHANGE_GID)) { /* chgrp */
 			group_sid_ptr = (struct cifs_sid *)((char *)pnntsd +
 					le32_to_cpu(pnntsd->gsidoffset));
 			ngroup_sid_ptr = kmalloc(sizeof(struct cifs_sid),
 								GFP_KERNEL);
 			if (!ngroup_sid_ptr)
 				return -ENOMEM;
-			rc = id_to_sid(gid, SIDGROUP, ngroup_sid_ptr);
+			rc = id_to_sid(kgid_to_cid(gid), ngroup_sid_ptr);
 			if (rc) {
 				cFYI(1, "%s: Mapping error %d for group id %d",
-						__func__, rc, gid);
+						__func__, rc,
+						from_kgid(&init_user_ns, gid));
 				kfree(ngroup_sid_ptr);
 				return rc;
 			}
@@ -1304,7 +1361,7 @@ cifs_acl_to_fattr(struct cifs_sb_info *cifs_sb, struct cifs_fattr *fattr,
 /* Convert mode bits to an ACL so we can update the ACL on the server */
 int
 id_mode_to_cifs_acl(struct inode *inode, const char *path, __u64 nmode,
-			uid_t uid, gid_t gid)
+			kuid_t uid, kgid_t gid)
 {
 	int rc = 0;
 	int aclflag = CIFS_ACL_DACL; /* default flag to set */
