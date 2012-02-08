@@ -924,7 +924,6 @@ config UIDGID_CONVERTED
 	default y
 
 	# Filesystems
-	depends on FUSE_FS = n
 	depends on GFS2_FS = n
 	depends on HPFS_FS = n
 	depends on JFFS2_FS = n
