@@ -151,7 +151,7 @@ static int llc_seq_socket_show(struct seq_file *seq, void *v)
 		   sk_wmem_alloc_get(sk),
 		   sk_rmem_alloc_get(sk) - llc->copied_seq,
 		   sk->sk_state,
-		   sk->sk_socket ? SOCK_INODE(sk->sk_socket)->i_uid : -1,
+		   sk->sk_socket ? from_kuid_munged(current_user_ns(), SOCK_INODE(sk->sk_socket)->i_uid) : -1,
 		   llc->link);
 out:
 	return 0;

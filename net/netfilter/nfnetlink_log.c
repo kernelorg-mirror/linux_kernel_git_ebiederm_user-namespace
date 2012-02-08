@@ -485,8 +485,10 @@ __build_packet_message(struct nfulnl_instance *inst,
 		read_lock_bh(&skb->sk->sk_callback_lock);
 		if (skb->sk->sk_socket && skb->sk->sk_socket->file) {
 			struct file *file = skb->sk->sk_socket->file;
-			__be32 uid = htonl(file->f_cred->fsuid);
-			__be32 gid = htonl(file->f_cred->fsgid);
+			__be32 uid = htonl(from_kuid_munged(file->f_cred->user_ns,
+							    file->f_cred->fsuid));
+			__be32 gid = htonl(from_kgid_munged(file->f_cred->user_ns,
+							    file->f_cred->fsgid));
 			/* need to unlock here since NLA_PUT may goto */
 			read_unlock_bh(&skb->sk->sk_callback_lock);
 			NLA_PUT_BE32(inst->skb, NFULA_UID, uid);
