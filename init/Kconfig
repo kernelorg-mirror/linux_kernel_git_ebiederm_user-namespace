@@ -876,7 +876,6 @@ config UIDGID_CONVERTED
 	depends on NETFILTER_XT_TARGET_LOG = n
 
 	# Filesystems
-	depends on CIFS = n
 	depends on CODA_FS = n
 	depends on CRAMFS = n
 	depends on ECRYPT_FS = n
