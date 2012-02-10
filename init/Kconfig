@@ -924,7 +924,6 @@ config UIDGID_CONVERTED
 	default y
 
 	# Filesystems
-	depends on UDF_FS = n
 	depends on UFS_FS = n
 	depends on XFS_FS = n
 
