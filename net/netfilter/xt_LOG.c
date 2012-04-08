@@ -365,8 +365,8 @@ static void dump_ipv4_packet(struct sbuff *m,
 		read_lock_bh(&skb->sk->sk_callback_lock);
 		if (skb->sk->sk_socket && skb->sk->sk_socket->file)
 			sb_add(m, "UID=%u GID=%u ",
-				skb->sk->sk_socket->file->f_cred->fsuid,
-				skb->sk->sk_socket->file->f_cred->fsgid);
+				from_kuid_munged(&init_user_ns, skb->sk->sk_socket->file->f_cred->fsuid),
+				from_kgid_munged(&init_user_ns, skb->sk->sk_socket->file->f_cred->fsgid));
 		read_unlock_bh(&skb->sk->sk_callback_lock);
 	}
 
@@ -721,8 +721,8 @@ static void dump_ipv6_packet(struct sbuff *m,
 		read_lock_bh(&skb->sk->sk_callback_lock);
 		if (skb->sk->sk_socket && skb->sk->sk_socket->file)
 			sb_add(m, "UID=%u GID=%u ",
-				skb->sk->sk_socket->file->f_cred->fsuid,
-				skb->sk->sk_socket->file->f_cred->fsgid);
+				from_kuid_munged(&init_user_ns, skb->sk->sk_socket->file->f_cred->fsuid),
+				from_kgid_munged(&init_user_ns, skb->sk->sk_socket->file->f_cred->fsgid));
 		read_unlock_bh(&skb->sk->sk_callback_lock);
 	}
 
