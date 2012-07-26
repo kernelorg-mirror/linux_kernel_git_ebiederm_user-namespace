@@ -1198,7 +1198,7 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
 
 		if (((uid_valid(tun->owner) && !uid_eq(cred->euid, tun->owner)) ||
 		     (gid_valid(tun->group) && !in_egroup_p(tun->group))) &&
-		    !capable(CAP_NET_ADMIN))
+		    !ns_capable(net->user_ns, CAP_NET_ADMIN))
 			return -EPERM;
 		err = security_tun_dev_attach(tun->socket.sk);
 		if (err < 0)
@@ -1212,7 +1212,7 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
 		char *name;
 		unsigned long flags = 0;
 
-		if (!capable(CAP_NET_ADMIN))
+		if (!ns_capable(net->user_ns, CAP_NET_ADMIN))
 			return -EPERM;
 		err = security_tun_dev_create();
 		if (err < 0)
