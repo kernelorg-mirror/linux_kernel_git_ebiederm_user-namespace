@@ -234,11 +234,10 @@ void net_drop_ns(void *p)
 		net_free(ns);
 }
 
-struct net *copy_net_ns(unsigned long flags, struct task_struct *tsk)
+struct net *copy_net_ns(unsigned long flags,
+			struct user_namespace *user_ns, struct net *old_net)
 {
-	struct net *old_net = tsk->nsproxy->net_ns;
 	struct net *net;
-	struct user_namespace *user_ns;
 	int rv;
 
 	if (!(flags & CLONE_NEWNET))
@@ -248,9 +247,7 @@ struct net *copy_net_ns(unsigned long flags, struct task_struct *tsk)
 	if (!net)
 		return ERR_PTR(-ENOMEM);
 
-	rcu_read_lock();
-	user_ns = get_user_ns(__task_cred(tsk)->user_ns);
-	rcu_read_unlock();
+	get_user_ns(user_ns);
 
 	mutex_lock(&net_mutex);
 	rv = setup_net(net, user_ns);
