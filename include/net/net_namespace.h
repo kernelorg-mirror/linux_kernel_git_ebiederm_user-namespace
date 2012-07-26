@@ -114,14 +114,16 @@ struct net {
 extern struct net init_net;
 
 #ifdef CONFIG_NET_NS
-extern struct net *copy_net_ns(unsigned long flags, struct task_struct *tsk);
+extern struct net *copy_net_ns(unsigned long flags,
+	struct user_namespace *user_ns, struct net *old_net);
+
 
 #else /* CONFIG_NET_NS */
 #include <linux/sched.h>
 #include <linux/nsproxy.h>
-static inline struct net *copy_net_ns(unsigned long flags, struct task_struct *tsk)
+static inline struct net *copy_net_ns(unsigned long flags,
+	struct user_namespace *user_ns, struct net *old_net)
 {
-	struct net *old_net = tsk->nsproxy->net_ns;
 	if (flags & CLONE_NEWNET)
 		return ERR_PTR(-EINVAL);
 	return old_net;
