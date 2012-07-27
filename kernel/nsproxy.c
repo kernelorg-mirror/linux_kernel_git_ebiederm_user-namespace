@@ -123,7 +123,7 @@ out_ns:
 int copy_namespaces(unsigned long flags, struct task_struct *tsk)
 {
 	struct nsproxy *old_ns = tsk->nsproxy;
-	struct user_namespace *user_ns = __task_cred(tsk)->user_ns;
+	struct user_namespace *user_ns = task_cred_xxx(tsk, user_ns);
 	struct nsproxy *new_ns;
 	int err = 0;
 
