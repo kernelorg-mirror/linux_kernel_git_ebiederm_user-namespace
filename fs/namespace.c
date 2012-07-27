@@ -1269,7 +1269,7 @@ SYSCALL_DEFINE2(umount, char __user *, name, int, flags)
 		goto dput_and_out;
 
 	retval = -EPERM;
-	if (!capable(CAP_SYS_ADMIN))
+	if (!ns_capable(mnt->mnt_ns->user_ns, CAP_SYS_ADMIN))
 		goto dput_and_out;
 
 	retval = do_umount(mnt, flags);
@@ -1295,7 +1295,7 @@ SYSCALL_DEFINE1(oldumount, char __user *, name)
 
 static int mount_is_safe(struct path *path)
 {
-	if (capable(CAP_SYS_ADMIN))
+	if (ns_capable(real_mount(path->mnt)->mnt_ns->user_ns, CAP_SYS_ADMIN))
 		return 0;
 	return -EPERM;
 #ifdef notyet
@@ -1633,7 +1633,7 @@ static int do_change_type(struct path *path, int flag)
 	int type;
 	int err = 0;
 
-	if (!capable(CAP_SYS_ADMIN))
+	if (!ns_capable(mnt->mnt_ns->user_ns, CAP_SYS_ADMIN))
 		return -EPERM;
 
 	if (path->dentry != path->mnt->mnt_root)
@@ -1797,7 +1797,7 @@ static int do_move_mount(struct path *path, char *old_name)
 	struct mount *p;
 	struct mount *old;
 	int err = 0;
-	if (!capable(CAP_SYS_ADMIN))
+	if (!ns_capable(real_mount(path->mnt)->mnt_ns->user_ns, CAP_SYS_ADMIN))
 		return -EPERM;
 	if (!old_name || !*old_name)
 		return -EINVAL;
@@ -1891,6 +1891,8 @@ do_kern_mount(const char *fstype, int flags, const char *name, void *data)
 	struct vfsmount *mnt;
 	if (!type)
 		return ERR_PTR(-ENODEV);
+	if (!(type->fs_flags & FS_USERNS_MOUNT) && !capable(CAP_SYS_ADMIN))
+		return ERR_PTR(-EPERM);
 	mnt = vfs_kern_mount(type, flags, name, data);
 	if (!IS_ERR(mnt) && (type->fs_flags & FS_HAS_SUBTYPE) &&
 	    !mnt->mnt_sb->s_subtype)
@@ -1941,6 +1943,7 @@ unlock:
 static int do_new_mount(struct path *path, char *type, int flags,
 			int mnt_flags, char *name, void *data)
 {
+	struct user_namespace *user_ns;
 	struct vfsmount *mnt;
 	int err;
 
@@ -1948,7 +1951,8 @@ static int do_new_mount(struct path *path, char *type, int flags,
 		return -EINVAL;
 
 	/* we need capabilities... */
-	if (!capable(CAP_SYS_ADMIN))
+	user_ns = real_mount(path->mnt)->mnt_ns->user_ns;
+	if (!ns_capable(user_ns, CAP_SYS_ADMIN))
 		return -EPERM;
 
 	mnt = do_kern_mount(type, flags, name, data);
@@ -2543,7 +2547,7 @@ SYSCALL_DEFINE2(pivot_root, const char __user *, new_root,
 	struct mount *new_mnt, *root_mnt;
 	int error;
 
-	if (!capable(CAP_SYS_ADMIN))
+	if (!ns_capable(current->nsproxy->mnt_ns->user_ns, CAP_SYS_ADMIN))
 		return -EPERM;
 
 	error = user_path_dir(new_root, &new);
@@ -2751,7 +2755,8 @@ static int mntns_install(struct nsproxy *nsproxy, void *ns)
 	struct mnt_namespace *mnt_ns = ns;
 	struct path root;
 
-	if (!capable(CAP_SYS_ADMIN) || !capable(CAP_SYS_CHROOT))
+	if (!ns_capable(mnt_ns->user_ns, CAP_SYS_ADMIN) ||
+	    !nsown_capable(CAP_SYS_CHROOT))
 		return -EINVAL;
 
 	if (fs->users != 1)
