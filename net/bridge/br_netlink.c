@@ -153,6 +153,9 @@ static int br_rtm_setlink(struct sk_buff *skb,  struct nlmsghdr *nlh, void *arg)
 	struct net_bridge_port *p;
 	u8 new_state;
 
+	if (!capable(CAP_NET_ADMIN))
+		return -EPERM;
+
 	if (nlmsg_len(nlh) < sizeof(*ifm))
 		return -EINVAL;
 
