@@ -2335,9 +2335,6 @@ static int inet6_rtm_delroute(struct sk_buff *skb, struct nlmsghdr* nlh, void *a
 	struct fib6_config cfg;
 	int err;
 
-	if (!capable(CAP_NET_ADMIN))
-		return -EPERM;
-
 	err = rtm_to_fib6_config(skb, nlh, &cfg);
 	if (err < 0)
 		return err;
@@ -2349,9 +2346,6 @@ static int inet6_rtm_newroute(struct sk_buff *skb, struct nlmsghdr* nlh, void *a
 {
 	struct fib6_config cfg;
 	int err;
-
-	if (!capable(CAP_NET_ADMIN))
-		return -EPERM;
 
 	err = rtm_to_fib6_config(skb, nlh, &cfg);
 	if (err < 0)
