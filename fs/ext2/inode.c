@@ -1290,6 +1290,7 @@ void ext2_get_inode_flags(struct ext2_inode_info *ei)
 
 struct inode *ext2_iget (struct super_block *sb, unsigned long ino)
 {
+	struct ext2_sb_info *sbi = EXT2_SB(sb);
 	struct ext2_inode_info *ei;
 	struct buffer_head * bh;
 	struct ext2_inode *raw_inode;
@@ -1315,14 +1316,27 @@ struct inode *ext2_iget (struct super_block *sb, unsigned long ino)
 	}
 
 	inode->i_mode = le16_to_cpu(raw_inode->i_mode);
+	if ((S_ISCHR(inode->i_mode) || S_ISBLK(inode->i_mode)) &&
+	    (sbi->user_ns != &init_user_ns)) {
+		/* Unprivileged device nodes are not allowed */
+		brelse (bh);
+		ret = -EOVERFLOW;
+		goto bad_inode;
+	}
 	i_uid = (uid_t)le16_to_cpu(raw_inode->i_uid_low);
 	i_gid = (gid_t)le16_to_cpu(raw_inode->i_gid_low);
 	if (!(test_opt (inode->i_sb, NO_UID32))) {
 		i_uid |= le16_to_cpu(raw_inode->i_uid_high) << 16;
 		i_gid |= le16_to_cpu(raw_inode->i_gid_high) << 16;
 	}
-	i_uid_write(inode, i_uid);
-	i_gid_write(inode, i_gid);
+	inode->i_uid = make_kuid(sbi->user_ns, i_uid);
+	inode->i_gid = make_kgid(sbi->user_ns, i_gid);
+	if (!uid_valid(inode->i_uid) || !gid_valid(inode->i_gid)) {
+		/* The uid or gid has no mapping */
+		brelse (bh);
+		ret = -EOVERFLOW;
+		goto bad_inode;
+	}
 	set_nlink(inode, le16_to_cpu(raw_inode->i_links_count));
 	inode->i_size = le32_to_cpu(raw_inode->i_size);
 	inode->i_atime.tv_sec = (signed)le32_to_cpu(raw_inode->i_atime);
@@ -1419,9 +1433,10 @@ static int __ext2_write_inode(struct inode *inode, int do_sync)
 {
 	struct ext2_inode_info *ei = EXT2_I(inode);
 	struct super_block *sb = inode->i_sb;
+	struct ext2_sb_info *sbi = EXT2_SB(sb);
 	ino_t ino = inode->i_ino;
-	uid_t uid = i_uid_read(inode);
-	gid_t gid = i_gid_read(inode);
+	uid_t uid;
+	gid_t gid;
 	struct buffer_head * bh;
 	struct ext2_inode * raw_inode = ext2_get_inode(sb, ino, &bh);
 	int n;
@@ -1429,6 +1444,14 @@ static int __ext2_write_inode(struct inode *inode, int do_sync)
 
 	if (IS_ERR(raw_inode))
  		return -EIO;
+
+	uid = from_kuid(sbi->user_ns, inode->i_uid);
+	if (uid == (uid_t)-1)
+		uid = fs_overflowuid;
+
+	gid = from_kgid(sbi->user_ns, inode->i_gid);
+	if (gid == (gid_t)-1)
+		gid = fs_overflowgid;
 
 	/* For fields not not tracking in the in-memory inode,
 	 * initialise them to zero for new inodes. */
