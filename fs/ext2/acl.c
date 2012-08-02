@@ -16,7 +16,8 @@
  * Convert from filesystem to in-memory representation.
  */
 static struct posix_acl *
-ext2_acl_from_disk(const void *value, size_t size)
+ext2_acl_from_disk(struct user_namespace *user_ns,
+		   const void *value, size_t size)
 {
 	const char *end = (char *)value + size;
 	int n, count;
@@ -59,7 +60,7 @@ ext2_acl_from_disk(const void *value, size_t size)
 				if ((char *)value > end)
 					goto fail;
 				acl->a_entries[n].e_uid =
-					make_kuid(&init_user_ns,
+					make_kuid(user_ns,
 						  le32_to_cpu(entry->e_id));
 				break;
 			case ACL_GROUP:
@@ -67,7 +68,7 @@ ext2_acl_from_disk(const void *value, size_t size)
 				if ((char *)value > end)
 					goto fail;
 				acl->a_entries[n].e_gid =
-					make_kgid(&init_user_ns,
+					make_kgid(user_ns,
 						  le32_to_cpu(entry->e_id));
 				break;
 
@@ -88,7 +89,8 @@ fail:
  * Convert from in-memory to filesystem representation.
  */
 static void *
-ext2_acl_to_disk(const struct posix_acl *acl, size_t *size)
+ext2_acl_to_disk(struct user_namespace *user_ns,
+		 const struct posix_acl *acl, size_t *size)
 {
 	ext2_acl_header *ext_acl;
 	char *e;
@@ -109,12 +111,12 @@ ext2_acl_to_disk(const struct posix_acl *acl, size_t *size)
 		switch(acl_e->e_tag) {
 			case ACL_USER:
 				entry->e_id = cpu_to_le32(
-					from_kuid(&init_user_ns, acl_e->e_uid));
+					from_kuid(user_ns, acl_e->e_uid));
 				e += sizeof(ext2_acl_entry);
 				break;
 			case ACL_GROUP:
 				entry->e_id = cpu_to_le32(
-					from_kgid(&init_user_ns, acl_e->e_gid));
+					from_kgid(user_ns, acl_e->e_gid));
 				e += sizeof(ext2_acl_entry);
 				break;
 
@@ -165,7 +167,7 @@ ext2_get_acl(struct inode *inode, int type)
 		retval = ext2_xattr_get(inode, name_index, "", value, retval);
 	}
 	if (retval > 0)
-		acl = ext2_acl_from_disk(value, retval);
+		acl = ext2_acl_from_disk(inode->i_sb->s_user_ns, value, retval);
 	else if (retval == -ENODATA || retval == -ENOSYS)
 		acl = NULL;
 	else
@@ -215,7 +217,7 @@ ext2_set_acl(struct inode *inode, struct posix_acl *acl, int type)
 			return -EINVAL;
 	}
  	if (acl) {
-		value = ext2_acl_to_disk(acl, &size);
+		value = ext2_acl_to_disk(inode->i_sb->s_user_ns, acl, &size);
 		if (IS_ERR(value))
 			return (int)PTR_ERR(value);
 	}
