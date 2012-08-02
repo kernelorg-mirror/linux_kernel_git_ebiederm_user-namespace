@@ -31,6 +31,7 @@
 #include <linux/mount.h>
 #include <linux/log2.h>
 #include <linux/quotaops.h>
+#include <linux/user_namespace.h>
 #include <asm/uaccess.h>
 #include "ext2.h"
 #include "xattr.h"
@@ -152,6 +153,7 @@ static void ext2_put_super (struct super_block * sb)
 	percpu_counter_destroy(&sbi->s_dirs_counter);
 	brelse (sbi->s_sbh);
 	sb->s_fs_info = NULL;
+	put_user_ns(sbi->user_ns);
 	kfree(sbi->s_blockgroup_lock);
 	kfree(sbi);
 }
@@ -227,15 +229,15 @@ static int ext2_show_options(struct seq_file *seq, struct dentry *root)
 		seq_puts(seq, ",grpid");
 	if (!test_opt(sb, GRPID) && (def_mount_opts & EXT2_DEFM_BSDGROUPS))
 		seq_puts(seq, ",nogrpid");
-	if (!uid_eq(sbi->s_resuid, make_kuid(&init_user_ns, EXT2_DEF_RESUID)) ||
+	if (!uid_eq(sbi->s_resuid, make_kuid(sbi->user_ns, EXT2_DEF_RESUID)) ||
 	    le16_to_cpu(es->s_def_resuid) != EXT2_DEF_RESUID) {
 		seq_printf(seq, ",resuid=%u",
-				from_kuid_munged(&init_user_ns, sbi->s_resuid));
+				from_kuid_munged(sbi->user_ns, sbi->s_resuid));
 	}
-	if (!gid_eq(sbi->s_resgid, make_kgid(&init_user_ns, EXT2_DEF_RESGID)) ||
+	if (!gid_eq(sbi->s_resgid, make_kgid(sbi->user_ns, EXT2_DEF_RESGID)) ||
 	    le16_to_cpu(es->s_def_resgid) != EXT2_DEF_RESGID) {
 		seq_printf(seq, ",resgid=%u",
-				from_kgid_munged(&init_user_ns, sbi->s_resgid));
+				from_kgid_munged(sbi->user_ns, sbi->s_resgid));
 	}
 	if (test_opt(sb, ERRORS_RO)) {
 		int def_errors = le16_to_cpu(es->s_errors);
@@ -784,6 +786,7 @@ static int ext2_fill_super(struct super_block *sb, void *data, int silent)
 		goto failed;
 	}
 	sb->s_fs_info = sbi;
+	sbi->user_ns = get_user_ns(current_user_ns());
 	sbi->s_sb_block = sb_block;
 
 	spin_lock_init(&sbi->s_lock);
@@ -851,8 +854,8 @@ static int ext2_fill_super(struct super_block *sb, void *data, int silent)
 	else
 		set_opt(sbi->s_mount_opt, ERRORS_RO);
 
-	sbi->s_resuid = make_kuid(&init_user_ns, le16_to_cpu(es->s_def_resuid));
-	sbi->s_resgid = make_kgid(&init_user_ns, le16_to_cpu(es->s_def_resgid));
+	sbi->s_resuid = make_kuid(sbi->user_ns, le16_to_cpu(es->s_def_resuid));
+	sbi->s_resgid = make_kgid(sbi->user_ns, le16_to_cpu(es->s_def_resgid));
 	
 	set_opt(sbi->s_mount_opt, RESERVATION);
 
@@ -1132,6 +1135,7 @@ failed_mount:
 	brelse(bh);
 failed_sbi:
 	sb->s_fs_info = NULL;
+	put_user_ns(sbi->user_ns);
 	kfree(sbi->s_blockgroup_lock);
 	kfree(sbi);
 failed:
@@ -1529,7 +1533,7 @@ static struct file_system_type ext2_fs_type = {
 	.name		= "ext2",
 	.mount		= ext2_mount,
 	.kill_sb	= kill_block_super,
-	.fs_flags	= FS_REQUIRES_DEV,
+	.fs_flags	= FS_REQUIRES_DEV | FS_USERNS_MOUNT,
 };
 
 static int __init init_ext2_fs(void)
