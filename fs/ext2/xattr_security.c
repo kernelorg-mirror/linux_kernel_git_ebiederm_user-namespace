@@ -14,6 +14,9 @@ ext2_xattr_security_list(struct dentry *dentry, char *list, size_t list_size,
 	const int prefix_len = XATTR_SECURITY_PREFIX_LEN;
 	const size_t total_len = prefix_len + name_len + 1;
 
+	if (dentry->d_inode->i_sb->s_user_ns != &init_user_ns)
+		return 0;
+
 	if (list && total_len <= list_size) {
 		memcpy(list, XATTR_SECURITY_PREFIX, prefix_len);
 		memcpy(list+prefix_len, name, name_len);
@@ -26,6 +29,9 @@ static int
 ext2_xattr_security_get(struct dentry *dentry, const char *name,
 		       void *buffer, size_t size, int type)
 {
+	if (dentry->d_inode->i_sb->s_user_ns != &init_user_ns)
+		return -EOPNOTSUPP;
+
 	if (strcmp(name, "") == 0)
 		return -EINVAL;
 	return ext2_xattr_get(dentry->d_inode, EXT2_XATTR_INDEX_SECURITY, name,
@@ -36,6 +42,9 @@ static int
 ext2_xattr_security_set(struct dentry *dentry, const char *name,
 		const void *value, size_t size, int flags, int type)
 {
+	if (dentry->d_inode->i_sb->s_user_ns != &init_user_ns)
+		return -EOPNOTSUPP;
+
 	if (strcmp(name, "") == 0)
 		return -EINVAL;
 	return ext2_xattr_set(dentry->d_inode, EXT2_XATTR_INDEX_SECURITY, name,
@@ -62,6 +71,8 @@ int
 ext2_init_security(struct inode *inode, struct inode *dir,
 		   const struct qstr *qstr)
 {
+	if (inode->i_sb->s_user_ns != &init_user_ns)
+		return 0;
 	return security_inode_init_security(inode, dir, qstr,
 					    &ext2_initxattrs, NULL);
 }
