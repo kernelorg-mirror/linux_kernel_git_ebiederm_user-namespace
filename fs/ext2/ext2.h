@@ -80,6 +80,7 @@ struct ext2_sb_info {
 	struct buffer_head * s_sbh;	/* Buffer containing the super block */
 	struct ext2_super_block * s_es;	/* Pointer to the super block in the buffer */
 	struct buffer_head ** s_group_desc;
+	struct user_namespace *user_ns;	/* Context in which to interpret uids and gid */
 	unsigned long  s_mount_opt;
 	unsigned long s_sb_block;
 	kuid_t s_resuid;
