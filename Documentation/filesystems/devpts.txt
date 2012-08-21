@@ -6,33 +6,23 @@ allocated in other instances of devpts.
 To preserve backward compatibility, this support for multiple instances is
 enabled only if:
 
-	- CONFIG_DEVPTS_MULTIPLE_INSTANCES=y, and
 	- '-o newinstance' mount option is specified while mounting devpts
 
 IOW, devpts now supports both single-instance and multi-instance semantics.
 
-If CONFIG_DEVPTS_MULTIPLE_INSTANCES=n, there is no change in behavior and
-this referred to as the "legacy" mode. In this mode, the new mount options
-(-o newinstance and -o ptmxmode) will be ignored with a 'bogus option' message
-on console.
+If devpts is mounted without the 'newinstance' option (as in current
+start-up scripts) the new mount binds to the initial kernel mount of
+devpts. This mode is referred to as the 'single-instance' mode and the
+current, single-instance semantics are preserved, i.e PTYs are common
+across the system.
 
-If CONFIG_DEVPTS_MULTIPLE_INSTANCES=y and devpts is mounted without the
-'newinstance' option (as in current start-up scripts) the new mount binds
-to the initial kernel mount of devpts. This mode is referred to as the
-'single-instance' mode and the current, single-instance semantics are
-preserved, i.e PTYs are common across the system.
-
-The only difference between this single-instance mode and the legacy mode
-is the presence of new, '/dev/pts/ptmx' node with permissions 0000, which
-can safely be ignored.
-
-If CONFIG_DEVPTS_MULTIPLE_INSTANCES=y and 'newinstance' option is specified,
-the mount is considered to be in the multi-instance mode and a new instance
-of the devpts fs is created. Any ptys created in this instance are independent
-of ptys in other instances of devpts. Like in the single-instance mode, the
-/dev/pts/ptmx node is present. To effectively use the multi-instance mode,
-open of /dev/ptmx must be a redirected to '/dev/pts/ptmx' using a symlink or
-bind-mount.
+If 'newinstance' option is specified, the mount is considered to be in
+the multi-instance mode and a new instance of the devpts fs is
+created. Any ptys created in this instance are independent of ptys in
+other instances of devpts. Like in the single-instance mode, the
+/dev/pts/ptmx node is present. To effectively use the multi-instance
+mode, open of /dev/ptmx must be a redirected to '/dev/pts/ptmx' using
+a symlink or bind-mount.
 
 Eg: A container startup script could do the following:
 
