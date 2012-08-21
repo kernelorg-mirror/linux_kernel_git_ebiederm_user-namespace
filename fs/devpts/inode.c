@@ -109,11 +109,9 @@ static const match_table_t tokens = {
 	{Opt_uid, "uid=%u"},
 	{Opt_gid, "gid=%u"},
 	{Opt_mode, "mode=%o"},
-#ifdef CONFIG_DEVPTS_MULTIPLE_INSTANCES
 	{Opt_ptmxmode, "ptmxmode=%o"},
 	{Opt_newinstance, "newinstance"},
 	{Opt_max, "max=%d"},
-#endif
 	{Opt_err, NULL}
 };
 
@@ -130,10 +128,8 @@ static inline struct pts_fs_info *DEVPTS_SB(struct super_block *sb)
 
 static inline struct super_block *pts_sb_from_inode(struct inode *inode)
 {
-#ifdef CONFIG_DEVPTS_MULTIPLE_INSTANCES
 	if (inode->i_sb->s_magic == DEVPTS_SUPER_MAGIC)
 		return inode->i_sb;
-#endif
 	return devpts_mnt->mnt_sb;
 }
 
@@ -200,7 +196,6 @@ static int parse_mount_options(char *data, int op, struct pts_mount_opts *opts)
 				return -EINVAL;
 			opts->mode = option & S_IALLUGO;
 			break;
-#ifdef CONFIG_DEVPTS_MULTIPLE_INSTANCES
 		case Opt_ptmxmode:
 			if (match_octal(&args[0], &option))
 				return -EINVAL;
@@ -217,7 +212,6 @@ static int parse_mount_options(char *data, int op, struct pts_mount_opts *opts)
 				return -EINVAL;
 			opts->max = option;
 			break;
-#endif
 		default:
 			pr_err("called with bogus options\n");
 			return -EINVAL;
@@ -227,7 +221,6 @@ static int parse_mount_options(char *data, int op, struct pts_mount_opts *opts)
 	return 0;
 }
 
-#ifdef CONFIG_DEVPTS_MULTIPLE_INSTANCES
 static int mknod_ptmx(struct super_block *sb)
 {
 	int mode;
@@ -294,12 +287,6 @@ static void update_ptmx_mode(struct pts_fs_info *fsi)
 		inode->i_mode = S_IFCHR|fsi->mount_opts.ptmxmode;
 	}
 }
-#else
-static inline void update_ptmx_mode(struct pts_fs_info *fsi)
-{
-	return;
-}
-#endif
 
 static int devpts_remount(struct super_block *sb, int *flags, char *data)
 {
@@ -333,11 +320,9 @@ static int devpts_show_options(struct seq_file *seq, struct dentry *root)
 		seq_printf(seq, ",gid=%u",
 			   from_kgid_munged(&init_user_ns, opts->gid));
 	seq_printf(seq, ",mode=%03o", opts->mode);
-#ifdef CONFIG_DEVPTS_MULTIPLE_INSTANCES
 	seq_printf(seq, ",ptmxmode=%03o", opts->ptmxmode);
 	if (opts->max < NR_UNIX98_PTY_MAX)
 		seq_printf(seq, ",max=%d", opts->max);
-#endif
 
 	return 0;
 }
@@ -398,7 +383,6 @@ fail:
 	return -ENOMEM;
 }
 
-#ifdef CONFIG_DEVPTS_MULTIPLE_INSTANCES
 static int compare_init_pts_sb(struct super_block *s, void *p)
 {
 	if (devpts_mnt)
@@ -479,18 +463,6 @@ out_undo_sget:
 	return ERR_PTR(error);
 }
 
-#else
-/*
- * This supports only the legacy single-instance semantics (no
- * multiple-instance semantics)
- */
-static struct dentry *devpts_mount(struct file_system_type *fs_type, int flags,
-		const char *dev_name, void *data)
-{
-	return mount_single(fs_type, flags, data, devpts_fill_super);
-}
-#endif
-
 static void devpts_kill_sb(struct super_block *sb)
 {
 	struct pts_fs_info *fsi = DEVPTS_SB(sb);
@@ -504,9 +476,7 @@ static struct file_system_type devpts_fs_type = {
 	.name		= "devpts",
 	.mount		= devpts_mount,
 	.kill_sb	= devpts_kill_sb,
-#ifdef CONFIG_DEVPTS_MULTIPLE_INSTANCES
 	.fs_flags	= FS_USERNS_MOUNT | FS_USERNS_DEV_MOUNT,
-#endif
 };
 
 /*
