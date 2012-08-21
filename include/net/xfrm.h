@@ -727,7 +727,7 @@ static inline void xfrm_audit_policy_delete(struct xfrm_policy *xp, int result,
 }
 
 static inline void xfrm_audit_state_add(struct xfrm_state *x, int result,
-				 kuidt_t auid, u32 ses, u32 secid)
+				 kuid_t auid, u32 ses, u32 secid)
 {
 }
 
