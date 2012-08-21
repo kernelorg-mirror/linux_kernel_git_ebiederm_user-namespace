@@ -212,6 +212,13 @@ static int mknod_ptmx(struct super_block *sb)
 	struct dentry *root = sb->s_root;
 	struct pts_fs_info *fsi = DEVPTS_SB(sb);
 	struct pts_mount_opts *opts = &fsi->mount_opts;
+	kuid_t root_uid;
+	kgid_t root_gid;
+
+	root_uid = make_kuid(current_user_ns(), 0);
+	root_gid = make_kgid(current_user_ns(), 0);
+	if (!uid_valid(root_uid) || !gid_valid(root_gid))
+		return -EINVAL;
 
 	dentry = d_alloc_name(root, "ptmx");
 	if (!dentry) {
@@ -234,6 +241,8 @@ static int mknod_ptmx(struct super_block *sb)
 
 	mode = S_IFCHR|opts->ptmxmode;
 	init_special_inode(inode, mode, MKDEV(TTYAUX_MAJOR, 2));
+	inode->i_uid = root_uid;
+	inode->i_gid = root_gid;
 
 	d_add(dentry, inode);
 
@@ -369,6 +378,7 @@ static struct file_system_type devpts_fs_type = {
 	.name		= "devpts",
 	.mount		= devpts_mount,
 	.kill_sb	= devpts_kill_sb,
+	.fs_flags	= FS_USERNS_MOUNT | FS_USERNS_DEV_MOUNT,
 };
 
 struct vfsmount *devpts_mntget(struct file *filp)
