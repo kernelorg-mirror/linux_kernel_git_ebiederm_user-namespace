@@ -3504,9 +3504,10 @@ static char *tty_devnode(struct device *dev, umode_t *mode)
 {
 	if (!mode)
 		return NULL;
-	if (dev->devt == MKDEV(TTYAUX_MAJOR, 0) ||
-	    dev->devt == MKDEV(TTYAUX_MAJOR, 2))
+	if (dev->devt == MKDEV(TTYAUX_MAJOR, 0))
 		*mode = 0666;
+	if (dev->devt == MKDEV(TTYAUX_MAJOR, PTMX_MINOR))
+		*mode = DEVPTS_DEFAULT_PTMX_MODE;
 	return NULL;
 }
 
