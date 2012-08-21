@@ -15,6 +15,9 @@
 
 #include <linux/errno.h>
 
+#define DEVPTS_DEFAULT_PTMX_MODE 0666
+#define PTMX_MINOR	2
+
 #ifdef CONFIG_UNIX98_PTYS
 
 int devpts_new_index(struct inode *ptmx_inode);
