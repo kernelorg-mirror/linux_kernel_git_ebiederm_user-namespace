@@ -27,14 +27,6 @@
 #include <linux/seq_file.h>
 
 #define DEVPTS_DEFAULT_MODE 0600
-/*
- * ptmx is a new node in /dev/pts and will be unused in legacy (single-
- * instance) mode. To prevent surprises in user space, set permissions of
- * ptmx to 0. Use 'chmod' or remount with '-o ptmxmode' to set meaningful
- * permissions.
- */
-#define DEVPTS_DEFAULT_PTMX_MODE 0000
-#define PTMX_MINOR	2
 
 /*
  * sysctl support for setting limits on the number of Unix98 ptys allocated.
