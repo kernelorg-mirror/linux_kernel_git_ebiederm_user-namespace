@@ -25,6 +25,7 @@
 #include <linux/parser.h>
 #include <linux/fsnotify.h>
 #include <linux/seq_file.h>
+#include <linux/file.h>
 
 #define DEVPTS_DEFAULT_MODE 0600
 
@@ -94,7 +95,6 @@ struct pts_mount_opts {
 	kgid_t   gid;
 	umode_t mode;
 	umode_t ptmxmode;
-	int newinstance;
 	int max;
 };
 
@@ -116,7 +116,6 @@ static const match_table_t tokens = {
 struct pts_fs_info {
 	struct ida allocated_ptys;
 	struct pts_mount_opts mount_opts;
-	struct dentry *ptmx_dentry;
 };
 
 static inline struct pts_fs_info *DEVPTS_SB(struct super_block *sb)
@@ -157,10 +156,6 @@ static int parse_mount_options(char *data, int op, struct pts_mount_opts *opts)
 	opts->ptmxmode = DEVPTS_DEFAULT_PTMX_MODE;
 	opts->max     = NR_UNIX98_PTY_MAX;
 
-	/* newinstance makes sense only on initial mount */
-	if (op == PARSE_MOUNT)
-		opts->newinstance = 0;
-
 	while ((p = strsep(&data, ",")) != NULL) {
 		substring_t args[MAX_OPT_ARGS];
 		int token;
@@ -200,9 +195,7 @@ static int parse_mount_options(char *data, int op, struct pts_mount_opts *opts)
 			opts->ptmxmode = option & S_IALLUGO;
 			break;
 		case Opt_newinstance:
-			/* newinstance makes sense only on initial mount */
-			if (op == PARSE_MOUNT)
-				opts->newinstance = 1;
+			/* Historical */
 			break;
 		case Opt_max:
 			if (match_int(&args[0], &option) ||
@@ -236,14 +229,6 @@ static int mknod_ptmx(struct super_block *sb)
 	if (!uid_valid(root_uid) || !gid_valid(root_gid))
 		return -EINVAL;
 
-	mutex_lock(&root->d_inode->i_mutex);
-
-	/* If we have already created ptmx node, return */
-	if (fsi->ptmx_dentry) {
-		rc = 0;
-		goto out;
-	}
-
 	dentry = d_alloc_name(root, "ptmx");
 	if (!dentry) {
 		printk(KERN_NOTICE "Unable to alloc dentry for ptmx node\n");
@@ -270,39 +255,17 @@ static int mknod_ptmx(struct super_block *sb)
 
 	d_add(dentry, inode);
 
-	fsi->ptmx_dentry = dentry;
 	rc = 0;
 out:
-	mutex_unlock(&root->d_inode->i_mutex);
 	return rc;
-}
-
-static void update_ptmx_mode(struct pts_fs_info *fsi)
-{
-	struct inode *inode;
-	if (fsi->ptmx_dentry) {
-		inode = fsi->ptmx_dentry->d_inode;
-		inode->i_mode = S_IFCHR|fsi->mount_opts.ptmxmode;
-	}
 }
 
 static int devpts_remount(struct super_block *sb, int *flags, char *data)
 {
-	int err;
 	struct pts_fs_info *fsi = DEVPTS_SB(sb);
 	struct pts_mount_opts *opts = &fsi->mount_opts;
 
-	err = parse_mount_options(data, PARSE_REMOUNT, opts);
-
-	/*
-	 * parse_mount_options() restores options to default values
-	 * before parsing and may have changed ptmxmode. So, update the
-	 * mode in the inode too. Bogus options don't fail the remount,
-	 * so do this even on error return.
-	 */
-	update_ptmx_mode(fsi);
-
-	return err;
+	return  parse_mount_options(data, PARSE_REMOUNT, opts);
 }
 
 static int devpts_show_options(struct seq_file *seq, struct dentry *root)
@@ -328,7 +291,7 @@ static const struct super_operations devpts_sops = {
 	.show_options	= devpts_show_options,
 };
 
-static void *new_pts_fs_info(void)
+static struct pts_fs_info *new_pts_fs_info(void)
 {
 	struct pts_fs_info *fsi;
 
@@ -347,6 +310,8 @@ static int
 devpts_fill_super(struct super_block *s, void *data, int silent)
 {
 	struct inode *inode;
+	struct pts_fs_info *fsi;
+	int error = -ENOMEM;
 
 	s->s_blocksize = 1024;
 	s->s_blocksize_bits = 10;
@@ -354,13 +319,18 @@ devpts_fill_super(struct super_block *s, void *data, int silent)
 	s->s_op = &devpts_sops;
 	s->s_time_gran = 1;
 
-	s->s_fs_info = new_pts_fs_info();
-	if (!s->s_fs_info)
+	fsi = new_pts_fs_info();
+	s->s_fs_info = fsi;
+	if (!fsi)
 		goto fail;
+
+	error = parse_mount_options(data, PARSE_MOUNT, &fsi->mount_opts);
+	if (error)
+		goto fail_kfree;
 
 	inode = new_inode(s);
 	if (!inode)
-		goto fail;
+		goto fail_kfree;
 	inode->i_ino = 1;
 	inode->i_mtime = inode->i_atime = inode->i_ctime = CURRENT_TIME;
 	inode->i_mode = S_IFDIR | S_IRUGO | S_IXUGO | S_IWUSR;
@@ -369,93 +339,40 @@ devpts_fill_super(struct super_block *s, void *data, int silent)
 	set_nlink(inode, 2);
 
 	s->s_root = d_make_root(inode);
-	if (s->s_root)
-		return 0;
+	if (!s->s_root) {
+		printk(KERN_ERR "devpts: get root dentry failed\n");
+		goto fail_iput;
+	}
 
-	printk(KERN_ERR "devpts: get root dentry failed\n");
+	error = mknod_ptmx(s);
+	if (error)
+		goto fail_put_root;
 
+	return 0;
+
+fail_put_root:
+	dput(s->s_root);
+	s->s_root = NULL;
+fail_iput:
+	iput(inode);
+fail_kfree:
+	kfree(fsi);
 fail:
 	return -ENOMEM;
 }
 
-static int compare_init_pts_sb(struct super_block *s, void *p)
-{
-	if (devpts_mnt)
-		return devpts_mnt->mnt_sb == s;
-	return 0;
-}
 
 /*
  * devpts_mount()
  *
- *     If the '-o newinstance' mount option was specified, mount a new
- *     (private) instance of devpts.  PTYs created in this instance are
- *     independent of the PTYs in other devpts instances.
+ *     Mount a new (private) instance of devpts.  PTYs created in this
+ *     instance are independent of the PTYs in other devpts instances.
  *
- *     If the '-o newinstance' option was not specified, mount/remount the
- *     initial kernel mount of devpts.  This type of mount gives the
- *     legacy, single-instance semantics.
- *
- *     The 'newinstance' option is needed to support multiple namespace
- *     semantics in devpts while preserving backward compatibility of the
- *     current 'single-namespace' semantics. i.e all mounts of devpts
- *     without the 'newinstance' mount option should bind to the initial
- *     kernel mount, like mount_single().
- *
- *     Mounts with 'newinstance' option create a new, private namespace.
- *
- *     NOTE:
- *
- *     For single-mount semantics, devpts cannot use mount_single(),
- *     because mount_single()/sget() find and use the super-block from
- *     the most recent mount of devpts. But that recent mount may be a
- *     'newinstance' mount and mount_single() would pick the newinstance
- *     super-block instead of the initial super-block.
  */
 static struct dentry *devpts_mount(struct file_system_type *fs_type,
 	int flags, const char *dev_name, void *data)
 {
-	int error;
-	struct pts_mount_opts opts;
-	struct super_block *s;
-
-	error = parse_mount_options(data, PARSE_MOUNT, &opts);
-	if (error)
-		return ERR_PTR(error);
-
-	/* Require newinstance for all user namespace mounts to ensure
-	 * the mount options are not changed.
-	 */
-	if ((current_user_ns() != &init_user_ns) && !opts.newinstance)
-		return ERR_PTR(-EINVAL);
-
-	if (opts.newinstance)
-		s = sget(fs_type, NULL, set_anon_super, flags, NULL);
-	else
-		s = sget(fs_type, compare_init_pts_sb, set_anon_super, flags,
-			 NULL);
-
-	if (IS_ERR(s))
-		return ERR_CAST(s);
-
-	if (!s->s_root) {
-		error = devpts_fill_super(s, data, flags & MS_SILENT ? 1 : 0);
-		if (error)
-			goto out_undo_sget;
-		s->s_flags |= MS_ACTIVE;
-	}
-
-	memcpy(&(DEVPTS_SB(s))->mount_opts, &opts, sizeof(opts));
-
-	error = mknod_ptmx(s);
-	if (error)
-		goto out_undo_sget;
-
-	return dget(s->s_root);
-
-out_undo_sget:
-	deactivate_locked_super(s);
-	return ERR_PTR(error);
+	return mount_nodev(fs_type, flags, data, devpts_fill_super);
 }
 
 static void devpts_kill_sb(struct super_block *sb)
@@ -470,9 +387,7 @@ static struct file_system_type devpts_fs_type = {
 	.name		= "devpts",
 	.mount		= devpts_mount,
 	.kill_sb	= devpts_kill_sb,
-#ifdef CONFIG_DEVPTS_MULTIPLE_INSTANCES
 	.fs_flags	= FS_USERNS_MOUNT | FS_USERNS_DEV_MOUNT,
-#endif
 };
 
 /*
@@ -492,8 +407,7 @@ retry:
 		return -ENOMEM;
 
 	mutex_lock(&allocated_ptys_lock);
-	if (pty_count >= pty_limit -
-			(fsi->mount_opts.newinstance ? pty_reserve : 0)) {
+	if (pty_count >= pty_limit - pty_reserve) {
 		mutex_unlock(&allocated_ptys_lock);
 		return -ENOSPC;
 	}
