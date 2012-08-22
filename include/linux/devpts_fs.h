@@ -20,6 +20,7 @@
 
 #ifdef CONFIG_UNIX98_PTYS
 
+struct inode *devpts_redirect(struct file *filp);
 int devpts_new_index(struct inode *ptmx_inode);
 void devpts_kill_index(struct inode *ptmx_inode, int idx);
 /* mknod in devpts */
@@ -32,6 +33,10 @@ void devpts_pty_kill(struct tty_struct *tty);
 #else
 
 /* Dummy stubs in the no-pty case */
+static inline struct inode *devpts_redirect(struct file *filp)
+{
+	return ERR_PTR(-ENODEV);
+}
 static inline int devpts_new_index(struct inode *ptmx_inode) { return -EINVAL; }
 static inline void devpts_kill_index(struct inode *ptmx_inode, int idx) { }
 static inline int devpts_pty_new(struct inode *ptmx_inode,
