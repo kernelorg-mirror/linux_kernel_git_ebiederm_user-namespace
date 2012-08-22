@@ -615,6 +615,10 @@ static int ptmx_open(struct inode *inode, struct file *filp)
 	int retval;
 	int index;
 
+	inode = devpts_redirect(filp);
+	if (IS_ERR(inode))
+		return PTR_ERR(inode);
+
 	nonseekable_open(inode, filp);
 
 	retval = tty_alloc_file(filp);
