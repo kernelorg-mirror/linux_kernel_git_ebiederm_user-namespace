@@ -54,6 +54,7 @@ static void v1_mem2disk_dqblk(struct v1_disk_dqblk *d, struct mem_dqblk *m)
 
 static int v1_read_dqblk(struct dquot *dquot)
 {
+	struct user_namespace *user_ns = dquot->dq_sb->s_user_ns;
 	int type = dquot->dq_id.type;
 	struct v1_disk_dqblk dqblk;
 
@@ -64,7 +65,7 @@ static int v1_read_dqblk(struct dquot *dquot)
 	memset(&dqblk, 0, sizeof(struct v1_disk_dqblk));
 	dquot->dq_sb->s_op->quota_read(dquot->dq_sb, type, (char *)&dqblk,
 			sizeof(struct v1_disk_dqblk),
-			v1_dqoff(from_kqid(&init_user_ns, dquot->dq_id)));
+			v1_dqoff(from_kqid(user_ns, dquot->dq_id)));
 
 	v1_disk2mem_dqblk(&dquot->dq_dqb, &dqblk);
 	if (dquot->dq_dqb.dqb_bhardlimit == 0 &&
@@ -79,6 +80,7 @@ static int v1_read_dqblk(struct dquot *dquot)
 
 static int v1_commit_dqblk(struct dquot *dquot)
 {
+	struct user_namespace *user_ns = dquot->dq_sb->s_user_ns;
 	short type = dquot->dq_id.type;
 	ssize_t ret;
 	struct v1_disk_dqblk dqblk;
@@ -95,7 +97,7 @@ static int v1_commit_dqblk(struct dquot *dquot)
 	if (sb_dqopt(dquot->dq_sb)->files[type])
 		ret = dquot->dq_sb->s_op->quota_write(dquot->dq_sb, type,
 			(char *)&dqblk, sizeof(struct v1_disk_dqblk),
-			v1_dqoff(from_kqid(&init_user_ns, dquot->dq_id)));
+			v1_dqoff(from_kqid(user_ns, dquot->dq_id)));
 	if (ret != sizeof(struct v1_disk_dqblk)) {
 		quota_error(dquot->dq_sb, "dquota write failed");
 		if (ret >= 0)
