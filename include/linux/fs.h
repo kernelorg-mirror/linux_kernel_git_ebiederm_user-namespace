@@ -1248,6 +1248,9 @@ struct super_block {
 	/* Being remounted read-only */
 	int s_readonly_remount;
 
+	/* Context for libraries to interpret disk uids and gids */
+	struct user_namespace *s_user_ns;
+
 	/* AIO completions deferred from interrupt context */
 	struct workqueue_struct *s_dio_done_wq;
 
