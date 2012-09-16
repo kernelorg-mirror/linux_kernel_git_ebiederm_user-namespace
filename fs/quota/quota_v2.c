@@ -193,6 +193,7 @@ static void v2r0_disk2memdqb(struct dquot *dquot, void *dp)
 
 static void v2r0_mem2diskdqb(void *dp, struct dquot *dquot)
 {
+	struct user_namespace *user_ns = dquot->dq_sb->s_user_ns;
 	struct v2r0_disk_dqblk *d = dp;
 	struct mem_dqblk *m = &dquot->dq_dqb;
 	struct qtree_mem_dqinfo *info =
@@ -206,20 +207,21 @@ static void v2r0_mem2diskdqb(void *dp, struct dquot *dquot)
 	d->dqb_bsoftlimit = cpu_to_le32(v2_stoqb(m->dqb_bsoftlimit));
 	d->dqb_curspace = cpu_to_le64(m->dqb_curspace);
 	d->dqb_btime = cpu_to_le64(m->dqb_btime);
-	d->dqb_id = cpu_to_le32(from_kqid(&init_user_ns, dquot->dq_id));
+	d->dqb_id = cpu_to_le32(from_kqid(user_ns, dquot->dq_id));
 	if (qtree_entry_unused(info, dp))
 		d->dqb_itime = cpu_to_le64(1);
 }
 
 static int v2r0_is_id(void *dp, struct dquot *dquot)
 {
+	struct user_namespace *user_ns = dquot->dq_sb->s_user_ns;
 	struct v2r0_disk_dqblk *d = dp;
 	struct qtree_mem_dqinfo *info =
 			sb_dqinfo(dquot->dq_sb, dquot->dq_id.type)->dqi_priv;
 
 	if (qtree_entry_unused(info, dp))
 		return 0;
-	return qid_eq(make_kqid(&init_user_ns, dquot->dq_id.type,
+	return qid_eq(make_kqid(user_ns, dquot->dq_id.type,
 				le32_to_cpu(d->dqb_id)),
 		      dquot->dq_id);
 }
@@ -246,6 +248,7 @@ static void v2r1_disk2memdqb(struct dquot *dquot, void *dp)
 
 static void v2r1_mem2diskdqb(void *dp, struct dquot *dquot)
 {
+	struct user_namespace *user_ns = dquot->dq_sb->s_user_ns;
 	struct v2r1_disk_dqblk *d = dp;
 	struct mem_dqblk *m = &dquot->dq_dqb;
 	struct qtree_mem_dqinfo *info =
@@ -259,20 +262,21 @@ static void v2r1_mem2diskdqb(void *dp, struct dquot *dquot)
 	d->dqb_bsoftlimit = cpu_to_le64(v2_stoqb(m->dqb_bsoftlimit));
 	d->dqb_curspace = cpu_to_le64(m->dqb_curspace);
 	d->dqb_btime = cpu_to_le64(m->dqb_btime);
-	d->dqb_id = cpu_to_le32(from_kqid(&init_user_ns, dquot->dq_id));
+	d->dqb_id = cpu_to_le32(from_kqid(user_ns, dquot->dq_id));
 	if (qtree_entry_unused(info, dp))
 		d->dqb_itime = cpu_to_le64(1);
 }
 
 static int v2r1_is_id(void *dp, struct dquot *dquot)
 {
+	struct user_namespace *user_ns = dquot->dq_sb->s_user_ns;
 	struct v2r1_disk_dqblk *d = dp;
 	struct qtree_mem_dqinfo *info =
 			sb_dqinfo(dquot->dq_sb, dquot->dq_id.type)->dqi_priv;
 
 	if (qtree_entry_unused(info, dp))
 		return 0;
-	return qid_eq(make_kqid(&init_user_ns, dquot->dq_id.type,
+	return qid_eq(make_kqid(user_ns, dquot->dq_id.type,
 				le32_to_cpu(d->dqb_id)),
 		      dquot->dq_id);
 }
