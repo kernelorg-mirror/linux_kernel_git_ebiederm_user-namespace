@@ -229,6 +229,7 @@ static struct super_block *alloc_super(struct file_system_type *type, int flags)
 	s->s_shrink.count_objects = super_cache_count;
 	s->s_shrink.batch = 1024;
 	s->s_shrink.flags = SHRINKER_NUMA_AWARE;
+	s->s_user_ns = &init_user_ns;
 	return s;
 
 fail:
