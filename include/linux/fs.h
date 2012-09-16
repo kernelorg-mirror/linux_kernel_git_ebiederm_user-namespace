@@ -1320,6 +1320,9 @@ struct super_block {
 
 	/* Being remounted read-only */
 	int s_readonly_remount;
+
+	/* Context for libraries to interpret disk uids and gids */
+	struct user_namespace *s_user_ns;
 };
 
 /* superblock cache pruning functions */
