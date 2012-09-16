@@ -24,8 +24,9 @@ MODULE_LICENSE("GPL");
 
 static int get_index(struct qtree_mem_dqinfo *info, struct kqid qid, int depth)
 {
+	struct user_namespace *user_ns = info->dqi_sb->s_user_ns;
 	unsigned int epb = info->dqi_usable_bs >> 2;
-	qid_t id = from_kqid(&init_user_ns, qid);
+	qid_t id = from_kqid(user_ns, qid);
 
 	depth = info->dqi_qtree_depth - depth - 1;
 	while (depth--)
