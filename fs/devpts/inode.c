@@ -88,8 +88,6 @@ static struct ctl_table pty_root_table[] = {
 
 static DEFINE_MUTEX(allocated_ptys_lock);
 
-static struct vfsmount *devpts_mnt;
-
 struct pts_mount_opts {
 	int setuid;
 	int setgid;
@@ -392,12 +390,10 @@ static struct file_system_type devpts_fs_type = {
 
 struct vfsmount *devpts_mntget(struct file *filp)
 {
-	struct vfsmount *mnt;
+	struct vfsmount *mnt = ERR_PTR(-ENODEV);
 
 	if (filp->f_path.mnt->mnt_sb->s_magic == DEVPTS_SUPER_MAGIC)
 		mnt = mntget(filp->f_path.mnt);
-	else
-		mnt = mntget(devpts_mnt);
 	return mnt;
 }
 
@@ -558,15 +554,8 @@ static int __init init_devpts_fs(void)
 	int err = register_filesystem(&devpts_fs_type);
 	struct ctl_table_header *table;
 
-	if (!err) {
+	if (!err)
 		table = register_sysctl_table(pty_root_table);
-		devpts_mnt = kern_mount(&devpts_fs_type);
-		if (IS_ERR(devpts_mnt)) {
-			err = PTR_ERR(devpts_mnt);
-			unregister_filesystem(&devpts_fs_type);
-			unregister_sysctl_table(table);
-		}
-	}
 	return err;
 }
 module_init(init_devpts_fs)
