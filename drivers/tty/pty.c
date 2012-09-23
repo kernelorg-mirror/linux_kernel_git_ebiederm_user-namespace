@@ -4,6 +4,9 @@
  *  Added support for a Unix98-style ptmx device.
  *    -- C. Scott Ananian <cananian@alumni.princeton.edu>, 14-Jan-1998
  *
+ *  When reading this code see also fs/devpts. In particular note that the
+ *  driver_data field is used by the devpts side as a binding to the devpts
+ *  inode (pts) and the devpts mount (ptm).
  */
 
 #include <linux/module.h>
@@ -405,12 +408,6 @@ err:
 	return retval;
 }
 
-/* this is called once with whichever end is closed last */
-static void pty_unix98_shutdown(struct tty_struct *tty)
-{
-	devpts_kill_index(tty->driver_data, tty->index);
-}
-
 static void pty_cleanup(struct tty_struct *tty)
 {
 	tty->port->itty = NULL;
@@ -627,6 +624,17 @@ static void pty_unix98_remove(struct tty_driver *driver, struct tty_struct *tty)
 {
 }
 
+static void ptm_unix98_cleanup(struct tty_struct *tty)
+{
+	struct vfsmount *mnt = tty->driver_data;
+	if (mnt) {
+		/* Make this pty number available for reallocation */
+		devpts_kill_index(mnt, tty->index);
+		mntput(mnt);
+	}
+	pty_cleanup(tty);
+}
+
 static const struct tty_operations ptm_unix98_ops = {
 	.lookup = ptm_unix98_lookup,
 	.install = pty_unix98_install,
@@ -641,8 +649,7 @@ static const struct tty_operations ptm_unix98_ops = {
 	.set_termios = pty_set_termios,
 	.ioctl = pty_unix98_ioctl,
 	.resize = pty_resize,
-	.shutdown = pty_unix98_shutdown,
-	.cleanup = pty_cleanup
+	.cleanup = ptm_unix98_cleanup,
 };
 
 static const struct tty_operations pty_unix98_ops = {
@@ -657,7 +664,6 @@ static const struct tty_operations pty_unix98_ops = {
 	.chars_in_buffer = pty_chars_in_buffer,
 	.unthrottle = pty_unthrottle,
 	.set_termios = pty_set_termios,
-	.shutdown = pty_unix98_shutdown,
 	.cleanup = pty_cleanup,
 };
 
@@ -677,14 +683,18 @@ static int ptmx_open(struct inode *inode, struct file *filp)
 {
 	struct tty_struct *tty;
 	struct inode *slave_inode;
+	struct vfsmount *mnt;
 	int retval;
 	int index;
 
 	nonseekable_open(inode, filp);
 
+	/* Find the devpts instance we are working with */
+	mnt = devpts_mntget(filp);
+
 	retval = tty_alloc_file(filp);
 	if (retval)
-		return retval;
+		goto err_mnt;
 
 	/* find a device that is not in use. */
 	mutex_lock(&devpts_mutex);
@@ -713,6 +723,7 @@ static int ptmx_open(struct inode *inode, struct file *filp)
 	tty->driver_data = inode;
 
 	tty_add_file(tty, filp);
+	tty->driver_data = mnt;
 
 	slave_inode = devpts_pty_new(inode,
 			MKDEV(UNIX98_PTY_SLAVE_MAJOR, index), index,
@@ -735,9 +746,11 @@ err_release:
 	return retval;
 out:
 	mutex_unlock(&tty_mutex);
-	devpts_kill_index(inode, index);
+	devpts_kill_index(mnt, index);
 err_file:
 	tty_free_file(filp);
+err_mnt:
+	mntput(mnt);
 	return retval;
 }
 
