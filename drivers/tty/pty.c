@@ -6,7 +6,7 @@
  *
  *  When reading this code see also fs/devpts. In particular note that the
  *  driver_data field is used by the devpts side as a binding to the devpts
- *  inode.
+ *  inode (pts) and the devpts mount (ptm).
  */
 
 #include <linux/module.h>
@@ -567,6 +567,17 @@ static void pty_unix98_remove(struct tty_driver *driver, struct tty_struct *tty)
 {
 }
 
+static void ptm_unix98_cleanup(struct tty_struct *tty)
+{
+	struct vfsmount *mnt = tty->driver_data;
+	if (mnt) {
+		/* Make this pty number available for reallocation */
+		devpts_kill_index(mnt, tty->index);
+		mntput(mnt);
+	}
+	pty_cleanup(tty);
+}
+
 static const struct tty_operations ptm_unix98_ops = {
 	.lookup = ptm_unix98_lookup,
 	.install = pty_unix98_install,
@@ -581,7 +592,7 @@ static const struct tty_operations ptm_unix98_ops = {
 	.set_termios = pty_set_termios,
 	.ioctl = pty_unix98_ioctl,
 	.resize = pty_resize,
-	.cleanup = pty_cleanup
+	.cleanup = ptm_unix98_cleanup,
 };
 
 static const struct tty_operations pty_unix98_ops = {
@@ -614,14 +625,18 @@ static const struct tty_operations pty_unix98_ops = {
 static int ptmx_open(struct inode *inode, struct file *filp)
 {
 	struct tty_struct *tty;
+	struct vfsmount *mnt;
 	int retval;
 	int index;
 
 	nonseekable_open(inode, filp);
 
+	/* Find the devpts instance we are working with */
+	mnt = devpts_mntget(filp);
+
 	retval = tty_alloc_file(filp);
 	if (retval)
-		return retval;
+		goto err_mnt;
 
 	/* find a device that is not in use. */
 	mutex_lock(&devpts_mutex);
@@ -649,6 +664,7 @@ static int ptmx_open(struct inode *inode, struct file *filp)
 	set_bit(TTY_PTY_LOCK, &tty->flags); /* LOCK THE SLAVE */
 
 	tty_add_file(tty, filp);
+	tty->driver_data = mnt;
 
 	retval = devpts_pty_new(inode, tty->link);
 	if (retval)
@@ -666,9 +682,11 @@ err_release:
 	return retval;
 out:
 	mutex_unlock(&tty_mutex);
-	devpts_kill_index(inode, index);
+	devpts_kill_index(mnt, index);
 err_file:
 	tty_free_file(filp);
+err_mnt:
+	mntput(mnt);
 	return retval;
 }
 
