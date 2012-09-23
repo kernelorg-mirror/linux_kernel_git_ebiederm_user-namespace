@@ -22,10 +22,10 @@
 #ifdef CONFIG_UNIX98_PTYS
 
 struct vfsmount *devpts_mntget(struct file *filp);
-int devpts_new_index(struct inode *ptmx_inode);
+int devpts_new_index(struct vfsmount *mnt);
 void devpts_kill_index(struct vfsmount *mnt, int idx);
 /* mknod in devpts */
-int devpts_pty_new(struct inode *ptmx_inode, struct tty_struct *tty);
+int devpts_pty_new(struct vfsmount *mnt, struct tty_struct *tty);
 /* get tty structure */
 struct tty_struct *devpts_get_tty(struct inode *pts_inode, int number);
 /* unlink */
@@ -34,12 +34,6 @@ void devpts_pty_kill(struct tty_struct *tty);
 #else
 
 /* Dummy stubs in the no-pty case */
-static inline int devpts_new_index(struct inode *ptmx_inode) { return -EINVAL; }
-static inline int devpts_pty_new(struct inode *ptmx_inode,
-				struct tty_struct *tty)
-{
-	return -EINVAL;
-}
 static inline struct tty_struct *devpts_get_tty(struct inode *pts_inode,
 		int number)
 {

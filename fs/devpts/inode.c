@@ -123,13 +123,6 @@ static inline struct pts_fs_info *DEVPTS_SB(struct super_block *sb)
 	return sb->s_fs_info;
 }
 
-static inline struct super_block *pts_sb_from_inode(struct inode *inode)
-{
-	if (inode->i_sb->s_magic == DEVPTS_SUPER_MAGIC)
-		return inode->i_sb;
-	return devpts_mnt->mnt_sb;
-}
-
 #define PARSE_MOUNT	0
 #define PARSE_REMOUNT	1
 
@@ -396,9 +389,9 @@ struct vfsmount *devpts_mntget(struct file *filp)
  * to the System V naming convention
  */
 
-int devpts_new_index(struct inode *ptmx_inode)
+int devpts_new_index(struct vfsmount *mnt)
 {
-	struct super_block *sb = pts_sb_from_inode(ptmx_inode);
+	struct super_block *sb = mnt->mnt_sb;
 	struct pts_fs_info *fsi = DEVPTS_SB(sb);
 	int index;
 	int ida_ret;
@@ -442,14 +435,14 @@ void devpts_kill_index(struct vfsmount *mnt, int idx)
 	mutex_unlock(&allocated_ptys_lock);
 }
 
-int devpts_pty_new(struct inode *ptmx_inode, struct tty_struct *tty)
+int devpts_pty_new(struct vfsmount *mnt, struct tty_struct *tty)
 {
 	/* tty layer puts index from devpts_new_index() in here */
 	int number = tty->index;
 	struct tty_driver *driver = tty->driver;
 	dev_t device = MKDEV(driver->major, driver->minor_start+number);
 	struct dentry *dentry;
-	struct super_block *sb = pts_sb_from_inode(ptmx_inode);
+	struct super_block *sb = mnt->mnt_sb;
 	struct inode *inode = new_inode(sb);
 	struct dentry *root = sb->s_root;
 	struct pts_fs_info *fsi = DEVPTS_SB(sb);
@@ -514,7 +507,7 @@ struct tty_struct *devpts_get_tty(struct inode *pts_inode, int number)
 void devpts_pty_kill(struct tty_struct *tty)
 {
 	struct inode *inode = tty->driver_data;
-	struct super_block *sb = pts_sb_from_inode(inode);
+	struct super_block *sb = inode->i_sb;
 	struct dentry *root = sb->s_root;
 	struct dentry *dentry;
 
