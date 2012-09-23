@@ -22,10 +22,10 @@
 #ifdef CONFIG_UNIX98_PTYS
 
 struct vfsmount *devpts_mntget(struct file *filp);
-int devpts_new_index(struct inode *ptmx_inode);
+int devpts_new_index(struct vfsmount *mnt);
 void devpts_kill_index(struct vfsmount *mnt, int idx);
 /* mknod in devpts */
-struct inode *devpts_pty_new(struct inode *ptmx_inode, dev_t device, int index,
+struct inode *devpts_pty_new(struct vfsmount *mnt, dev_t device, int index,
 		void *priv);
 /* get private structure */
 void *devpts_get_priv(struct inode *pts_inode);
@@ -35,7 +35,7 @@ void devpts_pty_kill(struct inode *inode);
 #else
 
 /* Dummy stubs in the no-pty case */
-static inline int devpts_new_index(struct inode *ptmx_inode) { return -EINVAL; }
+static inline int devpts_new_index(struct vfsmount *mnt) { return -EINVAL; }
 static inline void devpts_kill_index(struct vfsmount *mnt, int idx) { }
 static inline struct inode *devpts_pty_new(struct inode *ptmx_inode,
 		dev_t device, int index, void *priv)
