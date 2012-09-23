@@ -684,6 +684,8 @@ static int ptmx_open(struct inode *inode, struct file *filp)
 
 	/* Find the devpts instance we are working with */
 	mnt = devpts_mntget(filp);
+	if (IS_ERR(mnt))
+		return PTR_ERR(mnt);
 
 	retval = tty_alloc_file(filp);
 	if (retval)
