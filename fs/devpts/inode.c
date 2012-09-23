@@ -391,6 +391,17 @@ static struct file_system_type devpts_fs_type = {
 };
 MODULE_ALIAS_FS("devpts");
 
+struct vfsmount *devpts_mntget(struct file *filp)
+{
+	struct vfsmount *mnt;
+
+	if (filp->f_vfsmnt->mnt_sb->s_magic == DEVPTS_SUPER_MAGIC)
+		mnt = mntget(filp->f_vfsmnt);
+	else
+		mnt = mntget(devpts_mnt);
+	return mnt;
+}
+
 /*
  * The normal naming convention is simply /dev/pts/<number>; this conforms
  * to the System V naming convention
@@ -431,9 +442,9 @@ retry:
 	return index;
 }
 
-void devpts_kill_index(struct inode *ptmx_inode, int idx)
+void devpts_kill_index(struct vfsmount *mnt, int idx)
 {
-	struct super_block *sb = pts_sb_from_inode(ptmx_inode);
+	struct super_block *sb = mnt->mnt_sb;
 	struct pts_fs_info *fsi = DEVPTS_SB(sb);
 
 	mutex_lock(&allocated_ptys_lock);
