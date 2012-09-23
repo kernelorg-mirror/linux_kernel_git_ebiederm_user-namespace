@@ -640,7 +640,7 @@ static int ptmx_open(struct inode *inode, struct file *filp)
 
 	/* find a device that is not in use. */
 	mutex_lock(&devpts_mutex);
-	index = devpts_new_index(inode);
+	index = devpts_new_index(mnt);
 	if (index < 0) {
 		retval = index;
 		mutex_unlock(&devpts_mutex);
@@ -666,7 +666,7 @@ static int ptmx_open(struct inode *inode, struct file *filp)
 	tty_add_file(tty, filp);
 	tty->driver_data = mnt;
 
-	retval = devpts_pty_new(inode, tty->link);
+	retval = devpts_pty_new(mnt, tty->link);
 	if (retval)
 		goto err_release;
 
