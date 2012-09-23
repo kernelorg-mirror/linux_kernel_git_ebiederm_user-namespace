@@ -14,14 +14,16 @@
 #define _LINUX_DEVPTS_FS_H
 
 #include <linux/errno.h>
+#include <linux/mount.h>
 
 #define DEVPTS_DEFAULT_PTMX_MODE 0666
 #define PTMX_MINOR	2
 
 #ifdef CONFIG_UNIX98_PTYS
 
+struct vfsmount *devpts_mntget(struct file *filp);
 int devpts_new_index(struct inode *ptmx_inode);
-void devpts_kill_index(struct inode *ptmx_inode, int idx);
+void devpts_kill_index(struct vfsmount *mnt, int idx);
 /* mknod in devpts */
 struct inode *devpts_pty_new(struct inode *ptmx_inode, dev_t device, int index,
 		void *priv);
@@ -34,7 +36,7 @@ void devpts_pty_kill(struct inode *inode);
 
 /* Dummy stubs in the no-pty case */
 static inline int devpts_new_index(struct inode *ptmx_inode) { return -EINVAL; }
-static inline void devpts_kill_index(struct inode *ptmx_inode, int idx) { }
+static inline void devpts_kill_index(struct vfsmount *mnt, int idx) { }
 static inline struct inode *devpts_pty_new(struct inode *ptmx_inode,
 		dev_t device, int index, void *priv)
 {
