@@ -2408,6 +2408,9 @@ out_unalias:
 	if (likely(!d_mountpoint(alias))) {
 		__d_move(alias, dentry);
 		ret = alias;
+	} else if ((alias->d_parent == dentry->d_parent) &&
+		   !dentry_cmp(alias, dentry->d_name.name, dentry->d_name.len)) {
+		ret = alias;
 	}
 out_err:
 	spin_unlock(&inode->i_lock);
