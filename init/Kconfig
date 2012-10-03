@@ -961,8 +961,7 @@ config IPC_NS
 	  different IPC objects in different namespaces.
 
 config USER_NS
-	bool "User namespace (EXPERIMENTAL)"
-	depends on EXPERIMENTAL
+	bool "User namespace"
 	default n
 	help
 	  This allows containers, i.e. vservers, to use user namespaces
