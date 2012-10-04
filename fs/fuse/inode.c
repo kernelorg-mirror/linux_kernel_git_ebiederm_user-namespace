@@ -20,6 +20,7 @@
 #include <linux/random.h>
 #include <linux/sched.h>
 #include <linux/exportfs.h>
+#include <linux/user_namespace.h>
 
 MODULE_AUTHOR("Miklos Szeredi <miklos@szeredi.hu>");
 MODULE_DESCRIPTION("Filesystem in Userspace");
@@ -461,10 +462,13 @@ static int parse_fuse_opt(char *opt, struct fuse_mount_data *d, int is_bdev)
 {
 	char *p;
 	memset(d, 0, sizeof(struct fuse_mount_data));
-	d->user_id = GLOBAL_ROOT_UID;
-	d->group_id = GLOBAL_ROOT_GID;
+	d->user_id = make_kuid(current_user_ns(), 0);
+	d->group_id = make_kgid(current_user_ns(), 0);
 	d->max_read = ~0;
 	d->blksize = FUSE_DEFAULT_BLKSIZE;
+
+	if (!uid_valid(d->user_id) || !gid_valid(d->group_id))
+		return 0;
 
 	while ((p = strsep(&opt, ",")) != NULL) {
 		int token;
@@ -546,8 +550,8 @@ static int fuse_show_options(struct seq_file *m, struct dentry *root)
 	struct super_block *sb = root->d_sb;
 	struct fuse_conn *fc = get_fuse_conn_super(sb);
 
-	seq_printf(m, ",user_id=%u", from_kuid_munged(&init_user_ns, fc->user_id));
-	seq_printf(m, ",group_id=%u", from_kgid_munged(&init_user_ns, fc->group_id));
+	seq_printf(m, ",user_id=%u", from_kuid_munged(fc->user_ns, fc->user_id));
+	seq_printf(m, ",group_id=%u", from_kgid_munged(fc->user_ns, fc->group_id));
 	if (fc->flags & FUSE_DEFAULT_PERMISSIONS)
 		seq_puts(m, ",default_permissions");
 	if (fc->flags & FUSE_ALLOW_OTHER)
@@ -585,6 +589,7 @@ void fuse_conn_init(struct fuse_conn *fc)
 	fc->blocked = 1;
 	fc->attr_version = 1;
 	get_random_bytes(&fc->scramble_key, sizeof(fc->scramble_key));
+	fc->user_ns = get_user_ns(current_user_ns());
 }
 EXPORT_SYMBOL_GPL(fuse_conn_init);
 
@@ -594,6 +599,8 @@ void fuse_conn_put(struct fuse_conn *fc)
 		if (fc->destroy_req)
 			fuse_request_free(fc->destroy_req);
 		mutex_destroy(&fc->inst_mutex);
+		put_user_ns(fc->user_ns);
+		fc->user_ns = NULL;
 		fc->release(fc);
 	}
 }
@@ -989,6 +996,7 @@ static int fuse_fill_super(struct super_block *sb, void *data, int silent)
 	sb->s_maxbytes = MAX_LFS_FILESIZE;
 	sb->s_time_gran = 1;
 	sb->s_export_op = &fuse_export_operations;
+	sb->s_user_ns = get_user_ns(current_user_ns());
 
 	file = fget(d.fd);
 	err = -EINVAL;
@@ -1103,6 +1111,7 @@ static void fuse_kill_sb_anon(struct super_block *sb)
 	}
 
 	kill_anon_super(sb);
+	put_user_ns(sb->s_user_ns);
 }
 
 static struct file_system_type fuse_fs_type = {

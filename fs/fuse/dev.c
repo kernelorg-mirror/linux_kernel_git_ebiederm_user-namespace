@@ -90,10 +90,10 @@ static void __fuse_put_request(struct fuse_req *req)
 	atomic_dec(&req->count);
 }
 
-static void fuse_req_init_context(struct fuse_req *req)
+static void fuse_req_init_context(struct fuse_conn *fc, struct fuse_req *req)
 {
-	req->in.h.uid = from_kuid_munged(&init_user_ns, current_fsuid());
-	req->in.h.gid = from_kgid_munged(&init_user_ns, current_fsgid());
+	req->in.h.uid = from_kuid_munged(fc->user_ns, current_fsuid());
+	req->in.h.gid = from_kgid_munged(fc->user_ns, current_fsgid());
 	req->in.h.pid = current->pid;
 }
 
@@ -121,7 +121,7 @@ struct fuse_req *fuse_get_req(struct fuse_conn *fc)
 	if (!req)
 		goto out;
 
-	fuse_req_init_context(req);
+	fuse_req_init_context(fc, req);
 	req->waiting = 1;
 	return req;
 
@@ -196,7 +196,7 @@ struct fuse_req *fuse_get_req_nofail(struct fuse_conn *fc, struct file *file)
 	if (!req)
 		req = get_reserved_req(fc, file);
 
-	fuse_req_init_context(req);
+	fuse_req_init_context(fc, req);
 	req->waiting = 1;
 	return req;
 }
