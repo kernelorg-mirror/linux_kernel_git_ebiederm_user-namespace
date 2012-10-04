@@ -590,6 +590,9 @@ struct fuse_conn {
 
 	/** User namespace to communicate uids and gids to the fuse daemon */
 	struct user_namespace *user_ns;
+
+	/** Pid namespace to communicate pids to the fuse daemon */
+	struct pid_namespace *pid_ns;
 };
 
 static inline struct fuse_conn *get_fuse_conn_super(struct super_block *sb)
