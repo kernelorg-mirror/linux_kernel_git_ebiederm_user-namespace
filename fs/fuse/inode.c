@@ -20,6 +20,7 @@
 #include <linux/random.h>
 #include <linux/sched.h>
 #include <linux/exportfs.h>
+#include <linux/user_namespace.h>
 
 MODULE_AUTHOR("Miklos Szeredi <miklos@szeredi.hu>");
 MODULE_DESCRIPTION("Filesystem in Userspace");
@@ -548,8 +549,8 @@ static int fuse_show_options(struct seq_file *m, struct dentry *root)
 	struct super_block *sb = root->d_sb;
 	struct fuse_conn *fc = get_fuse_conn_super(sb);
 
-	seq_printf(m, ",user_id=%u", from_kuid_munged(&init_user_ns, fc->user_id));
-	seq_printf(m, ",group_id=%u", from_kgid_munged(&init_user_ns, fc->group_id));
+	seq_printf(m, ",user_id=%u", from_kuid_munged(fc->user_ns, fc->user_id));
+	seq_printf(m, ",group_id=%u", from_kgid_munged(fc->user_ns, fc->group_id));
 	if (fc->flags & FUSE_DEFAULT_PERMISSIONS)
 		seq_puts(m, ",default_permissions");
 	if (fc->flags & FUSE_ALLOW_OTHER)
@@ -588,6 +589,7 @@ void fuse_conn_init(struct fuse_conn *fc)
 	fc->initialized = 0;
 	fc->attr_version = 1;
 	get_random_bytes(&fc->scramble_key, sizeof(fc->scramble_key));
+	fc->user_ns = get_user_ns(current_user_ns());
 }
 EXPORT_SYMBOL_GPL(fuse_conn_init);
 
@@ -597,6 +599,8 @@ void fuse_conn_put(struct fuse_conn *fc)
 		if (fc->destroy_req)
 			fuse_request_free(fc->destroy_req);
 		mutex_destroy(&fc->inst_mutex);
+		put_user_ns(fc->user_ns);
+		fc->user_ns = NULL;
 		fc->release(fc);
 	}
 }
@@ -1000,6 +1004,7 @@ static int fuse_fill_super(struct super_block *sb, void *data, int silent)
 	sb->s_maxbytes = MAX_LFS_FILESIZE;
 	sb->s_time_gran = 1;
 	sb->s_export_op = &fuse_export_operations;
+	sb->s_user_ns = get_user_ns(current_user_ns());
 
 	file = fget(d.fd);
 	err = -EINVAL;
@@ -1116,6 +1121,7 @@ static void fuse_kill_sb_anon(struct super_block *sb)
 	}
 
 	kill_anon_super(sb);
+	put_user_ns(sb->s_user_ns);
 }
 
 static struct file_system_type fuse_fs_type = {

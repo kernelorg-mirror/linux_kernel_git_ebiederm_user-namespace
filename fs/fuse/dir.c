@@ -849,8 +849,8 @@ static int fuse_link(struct dentry *entry, struct inode *newdir,
 	return err;
 }
 
-static void fuse_fillattr(struct inode *inode, struct fuse_attr *attr,
-			  struct kstat *stat)
+static int fuse_fillattr(struct fuse_conn *fc, struct inode *inode,
+			 struct fuse_attr *attr, struct kstat *stat)
 {
 	unsigned int blkbits;
 
@@ -858,8 +858,12 @@ static void fuse_fillattr(struct inode *inode, struct fuse_attr *attr,
 	stat->ino = attr->ino;
 	stat->mode = (inode->i_mode & S_IFMT) | (attr->mode & 07777);
 	stat->nlink = attr->nlink;
-	stat->uid = make_kuid(&init_user_ns, attr->uid);
-	stat->gid = make_kgid(&init_user_ns, attr->gid);
+	stat->uid = make_kuid(fc->user_ns, attr->uid);
+	if (!uid_valid(stat->uid))
+		return -EOVERFLOW;
+	stat->gid = make_kgid(fc->user_ns, attr->gid);
+	if (!gid_valid(stat->gid))
+		return -EOVERFLOW;
 	stat->rdev = inode->i_rdev;
 	stat->atime.tv_sec = attr->atime;
 	stat->atime.tv_nsec = attr->atimensec;
@@ -876,6 +880,7 @@ static void fuse_fillattr(struct inode *inode, struct fuse_attr *attr,
 		blkbits = inode->i_sb->s_blocksize_bits;
 
 	stat->blksize = 1 << blkbits;
+	return 0;
 }
 
 static int fuse_do_getattr(struct inode *inode, struct kstat *stat,
@@ -926,7 +931,8 @@ static int fuse_do_getattr(struct inode *inode, struct kstat *stat,
 					       attr_timeout(&outarg),
 					       attr_version);
 			if (stat)
-				fuse_fillattr(inode, &outarg.attr, stat);
+				err = fuse_fillattr(fc, inode, &outarg.attr,
+						    stat);
 		}
 	}
 	return err;
@@ -1504,16 +1510,25 @@ static bool update_mtime(unsigned ivalid)
 	return true;
 }
 
-static void iattr_to_fattr(struct iattr *iattr, struct fuse_setattr_in *arg)
+static int iattr_to_fattr(struct fuse_conn *fc, struct iattr *iattr,
+			   struct fuse_setattr_in *arg)
 {
 	unsigned ivalid = iattr->ia_valid;
 
 	if (ivalid & ATTR_MODE)
 		arg->valid |= FATTR_MODE,   arg->mode = iattr->ia_mode;
-	if (ivalid & ATTR_UID)
-		arg->valid |= FATTR_UID,    arg->uid = from_kuid(&init_user_ns, iattr->ia_uid);
-	if (ivalid & ATTR_GID)
-		arg->valid |= FATTR_GID,    arg->gid = from_kgid(&init_user_ns, iattr->ia_gid);
+	if (ivalid & ATTR_UID) {
+		arg->valid |= FATTR_UID;
+		arg->uid = from_kuid(fc->user_ns, iattr->ia_uid);
+		if (arg->uid == (uid_t)-1)
+			return -EOVERFLOW;
+	}
+	if (ivalid & ATTR_GID) {
+		arg->valid |= FATTR_GID;
+		arg->gid = from_kgid(fc->user_ns, iattr->ia_gid);
+		if (arg->gid == (gid_t)-1)
+			return -EOVERFLOW;
+	}
 	if (ivalid & ATTR_SIZE)
 		arg->valid |= FATTR_SIZE,   arg->size = iattr->ia_size;
 	if (ivalid & ATTR_ATIME) {
@@ -1530,6 +1545,7 @@ static void iattr_to_fattr(struct iattr *iattr, struct fuse_setattr_in *arg)
 		if (!(ivalid & ATTR_MTIME_SET))
 			arg->valid |= FATTR_MTIME_NOW;
 	}
+	return 0;
 }
 
 /*
@@ -1612,6 +1628,12 @@ int fuse_do_setattr(struct inode *inode, struct iattr *attr,
 	if (attr->ia_valid & ATTR_SIZE)
 		is_truncate = true;
 
+	memset(&inarg, 0, sizeof(inarg));
+	memset(&outarg, 0, sizeof(outarg));
+	err = iattr_to_fattr(fc, attr, &inarg);
+	if (err)
+		return err;
+
 	req = fuse_get_req_nopages(fc);
 	if (IS_ERR(req))
 		return PTR_ERR(req);
@@ -1621,9 +1643,6 @@ int fuse_do_setattr(struct inode *inode, struct iattr *attr,
 		set_bit(FUSE_I_SIZE_UNSTABLE, &fi->state);
 	}
 
-	memset(&inarg, 0, sizeof(inarg));
-	memset(&outarg, 0, sizeof(outarg));
-	iattr_to_fattr(attr, &inarg);
 	if (file) {
 		struct fuse_file *ff = file->private_data;
 		inarg.valid |= FATTR_FH;
