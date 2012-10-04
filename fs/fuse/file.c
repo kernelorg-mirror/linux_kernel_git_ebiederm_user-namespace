@@ -1651,7 +1651,8 @@ static int fuse_direct_mmap(struct file *file, struct vm_area_struct *vma)
 	return generic_file_mmap(file, vma);
 }
 
-static int convert_fuse_file_lock(const struct fuse_file_lock *ffl,
+static int convert_fuse_file_lock(struct fuse_conn *fc,
+				  const struct fuse_file_lock *ffl,
 				  struct file_lock *fl)
 {
 	switch (ffl->type) {
@@ -1666,7 +1667,9 @@ static int convert_fuse_file_lock(const struct fuse_file_lock *ffl,
 
 		fl->fl_start = ffl->start;
 		fl->fl_end = ffl->end;
-		fl->fl_pid = ffl->pid;
+		rcu_read_lock();
+		fl->fl_pid = pid_vnr(find_pid_ns(ffl->pid, fc->pid_ns));
+		rcu_read_unlock();
 		break;
 
 	default:
@@ -1677,7 +1680,7 @@ static int convert_fuse_file_lock(const struct fuse_file_lock *ffl,
 }
 
 static void fuse_lk_fill(struct fuse_req *req, struct file *file,
-			 const struct file_lock *fl, int opcode, pid_t pid,
+			 const struct file_lock *fl, int opcode, struct pid *pid,
 			 int flock)
 {
 	struct inode *inode = file_inode(file);
@@ -1690,7 +1693,7 @@ static void fuse_lk_fill(struct fuse_req *req, struct file *file,
 	arg->lk.start = fl->fl_start;
 	arg->lk.end = fl->fl_end;
 	arg->lk.type = fl->fl_type;
-	arg->lk.pid = pid;
+	arg->lk.pid = pid_nr_ns(pid, fc->pid_ns);
 	if (flock)
 		arg->lk_flags |= FUSE_LK_FLOCK;
 	req->in.h.opcode = opcode;
@@ -1712,7 +1715,7 @@ static int fuse_getlk(struct file *file, struct file_lock *fl)
 	if (IS_ERR(req))
 		return PTR_ERR(req);
 
-	fuse_lk_fill(req, file, fl, FUSE_GETLK, 0, 0);
+	fuse_lk_fill(req, file, fl, FUSE_GETLK, NULL, 0);
 	req->out.numargs = 1;
 	req->out.args[0].size = sizeof(outarg);
 	req->out.args[0].value = &outarg;
@@ -1720,7 +1723,7 @@ static int fuse_getlk(struct file *file, struct file_lock *fl)
 	err = req->out.h.error;
 	fuse_put_request(fc, req);
 	if (!err)
-		err = convert_fuse_file_lock(&outarg.lk, fl);
+		err = convert_fuse_file_lock(fc, &outarg.lk, fl);
 
 	return err;
 }
@@ -1731,7 +1734,7 @@ static int fuse_setlk(struct file *file, struct file_lock *fl, int flock)
 	struct fuse_conn *fc = get_fuse_conn(inode);
 	struct fuse_req *req;
 	int opcode = (fl->fl_flags & FL_SLEEP) ? FUSE_SETLKW : FUSE_SETLK;
-	pid_t pid = fl->fl_type != F_UNLCK ? current->tgid : 0;
+	struct pid *pid = fl->fl_type != F_UNLCK ? task_tgid(current) : NULL;
 	int err;
 
 	if (fl->fl_lmops && fl->fl_lmops->lm_grant) {
