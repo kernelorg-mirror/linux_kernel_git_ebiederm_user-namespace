@@ -13,6 +13,7 @@
 #include <linux/sched.h>
 #include <linux/namei.h>
 #include <linux/slab.h>
+#include <linux/xattr.h>
 
 static bool fuse_use_readdirplus(struct inode *dir, struct dir_context *ctx)
 {
@@ -1748,6 +1749,9 @@ static int fuse_setxattr(struct dentry *entry, const char *name,
 	if (fc->no_setxattr)
 		return -EOPNOTSUPP;
 
+	if (strncmp(name, XATTR_USER_PREFIX, XATTR_USER_PREFIX_LEN) != 0)
+		return -EOPNOTSUPP;
+
 	req = fuse_get_req_nopages(fc);
 	if (IS_ERR(req))
 		return PTR_ERR(req);
@@ -1787,6 +1791,9 @@ static ssize_t fuse_getxattr(struct dentry *entry, const char *name,
 	ssize_t ret;
 
 	if (fc->no_getxattr)
+		return -EOPNOTSUPP;
+
+	if (strncmp(name, XATTR_USER_PREFIX, XATTR_USER_PREFIX_LEN) != 0)
 		return -EOPNOTSUPP;
 
 	req = fuse_get_req_nopages(fc);
