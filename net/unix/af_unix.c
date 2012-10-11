@@ -1050,25 +1050,18 @@ static long unix_wait_for_peer(struct sock *other, long timeo)
 	return timeo;
 }
 
-static int unix_stream_connect(struct socket *sock, struct sockaddr *uaddr,
-			       int addr_len, int flags)
+static int do_unix_stream_connect(struct socket *sock, int flags,
+				  struct sock *(*find_other)(struct socket *sock, void *data),
+				  void *data)
 {
-	struct sockaddr_un *sunaddr = (struct sockaddr_un *)uaddr;
 	struct sock *sk = sock->sk;
-	struct net *net = sock_net(sk);
 	struct unix_sock *u = unix_sk(sk), *newu, *otheru;
 	struct sock *newsk = NULL;
 	struct sock *other = NULL;
 	struct sk_buff *skb = NULL;
-	unsigned int hash;
 	int st;
 	int err;
 	long timeo;
-
-	err = unix_mkname(sunaddr, addr_len, &hash);
-	if (err < 0)
-		goto out;
-	addr_len = err;
 
 	if (test_bit(SOCK_PASSCRED, &sock->flags) && !u->addr &&
 	    (err = unix_autobind(sock)) != 0)
@@ -1095,9 +1088,12 @@ static int unix_stream_connect(struct socket *sock, struct sockaddr *uaddr,
 
 restart:
 	/*  Find listening sock. */
-	other = unix_find_other(net, sunaddr, addr_len, sk->sk_type, hash, &err);
-	if (!other)
+	other = find_other(sock, data);
+	if (IS_ERR(other)) {
+		err = PTR_ERR(other);
+		other = NULL;
 		goto out;
+	}
 
 	/* Latch state of peer */
 	unix_state_lock(other);
@@ -1223,6 +1219,72 @@ out:
 	if (other)
 		sock_put(other);
 	return err;
+}
+
+static struct sock *unix_stream_open_find_other(struct socket *sock, void *data)
+{
+	struct inode *inode = data;
+	struct sock *other;
+
+	if (!S_ISSOCK(inode->i_mode))
+		return ERR_PTR(-ECONNREFUSED);
+
+	other = unix_find_socket_byinode(inode);
+	if (!other)
+		return ERR_PTR(-ECONNREFUSED);
+
+	if (other->sk_type != sock->type) {
+		sock_put(other);
+		return ERR_PTR(-ECONNREFUSED);
+	}
+
+	return other;
+}
+
+int unix_stream_open(struct inode *inode, struct file *file)
+{
+	struct socket *sock = file->private_data;
+
+	return do_unix_stream_connect(sock, file->f_flags,
+				      unix_stream_open_find_other, inode);
+}
+
+struct unix_stream_connect_info {
+	struct sockaddr_un *sunaddr;
+	int addr_len;
+	unsigned int hash;
+};
+
+static struct sock *unix_stream_connect_find_other(struct socket *sock, void *data)
+{
+	struct unix_stream_connect_info *info = data;
+	struct sock *sk = sock->sk;
+	struct net *net = sock_net(sk);
+	struct sock *other;
+	int err;
+
+	other = unix_find_other(net, info->sunaddr, info->addr_len,
+				sk->sk_type, info->hash, &err);
+	if (!other)
+		other = ERR_PTR(err);
+	return other;
+}
+
+static int unix_stream_connect(struct socket *sock, struct sockaddr *uaddr,
+			       int addr_len, int flags)
+{
+	struct unix_stream_connect_info info;
+	struct sockaddr_un *sunaddr = (struct sockaddr_un *)uaddr;
+	int err;
+
+	err = unix_mkname(sunaddr, addr_len, &info.hash);
+	if (err < 0)
+		return err;
+
+	info.sunaddr = sunaddr;
+	info.addr_len = err;
+	return do_unix_stream_connect(sock, flags,
+				      unix_stream_connect_find_other, &info);
 }
 
 static int unix_socketpair(struct socket *socka, struct socket *sockb)
