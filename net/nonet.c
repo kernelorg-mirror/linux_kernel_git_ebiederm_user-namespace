@@ -19,7 +19,7 @@ static int sock_no_open(struct inode *irrelevant, struct file *dontcare)
 	return -ENXIO;
 }
 
-const struct file_operations bad_sock_fops = {
+const struct file_operations socket_file_ops = {
 	.owner = THIS_MODULE,
 	.open = sock_no_open,
 	.llseek = noop_llseek,
