@@ -3506,8 +3506,10 @@ static char *tty_devnode(struct device *dev, umode_t *mode)
 		return NULL;
 	if (dev->devt == MKDEV(TTYAUX_MAJOR, 0))
 		*mode = 0666;
-	if (dev->devt == MKDEV(TTYAUX_MAJOR, PTMX_MINOR))
+	if (dev->devt == MKDEV(TTYAUX_MAJOR, PTMX_MINOR)) {
 		*mode = DEVPTS_DEFAULT_PTMX_MODE;
+		return kasprintf(GFP_KERNEL, "pts/%s", dev_name(dev));
+	}
 	return NULL;
 }
 
