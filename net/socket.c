@@ -96,6 +96,7 @@
 #include <net/compat.h>
 #include <net/wext.h>
 #include <net/cls_cgroup.h>
+#include <net/af_unix.h>
 
 #include <net/sock.h>
 #include <linux/netfilter.h>
@@ -112,7 +113,7 @@ unsigned int sysctl_net_busy_read __read_mostly;
 unsigned int sysctl_net_busy_poll __read_mostly;
 #endif
 
-static int sock_no_open(struct inode *irrelevant, struct file *dontcare);
+static int sock_open(struct inode *irrelevant, struct file *dontcare);
 static ssize_t sock_aio_read(struct kiocb *iocb, const struct iovec *iov,
 			 unsigned long nr_segs, loff_t pos);
 static ssize_t sock_aio_write(struct kiocb *iocb, const struct iovec *iov,
@@ -139,7 +140,7 @@ static ssize_t sock_splice_read(struct file *file, loff_t *ppos,
  *	in the operation structures but are done directly via the socketcall() multiplexor.
  */
 
-static const struct file_operations socket_file_ops = {
+const struct file_operations socket_file_ops = {
 	.owner =	THIS_MODULE,
 	.llseek =	no_llseek,
 	.aio_read =	sock_aio_read,
@@ -150,7 +151,7 @@ static const struct file_operations socket_file_ops = {
 	.compat_ioctl = compat_sock_ioctl,
 #endif
 	.mmap =		sock_mmap,
-	.open =		sock_no_open,	/* special open code to disallow open via /proc */
+	.open =		sock_open,	/* special open code to disallow open via /proc */
 	.release =	sock_close,
 	.fasync =	sock_fasync,
 	.sendpage =	sock_sendpage,
@@ -564,16 +565,35 @@ static struct socket *sock_alloc(void)
  *	creepy crawlies in.
  */
 
-static int sock_no_open(struct inode *irrelevant, struct file *dontcare)
+static int sock_open(struct inode *inode, struct file *file)
 {
-	return -ENXIO;
-}
+	struct socket *sock;
+	int retval;
 
-const struct file_operations bad_sock_fops = {
-	.owner = THIS_MODULE,
-	.open = sock_no_open,
-	.llseek = noop_llseek,
-};
+	/* Don't allow opening already open sockets */
+	if (inode->i_sb == sock_mnt->mnt_sb)
+		return -ENXIO;
+
+	/* file->f_flags??? */
+	//file->f_flags = O_RDWR | (flags & O_NONBLOCK);
+	retval = -EINVAL;
+	if (file->f_flags & ~(O_CLOEXEC | O_NONBLOCK))
+		goto out;
+
+	retval = sock_create(AF_UNIX, SOCK_STREAM, 0, &sock);
+	if (retval)
+		goto out;
+
+	sock->file = file;
+	file->f_pos = 0;
+	file->private_data = sock;
+
+	retval = unix_stream_open(inode, file);
+	if (retval)
+		sock_release(sock);
+out:
+	return retval;
+}
 
 /**
  *	sock_release	-	close a socket
@@ -601,7 +621,7 @@ void sock_release(struct socket *sock)
 		return;
 
 	this_cpu_sub(sockets_in_use, 1);
-	if (!sock->file) {
+	if (!sock->file || sock->file->f_dentry->d_inode != SOCK_INODE(sock)) {
 		iput(SOCK_INODE(sock));
 		return;
 	}
@@ -1171,7 +1191,7 @@ static int sock_mmap(struct file *file, struct vm_area_struct *vma)
 
 static int sock_close(struct inode *inode, struct file *filp)
 {
-	sock_release(SOCKET_I(inode));
+	sock_release(filp->private_data);
 	return 0;
 }
 
