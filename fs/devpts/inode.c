@@ -385,6 +385,7 @@ struct vfsmount *devpts_mntget(struct file *filp)
 {
 	struct vfsmount *mnt = ERR_PTR(-ENODEV);
 
+	/* Verify the mnt is a devpts mount */
 	if (filp->f_path.mnt->mnt_sb->s_magic == DEVPTS_SUPER_MAGIC)
 		mnt = mntget(filp->f_path.mnt);
 	return mnt;
