@@ -385,6 +385,7 @@ static int devtmpfsd(void *p)
 		goto out;
 	sys_chdir("/.."); /* will traverse into overmounted root */
 	sys_chroot(".");
+	sys_symlink("pts/ptmx", "ptmx");
 	complete(&setup_done);
 	while (1) {
 		spin_lock(&req_lock);
