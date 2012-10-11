@@ -78,4 +78,14 @@ void unix_sysctl_unregister(struct net *net);
 static inline int unix_sysctl_register(struct net *net) { return 0; }
 static inline void unix_sysctl_unregister(struct net *net) {}
 #endif
+
+#ifdef CONFIG_UNIX
+int unix_stream_open(struct inode *inode, struct file *file);
+#else
+static inline int unix_stream_open(struct inode *inode, struct file *file)
+{
+	return -ENXIO;
+}
+#endif
+
 #endif
