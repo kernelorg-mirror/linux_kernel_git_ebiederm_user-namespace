@@ -812,6 +812,7 @@ static int userns_install(struct nsproxy *nsproxy, void *ns)
 	if (!cred)
 		return -ENOMEM;
 
+	put_user_ns(cred->user_ns);
 	set_cred_user_ns(cred, get_user_ns(user_ns));
 
 	return commit_creds(cred);
