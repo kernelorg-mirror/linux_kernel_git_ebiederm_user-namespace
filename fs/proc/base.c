@@ -1708,7 +1708,7 @@ bool proc_fill_cache(struct file *file, struct dir_context *ctx,
 	return dir_emit(ctx, name, len, ino, type);
 
 end_instantiate:
-	return dir_emit(ctx, name, len, 1, DT_UNKNOWN);
+	return dir_emit(ctx, name, len, PROC_ROOT_INO, DT_UNKNOWN);
 }
 
 #ifdef CONFIG_CHECKPOINT_RESTORE
