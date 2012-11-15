@@ -1545,9 +1545,8 @@ int proc_fill_cache(struct file *filp, void *dirent, filldir_t filldir,
 	instantiate_t instantiate, struct task_struct *task, const void *ptr)
 {
 	struct dentry *child, *dir = filp->f_path.dentry;
-	struct inode *inode;
 	struct qstr qname;
-	ino_t ino = 0;
+	ino_t ino = PROC_ROOT_INO;
 	unsigned type = DT_UNKNOWN;
 
 	qname.name = name;
@@ -1566,19 +1565,12 @@ int proc_fill_cache(struct file *filp, void *dirent, filldir_t filldir,
 				child = new;
 		}
 	}
-	if (!child || IS_ERR(child) || !child->d_inode)
-		goto end_instantiate;
-	inode = child->d_inode;
-	if (inode) {
+	if (child && !IS_ERR(child)) {
+		struct inode *inode = child->d_inode;
 		ino = inode->i_ino;
 		type = inode->i_mode >> 12;
+		dput(child);
 	}
-	dput(child);
-end_instantiate:
-	if (!ino)
-		ino = find_inode_number(dir, &qname);
-	if (!ino)
-		ino = 1;
 	return filldir(dirent, name, len, filp->f_pos, ino, type);
 }
 
