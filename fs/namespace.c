@@ -1309,6 +1309,8 @@ static bool mnt_ns_loop(struct path *path)
 	struct proc_inode *ei;
 	struct mnt_namespace *mnt_ns;
 
+#warning FIXME mnt_ns_loop should be called when propogating mounts....
+#warning FIXME mnt_ns_loop should be called when unsharing mount namespaces...
 	if (!proc_ns_inode(inode))
 		return false;
 
