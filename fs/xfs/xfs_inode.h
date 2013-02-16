@@ -244,7 +244,7 @@ typedef struct xfs_inode {
 	unsigned int		i_delayed_blks;	/* count of delay alloc blks */
 
 	xfs_icdinode_t		i_d;		/* most of ondisk inode */
-	projid_t		i_projid;	/* Project id */
+	kprojid_t		i_projid;	/* project id */
 
 	/* VFS inode */
 	struct inode		i_vnode;	/* embedded VFS inode */
@@ -363,23 +363,24 @@ xfs_iflags_test_and_set(xfs_inode_t *ip, unsigned short flags)
 
 static inline void
 xfs_set_projid(struct xfs_inode *ip,
-		prid_t projid)
+		kprojid_t kprojid)
 {
-	ip->i_projid = projid;
+	projid_t projid = from_kprojid(&init_user_ns, kprojid);
+	ip->i_projid = kprojid;
 	ip->i_d.di_projid_hi = (__uint16_t) (projid >> 16);
 	ip->i_d.di_projid_lo = (__uint16_t) (projid & 0xffff);
 }
 
-static inline void xfs_set_uid(struct xfs_inode *ip, uid_t uid)
+static inline void xfs_set_uid(struct xfs_inode *ip, kuid_t uid)
 {
 	VFS_I(ip)->i_uid = uid;
-	ip->i_d.di_uid = uid;
+	ip->i_d.di_uid = from_kuid(&init_user_ns, uid);
 }
 
-static inline void xfs_set_gid(struct xfs_inode *ip, gid_t gid)
+static inline void xfs_set_gid(struct xfs_inode *ip, kgid_t gid)
 {
 	VFS_I(ip)->i_gid = gid;
-	ip->i_d.di_gid = gid;
+	ip->i_d.di_gid = from_kgid(&init_user_ns, gid);
 }
 
 /*

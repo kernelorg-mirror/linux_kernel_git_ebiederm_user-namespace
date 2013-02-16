@@ -1014,10 +1014,11 @@ xfs_iread(
 	if (dip->di_mode) {
 		xfs_dinode_from_disk(&ip->i_d, dip);
 
-		ip->i_projid = ((projid_t)ip->i_d.di_projid_hi << 16) |
-					  ip->i_d.di_projid_lo;
-		VFS_I(ip)->i_uid = ip->i_d.di_uid;
-		VFS_I(ip)->i_gid = ip->i_d.di_gid;
+		ip->i_projid = make_kprojid(&init_user_ns,
+					    ((projid_t)ip->i_d.di_projid_hi << 16) |
+					    ip->i_d.di_projid_lo);
+		VFS_I(ip)->i_uid = make_kuid(&init_user_ns, ip->i_d.di_uid);
+		VFS_I(ip)->i_gid = make_kgid(&init_user_ns, ip->i_d.di_gid);
 
 		error = xfs_iformat(ip, dip);
 		if (error)  {
@@ -1056,7 +1057,7 @@ xfs_iread(
 	if (ip->i_d.di_version == 1) {
 		ip->i_d.di_nlink = ip->i_d.di_onlink;
 		ip->i_d.di_onlink = 0;
-		xfs_set_projid(ip, 0);
+		xfs_set_projid(ip, make_kprojid(&init_user_ns, 0));
 	}
 
 	ip->i_delayed_blks = 0;
@@ -2845,7 +2846,8 @@ xfs_iflush_int(
 			memset(&(ip->i_d.di_pad[0]), 0, sizeof(ip->i_d.di_pad));
 			memset(&(dip->di_pad[0]), 0,
 			      sizeof(dip->di_pad));
-			ASSERT(ip->i_projid == 0);
+			ASSERT(projid_eq(ip->i_projid,
+					 make_kprojid(&init_user_ns, 0)));
 		}
 	}
 

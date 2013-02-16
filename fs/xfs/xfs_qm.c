@@ -1650,7 +1650,7 @@ xfs_qm_vop_dqalloc(
 
 	uq = gq = NULL;
 	if ((flags & XFS_QMOPT_UQUOTA) && XFS_IS_UQUOTA_ON(mp)) {
-		if (VFS_I(ip)->i_uid != uid) {
+		if (!uid_eq(VFS_I(ip)->i_uid, uid)) {
 			/*
 			 * What we need is the dquot that has this uid, and
 			 * if we send the inode to dqget, the uid of the inode
@@ -1685,7 +1685,7 @@ xfs_qm_vop_dqalloc(
 		}
 	}
 	if ((flags & XFS_QMOPT_GQUOTA) && XFS_IS_GQUOTA_ON(mp)) {
-		if (VFS_I(ip)->i_gid != gid) {
+		if (!gid_eq(VFS_I(ip)->i_gid, gid)) {
 			xfs_iunlock(ip, lockflags);
 			if ((error = xfs_qm_dqget(mp, NULL, (xfs_dqid_t)gid,
 						 XFS_DQ_GROUP,
@@ -1705,7 +1705,7 @@ xfs_qm_vop_dqalloc(
 			gq = xfs_qm_dqhold(ip->i_gdquot);
 		}
 	} else if ((flags & XFS_QMOPT_PQUOTA) && XFS_IS_PQUOTA_ON(mp)) {
-		if (ip->i_projid != prid) {
+		if (!projid_eq(ip->i_projid, prid)) {
 			xfs_iunlock(ip, lockflags);
 			if ((error = xfs_qm_dqget(mp, NULL, (xfs_dqid_t)prid,
 						 XFS_DQ_PROJ,
@@ -1806,7 +1806,7 @@ xfs_qm_vop_chown_reserve(
 			XFS_QMOPT_RES_RTBLKS : XFS_QMOPT_RES_REGBLKS;
 
 	if (XFS_IS_UQUOTA_ON(mp) && udqp &&
-	    VFS_I(ip)->i_uid != (uid_t)be32_to_cpu(udqp->q_core.d_id)) {
+	    !uid_eq(VFS_I(ip)->i_uid, (uid_t)be32_to_cpu(udqp->q_core.d_id))) {
 		delblksudq = udqp;
 		/*
 		 * If there are delayed allocation blocks, then we have to
@@ -1820,12 +1820,12 @@ xfs_qm_vop_chown_reserve(
 	}
 	if (XFS_IS_OQUOTA_ON(ip->i_mount) && gdqp) {
 		if (XFS_IS_PQUOTA_ON(ip->i_mount) &&
-		     ip->i_projid != be32_to_cpu(gdqp->q_core.d_id))
+		    !projid_eq(ip->i_projid, be32_to_cpu(gdqp->q_core.d_id)))
 			prjflags = XFS_QMOPT_ENOSPC;
 
 		if (prjflags ||
 		    (XFS_IS_GQUOTA_ON(ip->i_mount) &&
-		     VFS_I(ip)->i_gid != be32_to_cpu(gdqp->q_core.d_id))) {
+		     !gid_eq(VFS_I(ip)->i_gid, be32_to_cpu(gdqp->q_core.d_id)))) {
 			delblksgdq = gdqp;
 			if (delblks) {
 				ASSERT(ip->i_gdquot);
@@ -1909,7 +1909,7 @@ xfs_qm_vop_create_dqattach(
 	if (udqp) {
 		ASSERT(ip->i_udquot == NULL);
 		ASSERT(XFS_IS_UQUOTA_ON(mp));
-		ASSERT(VFS_I(ip)->i_uid == be32_to_cpu(udqp->q_core.d_id));
+		ASSERT(uid_eq(VFS_I(ip)->i_uid, be32_to_cpu(udqp->q_core.d_id)));
 
 		ip->i_udquot = xfs_qm_dqhold(udqp);
 		xfs_trans_mod_dquot(tp, udqp, XFS_TRANS_DQ_ICOUNT, 1);
@@ -1917,9 +1917,9 @@ xfs_qm_vop_create_dqattach(
 	if (gdqp) {
 		ASSERT(ip->i_gdquot == NULL);
 		ASSERT(XFS_IS_OQUOTA_ON(mp));
-		ASSERT((XFS_IS_GQUOTA_ON(mp) ?
-			VFS_I(ip)->i_gid : ip->i_projid) ==
-				be32_to_cpu(gdqp->q_core.d_id));
+		ASSERT(XFS_IS_GQUOTA_ON(mp) ?
+		       gid_eq(VFS_I(ip)->i_gid, be32_to_cpu(gdqp->q_core.d_id)):
+		       projid_eq(ip->i_projid, be32_to_cpu(gdqp->q_core.d_id)));
 
 		ip->i_gdquot = xfs_qm_dqhold(gdqp);
 		xfs_trans_mod_dquot(tp, gdqp, XFS_TRANS_DQ_ICOUNT, 1);
