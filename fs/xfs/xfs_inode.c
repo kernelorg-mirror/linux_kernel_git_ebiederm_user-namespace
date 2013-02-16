@@ -1226,7 +1226,7 @@ xfs_ialloc(
 	umode_t		mode,
 	xfs_nlink_t	nlink,
 	xfs_dev_t	rdev,
-	prid_t		prid,
+	kprojid_t	prid,
 	int		okalloc,
 	xfs_buf_t	**ialloc_context,
 	xfs_inode_t	**ipp)
@@ -1290,7 +1290,8 @@ xfs_ialloc(
 	/*
 	 * Project ids won't be stored on disk if we are using a version 1 inode.
 	 */
-	if ((prid != 0) && (ip->i_d.di_version == 1))
+	if (!projid_eq(prid, make_kprojid(&init_user_ns, 0)) &&
+	    (ip->i_d.di_version == 1))
 		xfs_bump_ino_vers2(tp, ip);
 
 	if (pip && XFS_INHERIT_GID(pip)) {

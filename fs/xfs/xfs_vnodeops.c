@@ -728,7 +728,7 @@ xfs_create(
 	bool                    unlock_dp_on_error = false;
 	uint			cancel_flags;
 	int			committed;
-	prid_t			prid;
+	kprojid_t		prid;
 	struct xfs_dquot	*udqp = NULL;
 	struct xfs_dquot	*gdqp = NULL;
 	uint			resblks;
@@ -743,7 +743,7 @@ xfs_create(
 	if (dp->i_d.di_flags & XFS_DIFLAG_PROJINHERIT)
 		prid = dp->i_d.di_projid;
 	else
-		prid = XFS_PROJID_DEFAULT;
+		prid = make_kprojid(&init_user_ns, XFS_PROJID_DEFAULT);
 
 	/*
 	 * Make sure that we have allocated dquot(s) on disk.
@@ -1379,7 +1379,7 @@ xfs_symlink(
 	int			byte_cnt;
 	int			n;
 	xfs_buf_t		*bp;
-	prid_t			prid;
+	kprojid_t		prid;
 	struct xfs_dquot	*udqp, *gdqp;
 	uint			resblks;
 
@@ -1404,7 +1404,7 @@ xfs_symlink(
 	if (dp->i_d.di_flags & XFS_DIFLAG_PROJINHERIT)
 		prid = dp->i_d.di_projid;
 	else
-		prid = XFS_PROJID_DEFAULT;
+		prid = make_kprojid(&init_user_ns, XFS_PROJID_DEFAULT);
 
 	/*
 	 * Make sure that we have allocated dquot(s) on disk.
