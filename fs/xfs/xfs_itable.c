@@ -63,6 +63,7 @@ xfs_bulkstat_one_int(
 	struct xfs_inode	*ip;		/* incore inode pointer */
 	struct xfs_bstat	*buf;		/* return buffer */
 	int			error = 0;	/* error value */
+	projid_t		projid;
 
 	*stat = BULKSTAT_RV_NOTHING;
 
@@ -88,12 +89,13 @@ xfs_bulkstat_one_int(
 	 * further change.
 	 */
 	buf->bs_nlink = ip->i_d.di_nlink;
-	buf->bs_projid_lo = (u16)(ip->i_d.di_projid & 0xffff);
-	buf->bs_projid_hi = (u16)(ip->i_d.di_projid >> 16);
+	projid = from_kprojid_munged(current_user_ns(), ip->i_d.di_projid);
+	buf->bs_projid_lo = projid & 0xffff;
+	buf->bs_projid_hi = projid >> 16;
 	buf->bs_ino = ino;
 	buf->bs_mode = ip->i_d.di_mode;
-	buf->bs_uid = ip->i_d.di_uid;
-	buf->bs_gid = ip->i_d.di_gid;
+	buf->bs_uid = from_kuid_munged(current_user_ns(), ip->i_d.di_uid);
+	buf->bs_gid = from_kgid_munged(current_user_ns(), ip->i_d.di_gid);
 	buf->bs_size = ip->i_d.di_size;
 	buf->bs_atime.tv_sec = ip->i_d.di_atime.t_sec;
 	buf->bs_atime.tv_nsec = ip->i_d.di_atime.t_nsec;
