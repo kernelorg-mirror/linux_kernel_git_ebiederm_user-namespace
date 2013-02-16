@@ -1305,7 +1305,7 @@ xfs_link(
 	 * the tree quota mechanism could be circumvented.
 	 */
 	if (unlikely((tdp->i_d.di_flags & XFS_DIFLAG_PROJINHERIT) &&
-		     (tdp->i_d.di_projid != sip->i_d.di_projid))) {
+		     !projid_eq(tdp->i_d.di_projid, sip->i_d.di_projid))) {
 		error = XFS_ERROR(EXDEV);
 		goto error_return;
 	}

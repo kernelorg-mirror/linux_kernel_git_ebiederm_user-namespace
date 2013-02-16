@@ -249,10 +249,10 @@ typedef struct xfs_inode {
 		s8		di_version;	/* inode version */
 		s8		di_format;	/* format of di_c data */
 		u16		di_onlink;	/* old number of links to file */
-		u32		di_uid;		/* owner's user id */
-		u32		di_gid;		/* owner's group id */
+		kuid_t		di_uid;		/* owner's user id */
+		kgid_t		di_gid;		/* owner's group id */
 		u32		di_nlink;	/* number of links to file */
-		projid_t	di_projid;	/* owner's project id */
+		kprojid_t	di_projid;	/* owner's project id */
 		u8		di_pad[6];	/* unused, zeroed space */
 		u16		di_flushiter;	/* incremented on flush */
 		xfs_ictimestamp_t di_atime;	/* time last accessed */
