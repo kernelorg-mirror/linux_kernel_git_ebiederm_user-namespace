@@ -252,8 +252,7 @@ typedef struct xfs_inode {
 		u32		di_uid;		/* owner's user id */
 		u32		di_gid;		/* owner's group id */
 		u32		di_nlink;	/* number of links to file */
-		u16		di_projid_lo;	/* lower part of owner's project id */
-		u16		di_projid_hi;	/* higher part of owner's project id */
+		projid_t	di_projid;	/* owner's project id */
 		u8		di_pad[6];	/* unused, zeroed space */
 		u16		di_flushiter;	/* incremented on flush */
 		xfs_ictimestamp_t di_atime;	/* time last accessed */
@@ -379,25 +378,6 @@ xfs_iflags_test_and_set(xfs_inode_t *ip, unsigned short flags)
 		ip->i_flags |= flags;
 	spin_unlock(&ip->i_flags_lock);
 	return ret;
-}
-
-/*
- * Project quota id helpers (previously projid was 16bit only
- * and using two 16bit values to hold new 32bit projid was chosen
- * to retain compatibility with "old" filesystems).
- */
-static inline prid_t
-xfs_get_projid(struct xfs_inode *ip)
-{
-	return (prid_t)ip->i_d.di_projid_hi << 16 | ip->i_d.di_projid_lo;
-}
-
-static inline void
-xfs_set_projid(struct xfs_inode *ip,
-		prid_t projid)
-{
-	ip->i_d.di_projid_hi = (__uint16_t) (projid >> 16);
-	ip->i_d.di_projid_lo = (__uint16_t) (projid & 0xffff);
 }
 
 /*
