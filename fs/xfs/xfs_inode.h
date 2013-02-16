@@ -370,6 +370,18 @@ xfs_set_projid(struct xfs_inode *ip,
 	ip->i_d.di_projid_lo = (__uint16_t) (projid & 0xffff);
 }
 
+static inline void xfs_set_uid(struct xfs_inode *ip, uid_t uid)
+{
+	VFS_I(ip)->i_uid = uid;
+	ip->i_d.di_uid = uid;
+}
+
+static inline void xfs_set_gid(struct xfs_inode *ip, gid_t gid)
+{
+	VFS_I(ip)->i_gid = gid;
+	ip->i_d.di_gid = gid;
+}
+
 /*
  * In-core inode flags.
  */

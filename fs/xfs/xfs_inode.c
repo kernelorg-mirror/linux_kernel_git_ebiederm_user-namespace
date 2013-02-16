@@ -1016,6 +1016,8 @@ xfs_iread(
 
 		ip->i_projid = ((projid_t)ip->i_d.di_projid_hi << 16) |
 					  ip->i_d.di_projid_lo;
+		VFS_I(ip)->i_uid = ip->i_d.di_uid;
+		VFS_I(ip)->i_gid = ip->i_d.di_gid;
 
 		error = xfs_iformat(ip, dip);
 		if (error)  {
@@ -1201,8 +1203,8 @@ xfs_ialloc(
 	ip->i_d.di_onlink = 0;
 	ip->i_d.di_nlink = nlink;
 	ASSERT(ip->i_d.di_nlink == nlink);
-	ip->i_d.di_uid = current_fsuid();
-	ip->i_d.di_gid = current_fsgid();
+	xfs_set_uid(ip, current_fsuid());
+	xfs_set_gid(ip, current_fsgid());
 	xfs_set_projid(ip, prid);
 	memset(&(ip->i_d.di_pad[0]), 0, sizeof(ip->i_d.di_pad));
 
@@ -1228,7 +1230,7 @@ xfs_ialloc(
 		xfs_bump_ino_vers2(tp, ip);
 
 	if (pip && XFS_INHERIT_GID(pip)) {
-		ip->i_d.di_gid = pip->i_d.di_gid;
+		xfs_set_gid(ip, VFS_I(pip)->i_gid);
 		if ((pip->i_d.di_mode & S_ISGID) && S_ISDIR(mode)) {
 			ip->i_d.di_mode |= S_ISGID;
 		}
@@ -1241,7 +1243,7 @@ xfs_ialloc(
 	 */
 	if ((irix_sgid_inherit) &&
 	    (ip->i_d.di_mode & S_ISGID) &&
-	    (!in_group_p((gid_t)ip->i_d.di_gid))) {
+	    (!in_group_p(VFS_I(ip)->i_gid))) {
 		ip->i_d.di_mode &= ~S_ISGID;
 	}
 

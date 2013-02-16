@@ -95,8 +95,8 @@ xfs_bulkstat_one_int(
 	buf->bs_projid_hi = (u16)(ip->i_projid >> 16);
 	buf->bs_ino = ino;
 	buf->bs_mode = dic->di_mode;
-	buf->bs_uid = dic->di_uid;
-	buf->bs_gid = dic->di_gid;
+	buf->bs_uid = VFS_I(ip)->i_uid;
+	buf->bs_gid = VFS_I(ip)->i_gid;
 	buf->bs_size = dic->di_size;
 	buf->bs_atime.tv_sec = dic->di_atime.t_sec;
 	buf->bs_atime.tv_nsec = dic->di_atime.t_nsec;

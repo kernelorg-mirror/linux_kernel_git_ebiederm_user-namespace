@@ -1202,11 +1202,11 @@ xfs_inode_match_id(
 	struct xfs_eofblocks	*eofb)
 {
 	if (eofb->eof_flags & XFS_EOF_FLAGS_UID &&
-	    ip->i_d.di_uid != eofb->eof_uid)
+	    VFS_I(ip)->i_uid != eofb->eof_uid)
 		return 0;
 
 	if (eofb->eof_flags & XFS_EOF_FLAGS_GID &&
-	    ip->i_d.di_gid != eofb->eof_gid)
+	    VFS_I(ip)->i_gid != eofb->eof_gid)
 		return 0;
 
 	if (eofb->eof_flags & XFS_EOF_FLAGS_PRID &&
