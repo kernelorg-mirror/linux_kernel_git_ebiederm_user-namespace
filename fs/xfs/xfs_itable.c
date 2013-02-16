@@ -88,8 +88,8 @@ xfs_bulkstat_one_int(
 	 * further change.
 	 */
 	buf->bs_nlink = ip->i_d.di_nlink;
-	buf->bs_projid_lo = ip->i_d.di_projid_lo;
-	buf->bs_projid_hi = ip->i_d.di_projid_hi;
+	buf->bs_projid_lo = (u16)(ip->i_d.di_projid & 0xffff);
+	buf->bs_projid_hi = (u16)(ip->i_d.di_projid >> 16);
 	buf->bs_ino = ino;
 	buf->bs_mode = ip->i_d.di_mode;
 	buf->bs_uid = ip->i_d.di_uid;
