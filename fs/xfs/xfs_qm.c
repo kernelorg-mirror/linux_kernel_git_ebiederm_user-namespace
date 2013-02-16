@@ -777,7 +777,9 @@ xfs_qm_qino_alloc(
 		return error;
 	}
 
-	error = xfs_dir_ialloc(&tp, NULL, S_IFREG, 1, 0, 0, 1, ip, &committed);
+	error = xfs_dir_ialloc(&tp, NULL, S_IFREG, 1, 0,
+			       make_kprojid(&init_user_ns, 0),
+			       1, ip, &committed);
 	if (error) {
 		xfs_trans_cancel(tp, XFS_TRANS_RELEASE_LOG_RES |
 				 XFS_TRANS_ABORT);
