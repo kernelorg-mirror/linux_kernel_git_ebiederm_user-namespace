@@ -379,7 +379,7 @@ xfs_symlink(
 
 	udqp = gdqp = NULL;
 	if (dp->i_d.di_flags & XFS_DIFLAG_PROJINHERIT)
-		prid = xfs_get_projid(dp);
+		prid = dp->i_d.di_projid;
 	else
 		prid = XFS_PROJID_DEFAULT;
 
