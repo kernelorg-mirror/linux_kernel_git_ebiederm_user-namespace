@@ -834,16 +834,18 @@ xfs_iformat_btree(
 
 static void xfs_inode_from_disk(struct xfs_inode *to, struct xfs_dinode *from)
 {
+	projid_t projid;
 	to->i_d.di_magic	= be16_to_cpu(from->di_magic);
 	to->i_d.di_mode		= be16_to_cpu(from->di_mode);
 	to->i_d.di_version	= from ->di_version;
 	to->i_d.di_format	= from->di_format;
 	to->i_d.di_onlink	= be16_to_cpu(from->di_onlink);
-	to->i_d.di_uid		= be32_to_cpu(from->di_uid);
-	to->i_d.di_gid		= be32_to_cpu(from->di_gid);
+	to->i_d.di_uid		= make_kuid(&init_user_ns, be32_to_cpu(from->di_uid));
+	to->i_d.di_gid		= make_kgid(&init_user_ns, be32_to_cpu(from->di_gid));
 	to->i_d.di_nlink	= be32_to_cpu(from->di_nlink);
-	to->i_d.di_projid 		= (((u32)be16_to_cpu(from->di_projid_hi)) << 16) |
+	projid			= (((u32)be16_to_cpu(from->di_projid_hi)) << 16) |
 					 be16_to_cpu(from->di_projid_lo);
+	to->i_d.di_projid 	= make_kprojid(&init_user_ns, projid);
 	memcpy(to->i_d.di_pad, from->di_pad, sizeof(to->i_d.di_pad));
 	to->i_d.di_flushiter	= be16_to_cpu(from->di_flushiter);
 	to->i_d.di_atime.t_sec	= be32_to_cpu(from->di_atime.t_sec);
@@ -867,16 +869,19 @@ static void xfs_inode_from_disk(struct xfs_inode *to, struct xfs_dinode *from)
 
 static void xfs_inode_to_disk(struct xfs_dinode *to, struct xfs_inode *from)
 {
+	uid_t uid = from_kuid(&init_user_ns, from->i_d.di_uid);
+	gid_t gid = from_kgid(&init_user_ns, from->i_d.di_gid);
+	projid_t projid = from_kprojid(&init_user_ns, from->i_d.di_projid);
 	to->di_magic		= cpu_to_be16(from->i_d.di_magic);
 	to->di_mode		= cpu_to_be16(from->i_d.di_mode);
 	to->di_version		= from->i_d.di_version;
 	to->di_format		= from->i_d.di_format;
 	to->di_onlink		= cpu_to_be16(from->i_d.di_onlink);
-	to->di_uid		= cpu_to_be32(from->i_d.di_uid);
-	to->di_gid		= cpu_to_be32(from->i_d.di_gid);
+	to->di_uid		= cpu_to_be32(uid);
+	to->di_gid		= cpu_to_be32(gid);
 	to->di_nlink		= cpu_to_be32(from->i_d.di_nlink);
-	to->di_projid_lo	= cpu_to_be16(from->i_d.di_projid & 0xffff);
-	to->di_projid_hi	= cpu_to_be16(from->i_d.di_projid >> 16);
+	to->di_projid_lo	= cpu_to_be16(projid & 0xffff);
+	to->di_projid_hi	= cpu_to_be16(projid >> 16);
 	memcpy(to->di_pad, from->i_d.di_pad, sizeof(to->di_pad));
 	to->di_flushiter	= cpu_to_be16(from->i_d.di_flushiter);
 	to->di_atime.t_sec	= cpu_to_be32(from->i_d.di_atime.t_sec);
@@ -901,16 +906,19 @@ static void xfs_inode_to_disk(struct xfs_dinode *to, struct xfs_inode *from)
 void xfs_inode_to_log(struct xfs_icdinode *to, struct xfs_inode *from)
 {
 	/* xfs_inode_to_disk without the endian changes */
+	uid_t uid = from_kuid(&init_user_ns, from->i_d.di_uid);
+	gid_t gid = from_kgid(&init_user_ns, from->i_d.di_gid);
+	projid_t projid = from_kprojid(&init_user_ns, from->i_d.di_projid);
 	to->di_magic		= from->i_d.di_magic;
 	to->di_mode		= from->i_d.di_mode;
 	to->di_version		= from->i_d.di_version;
 	to->di_format		= from->i_d.di_format;
 	to->di_onlink		= from->i_d.di_onlink;
-	to->di_uid		= from->i_d.di_uid;
-	to->di_gid		= from->i_d.di_gid;
+	to->di_uid		= uid;
+	to->di_gid		= gid;
 	to->di_nlink		= from->i_d.di_nlink;
-	to->di_projid_lo	= from->i_d.di_projid & 0xffff;
-	to->di_projid_hi	= from->i_d.di_projid >> 16;
+	to->di_projid_lo	= projid & 0xffff;
+	to->di_projid_hi	= projid >> 16;
 	memcpy(to->di_pad, from->i_d.di_pad, sizeof(to->di_pad));
 	to->di_flushiter	= from->i_d.di_flushiter;
 	to->di_atime.t_sec	= from->i_d.di_atime.t_sec;
@@ -1112,7 +1120,7 @@ xfs_iread(
 	if (ip->i_d.di_version == 1) {
 		ip->i_d.di_nlink = ip->i_d.di_onlink;
 		ip->i_d.di_onlink = 0;
-		ip->i_d.di_projid = 0;
+		ip->i_d.di_projid = make_kprojid(&init_user_ns, 0);
 	}
 
 	ip->i_delayed_blks = 0;
@@ -1299,7 +1307,7 @@ xfs_ialloc(
 	 */
 	if ((irix_sgid_inherit) &&
 	    (ip->i_d.di_mode & S_ISGID) &&
-	    (!in_group_p((gid_t)ip->i_d.di_gid))) {
+	    (!in_group_p(ip->i_d.di_gid))) {
 		ip->i_d.di_mode &= ~S_ISGID;
 	}
 
@@ -2895,7 +2903,8 @@ xfs_iflush_int(
 			memset(&(ip->i_d.di_pad[0]), 0, sizeof(ip->i_d.di_pad));
 			memset(&(dip->di_pad[0]), 0,
 			      sizeof(dip->di_pad));
-			ASSERT(ip->i_d.di_projid == 0);
+			ASSERT(projid_eq(ip->i_d.di_projid,
+					 make_kprojid(&init_user_ns, 0)));
 		}
 	}
 
