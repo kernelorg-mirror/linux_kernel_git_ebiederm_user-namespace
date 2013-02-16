@@ -35,9 +35,18 @@ void xfs_reclaim_inodes_nr(struct xfs_mount *mp, int nr_to_scan);
 
 void xfs_inode_set_reclaim_tag(struct xfs_inode *ip);
 
+struct xfs_internal_eofblocks {
+	u32		eof_version;
+	u32		eof_flags;
+	kuid_t		eof_uid;
+	kgid_t		eof_gid;
+	kprojid_t	eof_projid;
+	u64		eof_min_file_size;
+};
+
 void xfs_inode_set_eofblocks_tag(struct xfs_inode *ip);
 void xfs_inode_clear_eofblocks_tag(struct xfs_inode *ip);
-int xfs_icache_free_eofblocks(struct xfs_mount *, struct xfs_eofblocks *);
+int xfs_icache_free_eofblocks(struct xfs_mount *, struct xfs_internal_eofblocks *);
 void xfs_eofblocks_worker(struct work_struct *);
 
 int xfs_sync_inode_grab(struct xfs_inode *ip);

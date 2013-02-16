@@ -1615,6 +1615,7 @@ xfs_file_ioctl(
 
 	case XFS_IOC_FREE_EOFBLOCKS: {
 		struct xfs_eofblocks eofb;
+		struct xfs_internal_eofblocks keofb;
 
 		if (copy_from_user(&eofb, arg, sizeof(eofb)))
 			return -XFS_ERROR(EFAULT);
@@ -1629,7 +1630,26 @@ xfs_file_ioctl(
 		    memchr_inv(eofb.pad64, 0, sizeof(eofb.pad64)))
 			return -XFS_ERROR(EINVAL);
 
-		error = xfs_icache_free_eofblocks(mp, &eofb);
+		keofb.eof_version = eofb.eof_version;
+		keofb.eof_flags   = eofb.eof_flags;
+		if (eofb.eof_flags & XFS_EOF_FLAGS_UID) {
+			keofb.eof_uid = make_kuid(current_user_ns(), eofb.eof_uid);
+			if (!uid_valid(keofb.eof_uid))
+				return -XFS_ERROR(EINVAL);
+		}
+		if (eofb.eof_flags & XFS_EOF_FLAGS_GID) {
+			keofb.eof_gid = make_kgid(current_user_ns(), eofb.eof_gid);
+			if (!gid_valid(keofb.eof_gid))
+				return -XFS_ERROR(EINVAL);
+		}
+		if (eofb.eof_flags & XFS_EOF_FLAGS_PRID) {
+			keofb.eof_projid = make_kprojid(current_user_ns(), eofb.eof_prid);
+			if (!projid_valid(keofb.eof_projid))
+				return -XFS_ERROR(EINVAL);
+		}
+		keofb.eof_min_file_size = eofb.eof_min_file_size;
+
+		error = xfs_icache_free_eofblocks(mp, &keofb);
 		return -error;
 	}
 
