@@ -1013,6 +1013,10 @@ xfs_iread(
 	 */
 	if (dip->di_mode) {
 		xfs_dinode_from_disk(&ip->i_d, dip);
+
+		ip->i_projid = ((projid_t)ip->i_d.di_projid_hi << 16) |
+					  ip->i_d.di_projid_lo;
+
 		error = xfs_iformat(ip, dip);
 		if (error)  {
 #ifdef DEBUG
@@ -2839,7 +2843,7 @@ xfs_iflush_int(
 			memset(&(ip->i_d.di_pad[0]), 0, sizeof(ip->i_d.di_pad));
 			memset(&(dip->di_pad[0]), 0,
 			      sizeof(dip->di_pad));
-			ASSERT(xfs_get_projid(ip) == 0);
+			ASSERT(ip->i_projid == 0);
 		}
 	}
 
