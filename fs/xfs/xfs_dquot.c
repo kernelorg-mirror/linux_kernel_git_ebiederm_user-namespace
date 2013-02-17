@@ -581,8 +581,7 @@ xfs_qm_dqtobp(
 int
 xfs_qm_dqread(
 	struct xfs_mount	*mp,
-	xfs_dqid_t		id,
-	uint			type,
+	struct kqid		id,
 	uint			flags,
 	struct xfs_dquot	**O_dqpp)
 {
@@ -596,8 +595,9 @@ xfs_qm_dqread(
 
 	dqp = kmem_zone_zalloc(xfs_qm_dqzone, KM_SLEEP);
 
-	dqp->dq_flags = type;
-	dqp->q_core.d_id = cpu_to_be32(id);
+	dqp->q_id = id;
+	dqp->dq_flags = xfs_quota_type(id.type);
+	dqp->q_core.d_id = cpu_to_be32(from_kqid(&init_user_ns, id));
 	dqp->q_mount = mp;
 	INIT_LIST_HEAD(&dqp->q_lru);
 	mutex_init(&dqp->q_qlock);
@@ -615,7 +615,7 @@ xfs_qm_dqread(
 	 * Make sure group quotas have a different lock class than user
 	 * quotas.
 	 */
-	if (!(type & XFS_DQ_USER))
+	if (id.type != USRQUOTA)
 		lockdep_set_class(&dqp->q_qlock, &xfs_dquot_other_class);
 
 	XFS_STATS_INC(xs_qm_dquot);
@@ -779,7 +779,7 @@ restart:
 	if (ip)
 		xfs_iunlock(ip, XFS_ILOCK_EXCL);
 
-	error = xfs_qm_dqread(mp, id, type, flags, &dqp);
+	error = xfs_qm_dqread(mp, qid, flags, &dqp);
 
 	if (ip)
 		xfs_ilock(ip, XFS_ILOCK_EXCL);
