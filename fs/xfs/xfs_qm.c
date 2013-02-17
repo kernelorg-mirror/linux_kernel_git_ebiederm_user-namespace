@@ -425,7 +425,7 @@ xfs_qm_dqattach_one(
 			dqp = udqhint->q_gdquot;
 		else
 			dqp = udqhint->q_pdquot;
-		if (dqp && qid_eq(make_kqid(&init_user_ns, id.type, be32_to_cpu(dqp->q_core.d_id)), id)) {
+		if (dqp && qid_eq(dqp->q_id, id)) {
 			ASSERT(*IO_idqpp == NULL);
 
 			*IO_idqpp = xfs_qm_dqhold(dqp);
@@ -1147,7 +1147,7 @@ xfs_qm_quotacheck_dqadjust(
 	 *
 	 * There are no timers for the default values set in the root dquot.
 	 */
-	if (dqp->q_core.d_id) {
+	if (!is_superquota(dqp->q_id, &init_user_ns)) {
 		xfs_qm_adjust_dqlimits(mp, dqp);
 		xfs_qm_adjust_dqtimers(mp, &dqp->q_core);
 	}
@@ -1941,7 +1941,7 @@ xfs_qm_vop_chown_reserve(
 			XFS_QMOPT_RES_RTBLKS : XFS_QMOPT_RES_REGBLKS;
 
 	if (XFS_IS_UQUOTA_ON(mp) && udqp &&
-	    !uid_eq(ip->i_d.di_uid, (uid_t)be32_to_cpu(udqp->q_core.d_id))) {
+	    !qid_eq(make_kqid_uid(ip->i_d.di_uid), udqp->q_id)) {
 		udq_delblks = udqp;
 		/*
 		 * If there are delayed allocation blocks, then we have to
@@ -1954,7 +1954,7 @@ xfs_qm_vop_chown_reserve(
 		}
 	}
 	if (XFS_IS_GQUOTA_ON(ip->i_mount) && gdqp &&
-	    !gid_eq(ip->i_d.di_gid, be32_to_cpu(gdqp->q_core.d_id))) {
+	    !qid_eq(make_kqid_gid(ip->i_d.di_gid), gdqp->q_id)) {
 		gdq_delblks = gdqp;
 		if (delblks) {
 			ASSERT(ip->i_gdquot);
@@ -1963,7 +1963,7 @@ xfs_qm_vop_chown_reserve(
 	}
 
 	if (XFS_IS_PQUOTA_ON(ip->i_mount) && pdqp &&
-	    !projid_eq(ip->i_d.di_projid, be32_to_cpu(pdqp->q_core.d_id))) {
+	    !qid_eq(make_kqid_projid(ip->i_d.di_projid), pdqp->q_id)) {
 		prjflags = XFS_QMOPT_ENOSPC;
 		pdq_delblks = pdqp;
 		if (delblks) {
@@ -2052,7 +2052,7 @@ xfs_qm_vop_create_dqattach(
 	if (udqp) {
 		ASSERT(ip->i_udquot == NULL);
 		ASSERT(XFS_IS_UQUOTA_ON(mp));
-		ASSERT(uid_eq(ip->i_d.di_uid, be32_to_cpu(udqp->q_core.d_id)));
+		ASSERT(qid_eq(make_kqid_uid(ip->i_d.di_uid), udqp->q_id));
 
 		ip->i_udquot = xfs_qm_dqhold(udqp);
 		xfs_trans_mod_dquot(tp, udqp, XFS_TRANS_DQ_ICOUNT, 1);
@@ -2060,14 +2060,14 @@ xfs_qm_vop_create_dqattach(
 	if (gdqp) {
 		ASSERT(ip->i_gdquot == NULL);
 		ASSERT(XFS_IS_GQUOTA_ON(mp));
-		ASSERT(gid_eq(ip->i_d.di_gid, be32_to_cpu(gdqp->q_core.d_id)));
+		ASSERT(qid_eq(make_kqid_gid(ip->i_d.di_gid), gdqp->q_id));
 		ip->i_gdquot = xfs_qm_dqhold(gdqp);
 		xfs_trans_mod_dquot(tp, gdqp, XFS_TRANS_DQ_ICOUNT, 1);
 	}
 	if (pdqp) {
 		ASSERT(ip->i_pdquot == NULL);
 		ASSERT(XFS_IS_PQUOTA_ON(mp));
-		ASSERT(projid_eq(ip->i_d.di_projid, be32_to_cpu(pdqp->q_core.d_id)));
+		ASSERT(qid_eq(make_kqid_projid(ip->i_d.di_projid), pdqp->q_id));
 
 		ip->i_pdquot = xfs_qm_dqhold(pdqp);
 		xfs_trans_mod_dquot(tp, pdqp, XFS_TRANS_DQ_ICOUNT, 1);
