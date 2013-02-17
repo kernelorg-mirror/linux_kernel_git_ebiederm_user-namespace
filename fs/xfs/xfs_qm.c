@@ -673,10 +673,11 @@ xfs_qm_init_quotainfo(
 	 * Since we may not have done a quotacheck by this point, just read
 	 * the dquot without attaching it to any hashtables or lists.
 	 */
-	error = xfs_qm_dqread(mp, 0,
-			XFS_IS_UQUOTA_RUNNING(mp) ? XFS_DQ_USER :
-			 (XFS_IS_GQUOTA_RUNNING(mp) ? XFS_DQ_GROUP :
-			  XFS_DQ_PROJ),
+	error = xfs_qm_dqread(mp,
+			make_kqid(&init_user_ns,
+				  XFS_IS_UQUOTA_RUNNING(mp) ? USRQUOTA :
+				  (XFS_IS_GQUOTA_RUNNING(mp) ? GRPQUOTA :
+				   PRJQUOTA), 0),
 			XFS_QMOPT_DOWARN, &dqp);
 	if (!error) {
 		xfs_disk_dquot_t	*ddqp = &dqp->q_core;
