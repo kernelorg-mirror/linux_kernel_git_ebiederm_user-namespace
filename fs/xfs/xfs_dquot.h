@@ -157,7 +157,7 @@ extern void		xfs_qm_adjust_dqtimers(xfs_mount_t *,
 extern void		xfs_qm_adjust_dqlimits(struct xfs_mount *,
 					       struct xfs_dquot *);
 extern int		xfs_qm_dqget(xfs_mount_t *, xfs_inode_t *,
-					xfs_dqid_t, uint, uint, xfs_dquot_t **);
+					struct kqid, uint, xfs_dquot_t **);
 extern void		xfs_qm_dqput(xfs_dquot_t *);
 
 extern void		xfs_dqlock2(struct xfs_dquot *, struct xfs_dquot *);

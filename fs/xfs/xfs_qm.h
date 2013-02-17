@@ -155,8 +155,8 @@ extern void		xfs_qm_dqrele_all_inodes(struct xfs_mount *, uint);
 /* quota ops */
 extern int		xfs_qm_scall_trunc_qfiles(struct xfs_mount *, uint);
 extern int		xfs_qm_scall_getquota(struct xfs_mount *, struct kqid,
-					uint, struct fs_disk_quota *);
-extern int		xfs_qm_scall_setqlim(struct xfs_mount *, struct kqid, uint,
+					struct fs_disk_quota *);
+extern int		xfs_qm_scall_setqlim(struct xfs_mount *, struct kqid,
 					struct fs_disk_quota *);
 extern int		xfs_qm_scall_getqstat(struct xfs_mount *,
 					struct fs_quota_stat *);
