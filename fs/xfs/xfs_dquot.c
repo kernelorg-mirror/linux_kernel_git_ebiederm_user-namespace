@@ -63,6 +63,19 @@ static struct kmem_zone		*xfs_qm_dqzone;
 
 static struct lock_class_key xfs_dquot_other_class;
 
+STATIC int
+xfs_quota_type(int type)
+{
+	switch (type) {
+	case USRQUOTA:
+		return XFS_DQ_USER;
+	case GRPQUOTA:
+		return XFS_DQ_GROUP;
+	default:
+		return XFS_DQ_PROJ;
+	}
+}
+
 /*
  * This is called to free all the memory associated with a dquot
  */
@@ -696,20 +709,21 @@ int
 xfs_qm_dqget(
 	xfs_mount_t	*mp,
 	xfs_inode_t	*ip,	  /* locked inode (optional) */
-	xfs_dqid_t	id,	  /* uid/projid/gid depending on type */
-	uint		type,	  /* XFS_DQ_USER/XFS_DQ_PROJ/XFS_DQ_GROUP */
+	struct kqid     qid,	  /* uid/projid/gid depending on type */
 	uint		flags,	  /* DQALLOC, DQSUSER, DQREPAIR, DOWARN */
 	xfs_dquot_t	**O_dqpp) /* OUT : locked incore dquot */
 {
 	struct xfs_quotainfo	*qi = mp->m_quotainfo;
+	uint			id = from_kqid(&init_user_ns, qid);
+	uint			type = xfs_quota_type(qid.type);
 	struct radix_tree_root *tree = XFS_DQUOT_TREE(qi, type);
 	struct xfs_dquot	*dqp;
 	int			error;
 
 	ASSERT(XFS_IS_QUOTA_RUNNING(mp));
-	if ((! XFS_IS_UQUOTA_ON(mp) && type == XFS_DQ_USER) ||
-	    (! XFS_IS_PQUOTA_ON(mp) && type == XFS_DQ_PROJ) ||
-	    (! XFS_IS_GQUOTA_ON(mp) && type == XFS_DQ_GROUP)) {
+	if ((! XFS_IS_UQUOTA_ON(mp) && qid.type == USRQUOTA) ||
+	    (! XFS_IS_PQUOTA_ON(mp) && qid.type == PRJQUOTA) ||
+	    (! XFS_IS_GQUOTA_ON(mp) && qid.type == GRPQUOTA)) {
 		return (ESRCH);
 	}
 
