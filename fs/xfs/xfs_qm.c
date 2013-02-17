@@ -1616,9 +1616,9 @@ xfs_qm_write_sb_changes(
 int
 xfs_qm_vop_dqalloc(
 	struct xfs_inode	*ip,
-	uid_t			uid,
-	gid_t			gid,
-	prid_t			prid,
+	kuid_t			uid,
+	kgid_t			gid,
+	kprojid_t		prid,
 	uint			flags,
 	struct xfs_dquot	**O_udqpp,
 	struct xfs_dquot	**O_gdqpp)
