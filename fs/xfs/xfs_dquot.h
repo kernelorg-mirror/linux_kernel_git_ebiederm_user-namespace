@@ -163,4 +163,10 @@ static inline struct xfs_dquot *xfs_qm_dqhold(struct xfs_dquot *dqp)
 
 extern const struct xfs_buf_ops xfs_dquot_buf_ops;
 
+/* Is this root's quota in the specified user namespace? */
+static inline bool is_superquota(struct kqid id, struct user_namespace *ns)
+{
+	return qid_eq(id, make_kqid(ns, id.type, 0));
+}
+
 #endif /* __XFS_DQUOT_H__ */
