@@ -243,7 +243,34 @@ typedef struct xfs_inode {
 	unsigned long		i_flags;	/* see defined flags below */
 	unsigned int		i_delayed_blks;	/* count of delay alloc blks */
 
-	xfs_icdinode_t		i_d;		/* most of ondisk inode */
+	struct {
+		u16		di_magic;	/* inode magic # = XFS_DINODE_MAGIC */
+		u16		di_mode;	/* mode and type of file */
+		s8		di_version;	/* inode version */
+		s8		di_format;	/* format of di_c data */
+		u16		di_onlink;	/* old number of links to file */
+		u32		di_uid;		/* owner's user id */
+		u32		di_gid;		/* owner's group id */
+		u32		di_nlink;	/* number of links to file */
+		u16		di_projid_lo;	/* lower part of owner's project id */
+		u16		di_projid_hi;	/* higher part of owner's project id */
+		u8		di_pad[6];	/* unused, zeroed space */
+		u16		di_flushiter;	/* incremented on flush */
+		xfs_ictimestamp_t di_atime;	/* time last accessed */
+		xfs_ictimestamp_t di_mtime;	/* time last modified */
+		xfs_ictimestamp_t di_ctime;	/* time created/inode modified */
+		xfs_fsize_t	di_size;	/* number of bytes in file */
+		xfs_drfsbno_t	di_nblocks;	/* # of direct & btree blocks used */
+		xfs_extlen_t	di_extsize;	/* basic/minimum extent size for file */
+		xfs_extnum_t	di_nextents;	/* number of extents in data fork */
+		xfs_aextnum_t	di_anextents;	/* number of extents in attribute fork*/
+		u8		di_forkoff;	/* attr fork offs, <<3 for 64b align */
+		s8		di_aformat;	/* format of attr fork's data */
+		u32		di_dmevmask;	/* DMIG event mask */
+		u16		di_dmstate;	/* DMIG state info */
+		u16		di_flags;	/* random flags, XFS_DIFLAG_... */
+		u32		di_gen;		/* generation number */
+	} i_d;		/* most of ondisk inode */
 
 	/* VFS inode */
 	struct inode		i_vnode;	/* embedded VFS inode */
@@ -549,6 +576,8 @@ do { \
 #define XFS_IGET_CREATE		0x1
 #define XFS_IGET_UNTRUSTED	0x2
 #define XFS_IGET_DONTCACHE	0x4
+
+void xfs_inode_to_log(struct xfs_icdinode *to, struct xfs_inode *from);
 
 int		xfs_imap_to_bp(struct xfs_mount *, struct xfs_trans *,
 			       struct xfs_imap *, struct xfs_dinode **,

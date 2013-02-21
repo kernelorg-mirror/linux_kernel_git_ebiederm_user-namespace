@@ -60,7 +60,6 @@ xfs_bulkstat_one_int(
 	int			*ubused,	/* bytes used by me */
 	int			*stat)		/* BULKSTAT_RV_... */
 {
-	struct xfs_icdinode	*dic;		/* dinode core info pointer */
 	struct xfs_inode	*ip;		/* incore inode pointer */
 	struct xfs_bstat	*buf;		/* return buffer */
 	int			error = 0;	/* error value */
@@ -85,36 +84,34 @@ xfs_bulkstat_one_int(
 	ASSERT(ip != NULL);
 	ASSERT(ip->i_imap.im_blkno != 0);
 
-	dic = &ip->i_d;
-
 	/* xfs_iget returns the following without needing
 	 * further change.
 	 */
-	buf->bs_nlink = dic->di_nlink;
-	buf->bs_projid_lo = dic->di_projid_lo;
-	buf->bs_projid_hi = dic->di_projid_hi;
+	buf->bs_nlink = ip->i_d.di_nlink;
+	buf->bs_projid_lo = ip->i_d.di_projid_lo;
+	buf->bs_projid_hi = ip->i_d.di_projid_hi;
 	buf->bs_ino = ino;
-	buf->bs_mode = dic->di_mode;
-	buf->bs_uid = dic->di_uid;
-	buf->bs_gid = dic->di_gid;
-	buf->bs_size = dic->di_size;
-	buf->bs_atime.tv_sec = dic->di_atime.t_sec;
-	buf->bs_atime.tv_nsec = dic->di_atime.t_nsec;
-	buf->bs_mtime.tv_sec = dic->di_mtime.t_sec;
-	buf->bs_mtime.tv_nsec = dic->di_mtime.t_nsec;
-	buf->bs_ctime.tv_sec = dic->di_ctime.t_sec;
-	buf->bs_ctime.tv_nsec = dic->di_ctime.t_nsec;
+	buf->bs_mode = ip->i_d.di_mode;
+	buf->bs_uid = ip->i_d.di_uid;
+	buf->bs_gid = ip->i_d.di_gid;
+	buf->bs_size = ip->i_d.di_size;
+	buf->bs_atime.tv_sec = ip->i_d.di_atime.t_sec;
+	buf->bs_atime.tv_nsec = ip->i_d.di_atime.t_nsec;
+	buf->bs_mtime.tv_sec = ip->i_d.di_mtime.t_sec;
+	buf->bs_mtime.tv_nsec = ip->i_d.di_mtime.t_nsec;
+	buf->bs_ctime.tv_sec = ip->i_d.di_ctime.t_sec;
+	buf->bs_ctime.tv_nsec = ip->i_d.di_ctime.t_nsec;
 	buf->bs_xflags = xfs_ip2xflags(ip);
-	buf->bs_extsize = dic->di_extsize << mp->m_sb.sb_blocklog;
-	buf->bs_extents = dic->di_nextents;
-	buf->bs_gen = dic->di_gen;
+	buf->bs_extsize = ip->i_d.di_extsize << mp->m_sb.sb_blocklog;
+	buf->bs_extents = ip->i_d.di_nextents;
+	buf->bs_gen = ip->i_d.di_gen;
 	memset(buf->bs_pad, 0, sizeof(buf->bs_pad));
-	buf->bs_dmevmask = dic->di_dmevmask;
-	buf->bs_dmstate = dic->di_dmstate;
-	buf->bs_aextents = dic->di_anextents;
+	buf->bs_dmevmask = ip->i_d.di_dmevmask;
+	buf->bs_dmstate = ip->i_d.di_dmstate;
+	buf->bs_aextents = ip->i_d.di_anextents;
 	buf->bs_forkoff = XFS_IFORK_BOFF(ip);
 
-	switch (dic->di_format) {
+	switch (ip->i_d.di_format) {
 	case XFS_DINODE_FMT_DEV:
 		buf->bs_rdev = ip->i_df.if_u2.if_rdev;
 		buf->bs_blksize = BLKDEV_IOSIZE;
@@ -130,7 +127,7 @@ xfs_bulkstat_one_int(
 	case XFS_DINODE_FMT_BTREE:
 		buf->bs_rdev = 0;
 		buf->bs_blksize = mp->m_sb.sb_blocksize;
-		buf->bs_blocks = dic->di_nblocks + ip->i_delayed_blks;
+		buf->bs_blocks = ip->i_d.di_nblocks + ip->i_delayed_blks;
 		break;
 	}
 	xfs_iunlock(ip, XFS_ILOCK_SHARED);
