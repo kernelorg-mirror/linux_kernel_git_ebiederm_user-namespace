@@ -157,19 +157,9 @@ xfs_inode_item_format_extents(
 	int			whichfork,
 	int			type)
 {
-	xfs_bmbt_rec_t		*ext_buffer;
-
-	ext_buffer = kmem_alloc(XFS_IFORK_SIZE(ip, whichfork), KM_SLEEP);
-	if (whichfork == XFS_DATA_FORK)
-		ip->i_itemp->ili_extents_buf = ext_buffer;
-	else
-		ip->i_itemp->ili_aextents_buf = ext_buffer;
-
 	vecp->i_addr = buf;
-	vecp->i_len = xfs_iextents_copy(ip, ext_buffer, whichfork);
+	vecp->i_len = xfs_iextents_copy(ip, (xfs_bmbt_rec_t *)buf, whichfork);
 	vecp->i_type = type;
-
-	memcpy(buf, ext_buffer, vecp->i_len);
 }
 
 /*
@@ -251,7 +241,6 @@ xfs_inode_item_format(
 		    ip->i_df.if_bytes > 0) {
 			ASSERT(ip->i_df.if_u1.if_extents != NULL);
 			ASSERT(ip->i_df.if_bytes / sizeof(xfs_bmbt_rec_t) > 0);
-			ASSERT(iip->ili_extents_buf == NULL);
 
 #ifdef XFS_NATIVE_HOST
                        if (ip->i_d.di_nextents == ip->i_df.if_bytes /
@@ -389,7 +378,6 @@ xfs_inode_item_format(
 			vecp->i_len = ip->i_afp->if_bytes;
 			vecp->i_type = XLOG_REG_TYPE_IATTR_EXT;
 #else
-			ASSERT(iip->ili_aextents_buf == NULL);
 			xfs_inode_item_format_extents(ip, buf, vecp,
 					XFS_ATTR_FORK, XLOG_REG_TYPE_IATTR_EXT);
 #endif
@@ -586,27 +574,6 @@ xfs_inode_item_unlock(
 
 	ASSERT(ip->i_itemp != NULL);
 	ASSERT(xfs_isilocked(ip, XFS_ILOCK_EXCL));
-
-	/*
-	 * If the inode needed a separate buffer with which to log
-	 * its extents, then free it now.
-	 */
-	if (iip->ili_extents_buf != NULL) {
-		ASSERT(ip->i_d.di_format == XFS_DINODE_FMT_EXTENTS);
-		ASSERT(ip->i_d.di_nextents > 0);
-		ASSERT(iip->ili_fields & XFS_ILOG_DEXT);
-		ASSERT(ip->i_df.if_bytes > 0);
-		kmem_free(iip->ili_extents_buf);
-		iip->ili_extents_buf = NULL;
-	}
-	if (iip->ili_aextents_buf != NULL) {
-		ASSERT(ip->i_d.di_aformat == XFS_DINODE_FMT_EXTENTS);
-		ASSERT(ip->i_d.di_anextents > 0);
-		ASSERT(iip->ili_fields & XFS_ILOG_AEXT);
-		ASSERT(ip->i_afp->if_bytes > 0);
-		kmem_free(iip->ili_aextents_buf);
-		iip->ili_aextents_buf = NULL;
-	}
 
 	lock_flags = iip->ili_lock_flags;
 	iip->ili_lock_flags = 0;
