@@ -219,9 +219,8 @@ xfs_inode_item_format(
 			memset(&(ip->i_d.di_pad[0]), 0, sizeof(ip->i_d.di_pad));
 		}
 	}
-	xfs_inode_to_log(&iip->ili_d, ip);
+	xfs_inode_to_log((struct xfs_icdinode *)buf, ip);
 
-	memcpy(buf, &iip->ili_d, sizeof(struct xfs_icdinode));
 	vecp->i_addr = buf;
 	vecp->i_len  = sizeof(struct xfs_icdinode);
 	vecp->i_type = XLOG_REG_TYPE_ICORE;
