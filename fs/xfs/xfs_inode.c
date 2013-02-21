@@ -833,50 +833,136 @@ xfs_iformat_btree(
 	return 0;
 }
 
-STATIC void
-xfs_dinode_from_disk(
-	xfs_icdinode_t		*to,
-	xfs_dinode_t		*from)
+static void xfs_inode_from_disk(struct xfs_inode *to, struct xfs_dinode *from)
 {
-	to->di_magic = be16_to_cpu(from->di_magic);
-	to->di_mode = be16_to_cpu(from->di_mode);
-	to->di_version = from ->di_version;
-	to->di_format = from->di_format;
-	to->di_onlink = be16_to_cpu(from->di_onlink);
-	to->di_uid = be32_to_cpu(from->di_uid);
-	to->di_gid = be32_to_cpu(from->di_gid);
-	to->di_nlink = be32_to_cpu(from->di_nlink);
-	to->di_projid_lo = be16_to_cpu(from->di_projid_lo);
-	to->di_projid_hi = be16_to_cpu(from->di_projid_hi);
-	memcpy(to->di_pad, from->di_pad, sizeof(to->di_pad));
-	to->di_flushiter = be16_to_cpu(from->di_flushiter);
-	to->di_atime.t_sec = be32_to_cpu(from->di_atime.t_sec);
-	to->di_atime.t_nsec = be32_to_cpu(from->di_atime.t_nsec);
-	to->di_mtime.t_sec = be32_to_cpu(from->di_mtime.t_sec);
-	to->di_mtime.t_nsec = be32_to_cpu(from->di_mtime.t_nsec);
-	to->di_ctime.t_sec = be32_to_cpu(from->di_ctime.t_sec);
-	to->di_ctime.t_nsec = be32_to_cpu(from->di_ctime.t_nsec);
-	to->di_size = be64_to_cpu(from->di_size);
-	to->di_nblocks = be64_to_cpu(from->di_nblocks);
-	to->di_extsize = be32_to_cpu(from->di_extsize);
-	to->di_nextents = be32_to_cpu(from->di_nextents);
-	to->di_anextents = be16_to_cpu(from->di_anextents);
-	to->di_forkoff = from->di_forkoff;
-	to->di_aformat	= from->di_aformat;
-	to->di_dmevmask	= be32_to_cpu(from->di_dmevmask);
-	to->di_dmstate	= be16_to_cpu(from->di_dmstate);
-	to->di_flags	= be16_to_cpu(from->di_flags);
-	to->di_gen	= be32_to_cpu(from->di_gen);
+	to->i_d.di_magic	= be16_to_cpu(from->di_magic);
+	to->i_d.di_mode		= be16_to_cpu(from->di_mode);
+	to->i_d.di_version	= from ->di_version;
+	to->i_d.di_format	= from->di_format;
+	to->i_d.di_onlink	= be16_to_cpu(from->di_onlink);
+	to->i_d.di_uid		= be32_to_cpu(from->di_uid);
+	to->i_d.di_gid		= be32_to_cpu(from->di_gid);
+	to->i_d.di_nlink	= be32_to_cpu(from->di_nlink);
+	to->i_d.di_projid_lo	= be16_to_cpu(from->di_projid_lo);
+	to->i_d.di_projid_hi	= be16_to_cpu(from->di_projid_hi);
+	memcpy(to->i_d.di_pad, from->di_pad, sizeof(to->i_d.di_pad));
+	to->i_d.di_flushiter	= be16_to_cpu(from->di_flushiter);
+	to->i_d.di_atime.t_sec	= be32_to_cpu(from->di_atime.t_sec);
+	to->i_d.di_atime.t_nsec	= be32_to_cpu(from->di_atime.t_nsec);
+	to->i_d.di_mtime.t_sec	= be32_to_cpu(from->di_mtime.t_sec);
+	to->i_d.di_mtime.t_nsec = be32_to_cpu(from->di_mtime.t_nsec);
+	to->i_d.di_ctime.t_sec	= be32_to_cpu(from->di_ctime.t_sec);
+	to->i_d.di_ctime.t_nsec	= be32_to_cpu(from->di_ctime.t_nsec);
+	to->i_d.di_size		= be64_to_cpu(from->di_size);
+	to->i_d.di_nblocks	= be64_to_cpu(from->di_nblocks);
+	to->i_d.di_extsize	= be32_to_cpu(from->di_extsize);
+	to->i_d.di_nextents	= be32_to_cpu(from->di_nextents);
+	to->i_d.di_anextents	= be16_to_cpu(from->di_anextents);
+	to->i_d.di_forkoff 	= from->di_forkoff;
+	to->i_d.di_aformat	= from->di_aformat;
+	to->i_d.di_dmevmask	= be32_to_cpu(from->di_dmevmask);
+	to->i_d.di_dmstate	= be16_to_cpu(from->di_dmstate);
+	to->i_d.di_flags	= be16_to_cpu(from->di_flags);
+	to->i_d.di_gen		= be32_to_cpu(from->di_gen);
 
-	if (to->di_version == 3) {
-		to->di_changecount = be64_to_cpu(from->di_changecount);
-		to->di_crtime.t_sec = be32_to_cpu(from->di_crtime.t_sec);
-		to->di_crtime.t_nsec = be32_to_cpu(from->di_crtime.t_nsec);
-		to->di_flags2 = be64_to_cpu(from->di_flags2);
-		to->di_ino = be64_to_cpu(from->di_ino);
-		to->di_lsn = be64_to_cpu(from->di_lsn);
-		memcpy(to->di_pad2, from->di_pad2, sizeof(to->di_pad2));
-		uuid_copy(&to->di_uuid, &from->di_uuid);
+	if (to->i_d.di_version == 3) {
+		to->i_d.di_changecount = be64_to_cpu(from->di_changecount);
+		to->i_d.di_crtime.t_sec = be32_to_cpu(from->di_crtime.t_sec);
+		to->i_d.di_crtime.t_nsec = be32_to_cpu(from->di_crtime.t_nsec);
+		to->i_d.di_flags2 = be64_to_cpu(from->di_flags2);
+		to->i_d.di_ino = be64_to_cpu(from->di_ino);
+		to->i_d.di_lsn = be64_to_cpu(from->di_lsn);
+		memcpy(to->i_d.di_pad2, from->di_pad2, sizeof(to->i_d.di_pad2));
+		uuid_copy(&to->i_d.di_uuid, &from->di_uuid);
+	}
+}
+
+static void xfs_inode_to_disk(struct xfs_dinode *to, struct xfs_inode *from)
+{
+	to->di_magic		= cpu_to_be16(from->i_d.di_magic);
+	to->di_mode		= cpu_to_be16(from->i_d.di_mode);
+	to->di_version		= from->i_d.di_version;
+	to->di_format		= from->i_d.di_format;
+	to->di_onlink		= cpu_to_be16(from->i_d.di_onlink);
+	to->di_uid		= cpu_to_be32(from->i_d.di_uid);
+	to->di_gid		= cpu_to_be32(from->i_d.di_gid);
+	to->di_nlink		= cpu_to_be32(from->i_d.di_nlink);
+	to->di_projid_lo	= cpu_to_be16(from->i_d.di_projid_lo);
+	to->di_projid_hi	= cpu_to_be16(from->i_d.di_projid_hi);
+	memcpy(to->di_pad, from->i_d.di_pad, sizeof(to->di_pad));
+	to->di_flushiter	= cpu_to_be16(from->i_d.di_flushiter);
+	to->di_atime.t_sec	= cpu_to_be32(from->i_d.di_atime.t_sec);
+	to->di_atime.t_nsec	= cpu_to_be32(from->i_d.di_atime.t_nsec);
+	to->di_mtime.t_sec	= cpu_to_be32(from->i_d.di_mtime.t_sec);
+	to->di_mtime.t_nsec	= cpu_to_be32(from->i_d.di_mtime.t_nsec);
+	to->di_ctime.t_sec	= cpu_to_be32(from->i_d.di_ctime.t_sec);
+	to->di_ctime.t_nsec	= cpu_to_be32(from->i_d.di_ctime.t_nsec);
+	to->di_size		= cpu_to_be64(from->i_d.di_size);
+	to->di_nblocks		= cpu_to_be64(from->i_d.di_nblocks);
+	to->di_extsize		= cpu_to_be32(from->i_d.di_extsize);
+	to->di_nextents		= cpu_to_be32(from->i_d.di_nextents);
+	to->di_anextents	= cpu_to_be16(from->i_d.di_anextents);
+	to->di_forkoff		= from->i_d.di_forkoff;
+	to->di_aformat		= from->i_d.di_aformat;
+	to->di_dmevmask		= cpu_to_be32(from->i_d.di_dmevmask);
+	to->di_dmstate		= cpu_to_be16(from->i_d.di_dmstate);
+	to->di_flags		= cpu_to_be16(from->i_d.di_flags);
+	to->di_gen		= cpu_to_be32(from->i_d.di_gen);
+	if (from->i_d.di_version == 3) {
+		to->di_crc = cpu_to_be32(from->i_d.di_crc);
+		to->di_changecount = cpu_to_be64(from->i_d.di_changecount);
+		to->di_crtime.t_sec = cpu_to_be32(from->i_d.di_crtime.t_sec);
+		to->di_crtime.t_nsec = cpu_to_be32(from->i_d.di_crtime.t_nsec);
+		to->di_flags2 = cpu_to_be64(from->i_d.di_flags2);
+		to->di_ino = cpu_to_be64(from->i_d.di_ino);
+		to->di_lsn = cpu_to_be64(from->i_d.di_lsn);
+		memcpy(to->di_pad2, from->i_d.di_pad2, sizeof(to->di_pad2));
+		uuid_copy(&to->di_uuid, &from->i_d.di_uuid);
+	}
+}
+
+void xfs_inode_to_log(struct xfs_icdinode *to, struct xfs_inode *from)
+{
+	/* xfs_inode_to_disk without the endian changes */
+	to->di_magic		= from->i_d.di_magic;
+	to->di_mode		= from->i_d.di_mode;
+	to->di_version		= from->i_d.di_version;
+	to->di_format		= from->i_d.di_format;
+	to->di_onlink		= from->i_d.di_onlink;
+	to->di_uid		= from->i_d.di_uid;
+	to->di_gid		= from->i_d.di_gid;
+	to->di_nlink		= from->i_d.di_nlink;
+	to->di_projid_lo	= from->i_d.di_projid_lo;
+	to->di_projid_hi	= from->i_d.di_projid_hi;
+	memcpy(to->di_pad, from->i_d.di_pad, sizeof(to->di_pad));
+	to->di_flushiter	= from->i_d.di_flushiter;
+	to->di_atime.t_sec	= from->i_d.di_atime.t_sec;
+	to->di_atime.t_nsec	= from->i_d.di_atime.t_nsec;
+	to->di_mtime.t_sec	= from->i_d.di_mtime.t_sec;
+	to->di_mtime.t_nsec	= from->i_d.di_mtime.t_nsec;
+	to->di_ctime.t_sec	= from->i_d.di_ctime.t_sec;
+	to->di_ctime.t_nsec	= from->i_d.di_ctime.t_nsec;
+	to->di_size		= from->i_d.di_size;
+	to->di_nblocks		= from->i_d.di_nblocks;
+	to->di_extsize		= from->i_d.di_extsize;
+	to->di_nextents		= from->i_d.di_nextents;
+	to->di_anextents	= from->i_d.di_anextents;
+	to->di_forkoff		= from->i_d.di_forkoff;
+	to->di_aformat		= from->i_d.di_aformat;
+	to->di_dmevmask		= from->i_d.di_dmevmask;
+	to->di_dmstate		= from->i_d.di_dmstate;
+	to->di_flags		= from->i_d.di_flags;
+	to->di_gen		= from->i_d.di_gen;
+	if (from->i_d.di_version == 3) {
+		to->di_crc		= from->i_d.di_crc;
+		to->di_changecount	= from->i_d.di_changecount;
+		to->di_crtime.t_sec	= from->i_d.di_crtime.t_sec;
+		to->di_crtime.t_nsec	= from->i_d.di_crtime.t_nsec;
+		to->di_flags2		= from->i_d.di_flags2;
+		to->di_ino		= from->i_d.di_ino;
+		to->di_lsn		= from->i_d.di_lsn;
+		memcpy(to->di_pad2, from->i_d.di_pad2, sizeof(to->di_pad2));
+		to->di_uuid		= from->i_d.di_uuid;
 	}
 }
 
@@ -971,9 +1057,7 @@ uint
 xfs_ip2xflags(
 	xfs_inode_t		*ip)
 {
-	xfs_icdinode_t		*dic = &ip->i_d;
-
-	return _xfs_dic2xflags(dic->di_flags) |
+	return _xfs_dic2xflags(ip->i_d.di_flags) |
 				(XFS_IFORK_Q(ip) ? XFS_XFLAG_HASATTR : 0);
 }
 
@@ -1093,7 +1177,7 @@ xfs_iread(
 	 * Otherwise, just get the truly permanent information.
 	 */
 	if (dip->di_mode) {
-		xfs_dinode_from_disk(&ip->i_d, dip);
+		xfs_inode_from_disk(ip, dip);
 		error = xfs_iformat(ip, dip);
 		if (error)  {
 #ifdef DEBUG
@@ -2895,7 +2979,7 @@ xfs_iflush_int(
 	 * because if the inode is dirty at all the core must
 	 * be.
 	 */
-	xfs_dinode_to_disk(dip, &ip->i_d);
+	xfs_inode_to_disk(dip, ip);
 
 	/* Wrap, we never let the log put out DI_MAX_FLUSH */
 	if (ip->i_d.di_flushiter == DI_MAX_FLUSH)
