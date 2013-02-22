@@ -346,7 +346,7 @@ typedef struct xfs_log_item {
 
 struct xfs_item_ops {
 	uint (*iop_size)(xfs_log_item_t *, uint *);
-	void (*iop_format)(xfs_log_item_t *, struct xfs_log_iovec *);
+	void (*iop_format)(xfs_log_item_t *, struct xfs_log_vec *);
 	void (*iop_pin)(xfs_log_item_t *);
 	void (*iop_unpin)(xfs_log_item_t *, int remove);
 	uint (*iop_push)(struct xfs_log_item *, struct list_head *);
@@ -356,7 +356,7 @@ struct xfs_item_ops {
 };
 
 #define IOP_SIZE(ip,nbytes)	(*(ip)->li_ops->iop_size)(ip, nbytes)
-#define IOP_FORMAT(ip,vp)	(*(ip)->li_ops->iop_format)(ip, vp)
+#define IOP_FORMAT(ip,lv)	(*(ip)->li_ops->iop_format)(ip, lv)
 #define IOP_PIN(ip)		(*(ip)->li_ops->iop_pin)(ip)
 #define IOP_UNPIN(ip, remove)	(*(ip)->li_ops->iop_unpin)(ip, remove)
 #define IOP_PUSH(ip, list)	(*(ip)->li_ops->iop_push)(ip, list)
