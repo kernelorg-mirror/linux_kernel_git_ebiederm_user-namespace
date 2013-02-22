@@ -49,30 +49,39 @@ static inline struct xfs_inode_log_item *INODE_ITEM(struct xfs_log_item *lip)
  */
 STATIC uint
 xfs_inode_item_size(
-	struct xfs_log_item	*lip)
+	struct xfs_log_item	*lip,
+	uint			*nbytes)
 {
 	struct xfs_inode_log_item *iip = INODE_ITEM(lip);
 	struct xfs_inode	*ip = iip->ili_inode;
 	uint			nvecs = 2;
 
+	*nbytes += sizeof(xfs_inode_log_format_t) + sizeof(struct xfs_icdinode);
+
 	switch (ip->i_d.di_format) {
 	case XFS_DINODE_FMT_EXTENTS:
 		if ((iip->ili_fields & XFS_ILOG_DEXT) &&
 		    ip->i_d.di_nextents > 0 &&
-		    ip->i_df.if_bytes > 0)
+		    ip->i_df.if_bytes > 0) {
+			*nbytes += XFS_IFORK_DSIZE(ip);
 			nvecs++;
+		}
 		break;
 
 	case XFS_DINODE_FMT_BTREE:
 		if ((iip->ili_fields & XFS_ILOG_DBROOT) &&
-		    ip->i_df.if_broot_bytes > 0)
+		    ip->i_df.if_broot_bytes > 0) {
+			*nbytes += ip->i_df.if_broot_bytes;
 			nvecs++;
+		}
 		break;
 
 	case XFS_DINODE_FMT_LOCAL:
 		if ((iip->ili_fields & XFS_ILOG_DDATA) &&
-		    ip->i_df.if_bytes > 0)
+		    ip->i_df.if_bytes > 0) {
+			*nbytes += roundup(ip->i_df.if_bytes, 4);
 			nvecs++;
+		}
 		break;
 
 	case XFS_DINODE_FMT_DEV:
@@ -95,20 +104,26 @@ xfs_inode_item_size(
 	case XFS_DINODE_FMT_EXTENTS:
 		if ((iip->ili_fields & XFS_ILOG_AEXT) &&
 		    ip->i_d.di_anextents > 0 &&
-		    ip->i_afp->if_bytes > 0)
+		    ip->i_afp->if_bytes > 0) {
+			*nbytes += XFS_IFORK_ASIZE(ip);
 			nvecs++;
+		}
 		break;
 
 	case XFS_DINODE_FMT_BTREE:
 		if ((iip->ili_fields & XFS_ILOG_ABROOT) &&
-		    ip->i_afp->if_broot_bytes > 0)
+		    ip->i_afp->if_broot_bytes > 0) {
+			*nbytes += ip->i_afp->if_broot_bytes;
 			nvecs++;
+		}
 		break;
 
 	case XFS_DINODE_FMT_LOCAL:
 		if ((iip->ili_fields & XFS_ILOG_ADATA) &&
-		    ip->i_afp->if_bytes > 0)
+		    ip->i_afp->if_bytes > 0) {
+			*nbytes += roundup(ip->i_afp->if_bytes, 4);
 			nvecs++;
+		}
 		break;
 
 	default:

@@ -39,37 +39,63 @@ static inline struct xfs_buf_log_item *BUF_ITEM(struct xfs_log_item *lip)
 
 STATIC void	xfs_buf_do_callbacks(struct xfs_buf *bp);
 
-/*
- * This returns the number of log iovecs needed to log the
- * given buf log item.
- *
- * It calculates this as 1 iovec for the buf log format structure
- * and 1 for each stretch of non-contiguous chunks to be logged.
- * Contiguous chunks are logged in a single iovec.
- *
- * If the XFS_BLI_STALE flag has been set, then log nothing.
- */
-STATIC uint
+STATIC void
 xfs_buf_item_size_segment(
 	struct xfs_buf_log_item	*bip,
+	uint			*niovecs,
+	uint			*len,
+	uint			offset,
 	struct xfs_buf_log_format *blfp)
 {
-	struct xfs_buf		*bp = bip->bli_buf;
-	uint			nvecs;
-	int			next_bit;
-	int			last_bit;
+	struct xfs_buf	*bp = bip->bli_buf;
+	uint		nvecs;
+	uint		nbytes;
+	int		first_bit;
+	int		last_bit;
+	int		next_bit;
+	uint		nbits;
 
-	last_bit = xfs_next_bit(blfp->blf_data_map, blfp->blf_map_size, 0);
-	if (last_bit == -1)
-		return 0;
+	/* copy the flags across from the base format item */
+	blfp->blf_flags = bip->__bli_format.blf_flags;
 
 	/*
-	 * initial count for a dirty buffer is 2 vectors - the format structure
-	 * and the first dirty region.
+	 * Base size is the actual size of the ondisk structure - it reflects
+	 * the actual size of the dirty bitmap rather than the size of the in
+	 * memory structure.
 	 */
-	nvecs = 2;
+	nbytes = offsetof(struct xfs_buf_log_format, blf_data_map) +
+			(blfp->blf_map_size * sizeof(blfp->blf_data_map[0]));
+	first_bit = xfs_next_bit(blfp->blf_data_map, blfp->blf_map_size, 0);
+	if (!(bip->bli_flags & XFS_BLI_STALE) && first_bit == -1) {
+		/*
+		 * If the map is not be dirty in the transaction, mark
+		 * the size as zero and do not advance the vector pointer.
+		 */
+		return;
+	}
 
-	while (last_bit != -1) {
+	nvecs = 1;
+	if (bip->bli_flags & XFS_BLI_STALE) {
+		/*
+		 * The buffer is stale, so all we need to log
+		 * is the buf log format structure with the
+		 * cancel flag in it.
+		 */
+		trace_xfs_buf_item_format_stale(bip);
+		ASSERT(blfp->blf_flags & XFS_BLF_CANCEL);
+		*niovecs += nvecs;
+		*len += nbytes;
+		return;
+	}
+
+	/*
+	 * Fill in an iovec for each set of contiguous chunks.
+	 */
+	first_bit = xfs_next_bit(blfp->blf_data_map, blfp->blf_map_size, 0);
+	ASSERT(first_bit != -1);
+	last_bit = first_bit;
+	nbits = 1;
+	for (;;) {
 		/*
 		 * This takes the bit number to start looking from and
 		 * returns the next set bit from there.  It returns -1
@@ -77,28 +103,42 @@ xfs_buf_item_size_segment(
 		 * beyond the end of the bitmap.
 		 */
 		next_bit = xfs_next_bit(blfp->blf_data_map, blfp->blf_map_size,
-					last_bit + 1);
+					(uint)last_bit + 1);
 		/*
-		 * If we run out of bits, leave the loop,
-		 * else if we find a new set of bits bump the number of vecs,
-		 * else keep scanning the current set of bits.
+		 * If we run out of bits fill in the last iovec and get
+		 * out of the loop.
+		 * Else if we start a new set of bits then fill in the
+		 * iovec for the series we were looking at and start
+		 * counting the bits in the new one.
+		 * Else we're still in the same set of bits so just
+		 * keep counting and scanning.
 		 */
 		if (next_bit == -1) {
+			nbytes += nbits * XFS_BLF_CHUNK;
+			nvecs++;
 			break;
 		} else if (next_bit != last_bit + 1) {
-			last_bit = next_bit;
+			nbytes += nbits * XFS_BLF_CHUNK;
 			nvecs++;
-		} else if (xfs_buf_offset(bp, next_bit * XFS_BLF_CHUNK) !=
-			   (xfs_buf_offset(bp, last_bit * XFS_BLF_CHUNK) +
+			last_bit = next_bit;
+			nbits = 1;
+		} else if (xfs_buf_offset(bp, offset +
+					      (next_bit << XFS_BLF_SHIFT)) !=
+			   (xfs_buf_offset(bp, offset +
+					       (last_bit << XFS_BLF_SHIFT)) +
 			    XFS_BLF_CHUNK)) {
-			last_bit = next_bit;
+			nbytes += nbits * XFS_BLF_CHUNK;
 			nvecs++;
+			last_bit = next_bit;
+			nbits = 1;
 		} else {
 			last_bit++;
+			nbits++;
 		}
 	}
-
-	return nvecs;
+	*niovecs += nvecs;
+	*len += nbytes;
+	return;
 }
 
 /*
@@ -120,25 +160,16 @@ xfs_buf_item_size_segment(
  */
 STATIC uint
 xfs_buf_item_size(
-	struct xfs_log_item	*lip)
+	struct xfs_log_item     *lip,
+	uint			*nbytes)
 {
-	struct xfs_buf_log_item	*bip = BUF_ITEM(lip);
-	uint			nvecs;
-	int			i;
+	struct xfs_buf_log_item *bip = BUF_ITEM(lip);
+	struct xfs_buf		*bp = bip->bli_buf;
+	uint			offset;
+	uint                    nvecs;
+	int                     i;
 
 	ASSERT(atomic_read(&bip->bli_refcount) > 0);
-	if (bip->bli_flags & XFS_BLI_STALE) {
-		/*
-		 * The buffer is stale, so all we need to log
-		 * is the buf log format structure with the
-		 * cancel flag in it.
-		 */
-		trace_xfs_buf_item_size_stale(bip);
-		ASSERT(bip->__bli_format.blf_flags & XFS_BLF_CANCEL);
-		return bip->bli_format_count;
-	}
-
-	ASSERT(bip->bli_flags & XFS_BLI_LOGGED);
 
 	/*
 	 * the vector count is based on the number of buffer vectors we have
@@ -149,9 +180,12 @@ xfs_buf_item_size(
 	 * count for the extra buf log format structure that will need to be
 	 * written.
 	 */
+	offset = 0;
 	nvecs = 0;
 	for (i = 0; i < bip->bli_format_count; i++) {
-		nvecs += xfs_buf_item_size_segment(bip, &bip->bli_formats[i]);
+		xfs_buf_item_size_segment(bip, &nvecs, nbytes, offset,
+					  &bip->bli_formats[i]);
+		offset += bp->b_maps[i].bm_len;
 	}
 
 	trace_xfs_buf_item_size(bip);
@@ -215,7 +249,7 @@ xfs_buf_item_format_segment(
 	/*
 	 * Fill in an iovec for each set of contiguous chunks.
 	 */
-
+	first_bit = xfs_next_bit(blfp->blf_data_map, blfp->blf_map_size, 0);
 	last_bit = first_bit;
 	nbits = 1;
 	for (;;) {
