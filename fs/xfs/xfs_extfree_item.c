@@ -76,8 +76,13 @@ __xfs_efi_release(
  */
 STATIC uint
 xfs_efi_item_size(
-	struct xfs_log_item	*lip)
+	struct xfs_log_item	*lip,
+	uint			*nbytes)
 {
+	struct xfs_efi_log_item	*efip = EFI_ITEM(lip);
+
+	*nbytes = sizeof(xfs_efi_log_format_t) +
+		(efip->efi_format.efi_nextents - 1) * sizeof(xfs_extent_t);
 	return 1;
 }
 
@@ -335,8 +340,13 @@ xfs_efd_item_free(struct xfs_efd_log_item *efdp)
  */
 STATIC uint
 xfs_efd_item_size(
-	struct xfs_log_item	*lip)
+	struct xfs_log_item	*lip,
+	uint			*nbytes)
 {
+	struct xfs_efd_log_item	*efdp = EFD_ITEM(lip);
+
+	*nbytes =  sizeof(xfs_efd_log_format_t) +
+		(efdp->efd_format.efd_nextents - 1) * sizeof(xfs_extent_t);
 	return 1;
 }
 

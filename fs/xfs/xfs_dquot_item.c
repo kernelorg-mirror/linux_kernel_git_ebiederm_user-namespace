@@ -45,11 +45,13 @@ static inline struct xfs_dq_logitem *DQUOT_ITEM(struct xfs_log_item *lip)
  */
 STATIC uint
 xfs_qm_dquot_logitem_size(
-	struct xfs_log_item	*lip)
+	struct xfs_log_item	*lip,
+	uint			*nbytes)
 {
 	/*
 	 * we need only two iovecs, one for the format, one for the real thing
 	 */
+	*nbytes = sizeof(xfs_dq_logformat_t) + sizeof(xfs_disk_dquot_t);
 	return 2;
 }
 
@@ -287,8 +289,10 @@ static inline struct xfs_qoff_logitem *QOFF_ITEM(struct xfs_log_item *lip)
  */
 STATIC uint
 xfs_qm_qoff_logitem_size(
-	struct xfs_log_item	*lip)
+	struct xfs_log_item	*lip,
+	uint			*nbytes)
 {
+	*nbytes = sizeof(xfs_qoff_logitem_t);
 	return 1;
 }
 

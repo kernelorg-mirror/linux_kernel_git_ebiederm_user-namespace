@@ -125,7 +125,7 @@ xlog_cil_prepare_log_vecs(
 		struct xfs_log_vec *new_lv;
 		void	*ptr;
 		int	index;
-		int	len = 0;
+		uint	len = 0;
 		uint	niovecs;
 
 		/* Skip items which aren't dirty in this transaction. */
@@ -133,7 +133,7 @@ xlog_cil_prepare_log_vecs(
 			continue;
 
 		/* Skip items that do not have any vectors for writing */
-		niovecs = IOP_SIZE(lidp->lid_item);
+		niovecs = IOP_SIZE(lidp->lid_item, &len);
 		if (!niovecs)
 			continue;
 
@@ -145,17 +145,14 @@ xlog_cil_prepare_log_vecs(
 		new_lv->lv_iovecp = (struct xfs_log_iovec *)&new_lv[1];
 		new_lv->lv_niovecs = niovecs;
 		new_lv->lv_item = lidp->lid_item;
-
-		/* build the vector array and calculate it's length */
-		IOP_FORMAT(new_lv->lv_item, new_lv->lv_iovecp);
-		for (index = 0; index < new_lv->lv_niovecs; index++)
-			len += new_lv->lv_iovecp[index].i_len;
-
 		new_lv->lv_buf_len = len;
 		new_lv->lv_buf = kmem_alloc(new_lv->lv_buf_len,
 				KM_SLEEP|KM_NOFS);
-		ptr = new_lv->lv_buf;
 
+		/* build the vector array */
+		IOP_FORMAT(new_lv->lv_item, new_lv->lv_iovecp);
+
+		ptr = new_lv->lv_buf;
 		for (index = 0; index < new_lv->lv_niovecs; index++) {
 			struct xfs_log_iovec *vec = &new_lv->lv_iovecp[index];
 
