@@ -123,7 +123,7 @@ xlog_cil_prepare_log_vecs(
 
 	list_for_each_entry(lidp, &tp->t_items, lid_trans) {
 		struct xfs_log_vec *new_lv;
-		void	*ptr;
+		char	*ptr;
 		int	index;
 		uint	len = 0;
 		uint	niovecs;
@@ -150,17 +150,17 @@ xlog_cil_prepare_log_vecs(
 				KM_SLEEP|KM_NOFS);
 
 		/* build the vector array */
-		IOP_FORMAT(new_lv->lv_item, new_lv->lv_iovecp);
+		IOP_FORMAT(new_lv->lv_item, new_lv);
 
 		ptr = new_lv->lv_buf;
 		for (index = 0; index < new_lv->lv_niovecs; index++) {
 			struct xfs_log_iovec *vec = &new_lv->lv_iovecp[index];
 
-			memcpy(ptr, vec->i_addr, vec->i_len);
-			vec->i_addr = ptr;
+			WARN_ON(vec->i_addr != ptr);
 			ptr += vec->i_len;
 		}
-		ASSERT(ptr == new_lv->lv_buf + new_lv->lv_buf_len);
+		WARN_ON((ptr - new_lv->lv_buf) > new_lv->lv_buf_len);
+		new_lv->lv_buf_len = ptr - new_lv->lv_buf;
 
 		if (!ret_lv)
 			ret_lv = new_lv;

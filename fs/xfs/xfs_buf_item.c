@@ -325,12 +325,15 @@ out:
 STATIC void
 xfs_buf_item_format(
 	struct xfs_log_item	*lip,
-	struct xfs_log_iovec	*vecp)
+	struct xfs_log_vec	*lv)
 {
+	struct xfs_log_iovec	*vecp = lv->lv_iovecp;
 	struct xfs_buf_log_item	*bip = BUF_ITEM(lip);
 	struct xfs_buf		*bp = bip->bli_buf;
 	uint			offset = 0;
 	int			i;
+	int			index;
+	char			*buf;
 
 	ASSERT(atomic_read(&bip->bli_refcount) > 0);
 	ASSERT((bip->bli_flags & XFS_BLI_LOGGED) ||
@@ -360,6 +363,15 @@ xfs_buf_item_format(
 	 * Check to make sure everything is consistent.
 	 */
 	trace_xfs_buf_item_format(bip);
+
+	buf = lv->lv_buf;
+	for (index = 0; index < lv->lv_niovecs; index++) {
+		struct xfs_log_iovec *vec = &lv->lv_iovecp[index];
+
+		memcpy(buf, vec->i_addr, vec->i_len);
+		vec->i_addr = buf;
+		buf += vec->i_len;
+	}
 }
 
 /*

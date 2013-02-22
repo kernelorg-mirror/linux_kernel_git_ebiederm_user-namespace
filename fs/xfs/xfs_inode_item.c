@@ -179,13 +179,16 @@ xfs_inode_item_format_extents(
 STATIC void
 xfs_inode_item_format(
 	struct xfs_log_item	*lip,
-	struct xfs_log_iovec	*vecp)
+	struct xfs_log_vec	*lv)
 {
+	struct xfs_log_iovec	*vecp = lv->lv_iovecp;
 	struct xfs_inode_log_item *iip = INODE_ITEM(lip);
 	struct xfs_inode	*ip = iip->ili_inode;
 	uint			nvecs;
 	size_t			data_bytes;
 	xfs_mount_t		*mp;
+	int			index;
+	char			*buf;
 
 	vecp->i_addr = &iip->ili_format;
 	vecp->i_len  = sizeof(xfs_inode_log_format_t);
@@ -444,6 +447,15 @@ out:
 	iip->ili_format.ilf_fields = XFS_ILOG_CORE |
 		(iip->ili_fields & ~XFS_ILOG_TIMESTAMP);
 	iip->ili_format.ilf_size = nvecs;
+
+	buf = lv->lv_buf;
+	for (index = 0; index < lv->lv_niovecs; index++) {
+		struct xfs_log_iovec *vec = &lv->lv_iovecp[index];
+
+		memcpy(buf, vec->i_addr, vec->i_len);
+		vec->i_addr = buf;
+		buf += vec->i_len;
+	}
 }
 
 

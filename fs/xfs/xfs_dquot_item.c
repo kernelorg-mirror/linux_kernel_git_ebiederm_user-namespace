@@ -61,9 +61,12 @@ xfs_qm_dquot_logitem_size(
 STATIC void
 xfs_qm_dquot_logitem_format(
 	struct xfs_log_item	*lip,
-	struct xfs_log_iovec	*logvec)
+	struct xfs_log_vec	*lv)
 {
+	struct xfs_log_iovec	*logvec = lv->lv_iovecp;
 	struct xfs_dq_logitem	*qlip = DQUOT_ITEM(lip);
+	int			index;
+	char			*buf;
 
 	logvec->i_addr = &qlip->qli_format;
 	logvec->i_len  = sizeof(xfs_dq_logformat_t);
@@ -75,6 +78,14 @@ xfs_qm_dquot_logitem_format(
 
 	qlip->qli_format.qlf_size = 2;
 
+	buf = lv->lv_buf;
+	for (index = 0; index < lv->lv_niovecs; index++) {
+		struct xfs_log_iovec *vec = &lv->lv_iovecp[index];
+
+		memcpy(buf, vec->i_addr, vec->i_len);
+		vec->i_addr = buf;
+		buf += vec->i_len;
+	}
 }
 
 /*
@@ -306,9 +317,12 @@ xfs_qm_qoff_logitem_size(
 STATIC void
 xfs_qm_qoff_logitem_format(
 	struct xfs_log_item	*lip,
-	struct xfs_log_iovec	*log_vector)
+	struct xfs_log_vec	*lv)
 {
+	struct xfs_log_iovec	*log_vector = lv->lv_iovecp;
 	struct xfs_qoff_logitem	*qflip = QOFF_ITEM(lip);
+	int			index;
+	char			*buf;
 
 	ASSERT(qflip->qql_format.qf_type == XFS_LI_QUOTAOFF);
 
@@ -316,6 +330,15 @@ xfs_qm_qoff_logitem_format(
 	log_vector->i_len = sizeof(xfs_qoff_logitem_t);
 	log_vector->i_type = XLOG_REG_TYPE_QUOTAOFF;
 	qflip->qql_format.qf_size = 1;
+
+	buf = lv->lv_buf;
+	for (index = 0; index < lv->lv_niovecs; index++) {
+		struct xfs_log_iovec *vec = &lv->lv_iovecp[index];
+
+		memcpy(buf, vec->i_addr, vec->i_len);
+		vec->i_addr = buf;
+		buf += vec->i_len;
+	}
 }
 
 /*
