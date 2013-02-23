@@ -248,7 +248,6 @@ typedef struct xfs_inode {
 		u16		di_mode;	/* mode and type of file */
 		s8		di_version;	/* inode version */
 		s8		di_format;	/* format of di_c data */
-		u16		di_onlink;	/* old number of links to file */
 		kuid_t		di_uid;		/* owner's user id */
 		kgid_t		di_gid;		/* owner's group id */
 		u32		di_nlink;	/* number of links to file */
@@ -534,6 +533,8 @@ void		xfs_lock_inodes(xfs_inode_t **, int, uint);
 void		xfs_lock_two_inodes(xfs_inode_t *, xfs_inode_t *, uint);
 
 xfs_extlen_t	xfs_get_extsz_hint(struct xfs_inode *ip);
+
+void		xfs_maybe_bump_to_ino_vers2(xfs_inode_t *);
 
 #define IHOLD(ip) \
 do { \
