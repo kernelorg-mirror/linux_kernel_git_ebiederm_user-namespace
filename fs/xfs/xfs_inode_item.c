@@ -142,7 +142,7 @@ xfs_inode_item_format(
 	vecp++;
 	nvecs	     = 1;
 
-	vecp->i_len  = xfs_icdinode_size(ip->i_d.di_version);
+	vecp->i_len  = xfs_log_inode_size(ip->i_d.di_version);
 	vecp->i_type = XLOG_REG_TYPE_ICORE;
 	vecp++;
 	nvecs++;

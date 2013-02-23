@@ -2525,7 +2525,7 @@ xlog_recover_inode_pass2(
 	int			error;
 	int			attr_index;
 	uint			fields;
-	xfs_icdinode_t		*dicp;
+	xfs_log_inode_t		*dicp;
 	uint			isize;
 	int			need_free = 0;
 
@@ -2663,7 +2663,7 @@ xlog_recover_inode_pass2(
 		error = EFSCORRUPTED;
 		goto error;
 	}
-	isize = xfs_icdinode_size(dicp->di_version);
+	isize = xfs_log_inode_size(dicp->di_version);
 	if (unlikely(item->ri_buf[1].i_len > isize)) {
 		XFS_CORRUPTION_ERROR("xlog_recover_inode_pass2(7)",
 				     XFS_ERRLEVEL_LOW, mp, dicp);
@@ -2676,7 +2676,7 @@ xlog_recover_inode_pass2(
 	}
 
 	/* The core is in in-core format */
-	xfs_dinode_to_disk(dip, dicp);
+	xfs_log_inode_to_disk(dip, dicp);
 
 	/* the rest is in on-disk format */
 	if (item->ri_buf[1].i_len > isize) {

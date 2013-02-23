@@ -36,7 +36,7 @@ typedef struct xfs_timestamp {
  * attribute use the XFS_DFORK_DPTR, XFS_DFORK_APTR, and XFS_DFORK_PTR macros
  * below.
  *
- * There is a very similar struct icdinode in xfs_inode which matches the
+ * There is a very similar struct log_inode in xfs_inode_item which matches the
  * layout of the first 96 bytes of this structure, but is kept in native
  * format instead of big endian.
  */
