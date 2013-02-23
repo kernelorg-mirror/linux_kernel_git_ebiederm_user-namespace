@@ -834,18 +834,25 @@ xfs_iformat_btree(
 
 static void xfs_inode_from_disk(struct xfs_inode *to, struct xfs_dinode *from)
 {
-	projid_t projid;
 	to->i_d.di_magic	= be16_to_cpu(from->di_magic);
 	to->i_d.di_mode		= be16_to_cpu(from->di_mode);
 	to->i_d.di_version	= from ->di_version;
 	to->i_d.di_format	= from->di_format;
-	to->i_d.di_onlink	= be16_to_cpu(from->di_onlink);
 	to->i_d.di_uid		= make_kuid(&init_user_ns, be32_to_cpu(from->di_uid));
 	to->i_d.di_gid		= make_kgid(&init_user_ns, be32_to_cpu(from->di_gid));
-	to->i_d.di_nlink	= be32_to_cpu(from->di_nlink);
-	projid			= (((u32)be16_to_cpu(from->di_projid_hi)) << 16) |
+	if (unlikely(to->i_d.di_version == 1)) {
+		to->i_d.di_projid = make_kprojid(&init_user_ns, 0);
+		to->i_d.di_nlink  = be16_to_cpu(from->di_onlink);
+	} else {
+		projid_t projid = (((u32)be16_to_cpu(from->di_projid_hi)) << 16) |
 					 be16_to_cpu(from->di_projid_lo);
-	to->i_d.di_projid 	= make_kprojid(&init_user_ns, projid);
+		to->i_d.di_projid = make_kprojid(&init_user_ns, projid);
+		to->i_d.di_nlink = be32_to_cpu(from->di_nlink);
+	}
+	/* The pad field (the remains of the old uuid field) will be
+	 * cleared if and when the inode version is switched from
+	 * version 1 to version 2.
+	 */
 	memcpy(to->i_d.di_pad, from->di_pad, sizeof(to->i_d.di_pad));
 	to->i_d.di_flushiter	= be16_to_cpu(from->di_flushiter);
 	to->i_d.di_atime.t_sec	= be32_to_cpu(from->di_atime.t_sec);
@@ -876,12 +883,19 @@ static void xfs_inode_to_disk(struct xfs_dinode *to, struct xfs_inode *from)
 	to->di_mode		= cpu_to_be16(from->i_d.di_mode);
 	to->di_version		= from->i_d.di_version;
 	to->di_format		= from->i_d.di_format;
-	to->di_onlink		= cpu_to_be16(from->i_d.di_onlink);
 	to->di_uid		= cpu_to_be32(uid);
 	to->di_gid		= cpu_to_be32(gid);
-	to->di_nlink		= cpu_to_be32(from->i_d.di_nlink);
-	to->di_projid_lo	= cpu_to_be16(projid & 0xffff);
-	to->di_projid_hi	= cpu_to_be16(projid >> 16);
+	if (unlikely(from->i_d.di_version == 1)) {
+		to->di_onlink	= cpu_to_be16(from->i_d.di_nlink);
+		to->di_nlink	= cpu_to_be32(0);
+		to->di_projid_lo = cpu_to_be16(0);
+		to->di_projid_hi = cpu_to_be16(0);
+	} else {
+		to->di_onlink	= cpu_to_be16(0);
+		to->di_nlink	= cpu_to_be32(from->i_d.di_nlink);
+		to->di_projid_lo = cpu_to_be16(projid & 0xffff);
+		to->di_projid_hi = cpu_to_be16(projid >> 16);
+	}
 	memcpy(to->di_pad, from->i_d.di_pad, sizeof(to->di_pad));
 	to->di_flushiter	= cpu_to_be16(from->i_d.di_flushiter);
 	to->di_atime.t_sec	= cpu_to_be32(from->i_d.di_atime.t_sec);
@@ -913,12 +927,19 @@ void xfs_inode_to_log(struct xfs_icdinode *to, struct xfs_inode *from)
 	to->di_mode		= from->i_d.di_mode;
 	to->di_version		= from->i_d.di_version;
 	to->di_format		= from->i_d.di_format;
-	to->di_onlink		= from->i_d.di_onlink;
 	to->di_uid		= uid;
 	to->di_gid		= gid;
-	to->di_nlink		= from->i_d.di_nlink;
-	to->di_projid_lo	= projid & 0xffff;
-	to->di_projid_hi	= projid >> 16;
+	if (unlikely(from->i_d.di_version == 1)) {
+		to->di_onlink	= from->i_d.di_nlink;
+		to->di_nlink	= 0;
+		to->di_projid_lo = 0;
+		to->di_projid_hi = 0;
+	} else {
+		to->di_onlink	= 0;
+		to->di_nlink	= from->i_d.di_nlink;
+		to->di_projid_lo = projid & 0xffff;
+		to->di_projid_hi = projid >> 16;
+	}
 	memcpy(to->di_pad, from->i_d.di_pad, sizeof(to->di_pad));
 	to->di_flushiter	= from->i_d.di_flushiter;
 	to->di_atime.t_sec	= from->i_d.di_atime.t_sec;
@@ -1106,23 +1127,6 @@ xfs_iread(
 		ip->i_d.di_mode = 0;
 	}
 
-	/*
-	 * The inode format changed when we moved the link count and
-	 * made it 32 bits long.  If this is an old format inode,
-	 * convert it in memory to look like a new one.  If it gets
-	 * flushed to disk we will convert back before flushing or
-	 * logging it.  We zero out the new projid field and the old link
-	 * count field.  We'll handle clearing the pad field (the remains
-	 * of the old uuid field) when we actually convert the inode to
-	 * the new format. We don't change the version number so that we
-	 * can distinguish this from a real new format inode.
-	 */
-	if (ip->i_d.di_version == 1) {
-		ip->i_d.di_nlink = ip->i_d.di_onlink;
-		ip->i_d.di_onlink = 0;
-		ip->i_d.di_projid = make_kprojid(&init_user_ns, 0);
-	}
-
 	ip->i_delayed_blks = 0;
 
 	/*
@@ -1264,7 +1268,6 @@ xfs_ialloc(
 	ASSERT(ip != NULL);
 
 	ip->i_d.di_mode = mode;
-	ip->i_d.di_onlink = 0;
 	ip->i_d.di_nlink = nlink;
 	ASSERT(ip->i_d.di_nlink == nlink);
 	ip->i_d.di_uid = current_fsuid();
@@ -2783,6 +2786,35 @@ abort_out:
 	return error;
 }
 
+void xfs_maybe_bump_to_ino_vers2(xfs_inode_t *ip)
+{
+	/*
+	 * If this is really an old format inode and the superblock version
+	 * has not been updated to support only new format inodes, then
+	 * convert back to the old inode format.  If the superblock version
+	 * has been updated, then make the conversion permanent.
+	 */
+	xfs_mount_t *mp = ip->i_mount;
+	ASSERT(ip->i_d.di_version == 1 || xfs_sb_version_hasnlink(&mp->m_sb));
+	if (ip->i_d.di_version == 1) {
+		if (!xfs_sb_version_hasnlink(&mp->m_sb)) {
+			/*
+			 * Leave the inode at version 1
+			 */
+			ASSERT(ip->i_d.di_nlink <= XFS_MAXLINK_1);
+		} else {
+			/*
+			 * The superblock version has already been bumped,
+			 * so just make the conversion to the new inode
+			 * format permanent.
+			 */
+			ip->i_d.di_version = 2;
+			memset(&(ip->i_d.di_pad[0]), 0, sizeof(ip->i_d.di_pad));
+			ASSERT(projid_eq(ip->i_d.di_projid,
+					 make_kprojid(&init_user_ns, 0)));
+		}
+	}
+}
 
 STATIC int
 xfs_iflush_int(
@@ -2865,6 +2897,8 @@ xfs_iflush_int(
 
 	ip->i_d.di_flushiter++;
 
+	xfs_maybe_bump_to_ino_vers2(ip);
+
 	/*
 	 * Copy the dirty parts of the inode into the on-disk
 	 * inode.  We always copy out the core of the inode,
@@ -2877,37 +2911,6 @@ xfs_iflush_int(
 	if (ip->i_d.di_flushiter == DI_MAX_FLUSH)
 		ip->i_d.di_flushiter = 0;
 
-	/*
-	 * If this is really an old format inode and the superblock version
-	 * has not been updated to support only new format inodes, then
-	 * convert back to the old inode format.  If the superblock version
-	 * has been updated, then make the conversion permanent.
-	 */
-	ASSERT(ip->i_d.di_version == 1 || xfs_sb_version_hasnlink(&mp->m_sb));
-	if (ip->i_d.di_version == 1) {
-		if (!xfs_sb_version_hasnlink(&mp->m_sb)) {
-			/*
-			 * Convert it back.
-			 */
-			ASSERT(ip->i_d.di_nlink <= XFS_MAXLINK_1);
-			dip->di_onlink = cpu_to_be16(ip->i_d.di_nlink);
-		} else {
-			/*
-			 * The superblock version has already been bumped,
-			 * so just make the conversion to the new inode
-			 * format permanent.
-			 */
-			ip->i_d.di_version = 2;
-			dip->di_version = 2;
-			ip->i_d.di_onlink = 0;
-			dip->di_onlink = 0;
-			memset(&(ip->i_d.di_pad[0]), 0, sizeof(ip->i_d.di_pad));
-			memset(&(dip->di_pad[0]), 0,
-			      sizeof(dip->di_pad));
-			ASSERT(projid_eq(ip->i_d.di_projid,
-					 make_kprojid(&init_user_ns, 0)));
-		}
-	}
 
 	xfs_iflush_fork(ip, dip, iip, XFS_DATA_FORK, bp);
 	if (XFS_IFORK_Q(ip))

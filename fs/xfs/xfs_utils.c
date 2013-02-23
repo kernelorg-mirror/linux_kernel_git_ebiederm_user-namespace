@@ -267,7 +267,6 @@ xfs_bump_ino_vers2(
 	ASSERT(ip->i_d.di_version == 1);
 
 	ip->i_d.di_version = 2;
-	ip->i_d.di_onlink = 0;
 	memset(&(ip->i_d.di_pad[0]), 0, sizeof(ip->i_d.di_pad));
 	mp = tp->t_mountp;
 	if (!xfs_sb_version_hasnlink(&mp->m_sb)) {
