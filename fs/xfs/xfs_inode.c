@@ -917,7 +917,7 @@ static void xfs_inode_to_disk(struct xfs_dinode *to, struct xfs_inode *from)
 	to->di_gen		= cpu_to_be32(from->i_d.di_gen);
 }
 
-void xfs_inode_to_log(struct xfs_icdinode *to, struct xfs_inode *from)
+void xfs_inode_to_log(struct xfs_log_inode *to, struct xfs_inode *from)
 {
 	/* xfs_inode_to_disk without the endian changes */
 	uid_t uid = from_kuid(&init_user_ns, from->i_d.di_uid);
@@ -962,9 +962,9 @@ void xfs_inode_to_log(struct xfs_icdinode *to, struct xfs_inode *from)
 }
 
 void
-xfs_dinode_to_disk(
+xfs_log_inode_to_disk(
 	xfs_dinode_t		*to,
-	xfs_icdinode_t		*from)
+	xfs_log_inode_t		*from)
 {
 	to->di_magic = cpu_to_be16(from->di_magic);
 	to->di_mode = cpu_to_be16(from->di_mode);
