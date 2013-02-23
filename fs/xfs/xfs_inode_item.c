@@ -56,7 +56,7 @@ xfs_inode_item_size(
 	struct xfs_inode	*ip = iip->ili_inode;
 	uint			nvecs = 2;
 
-	*nbytes += sizeof(xfs_inode_log_format_t) + sizeof(struct xfs_icdinode);
+	*nbytes += sizeof(xfs_inode_log_format_t) + sizeof(struct xfs_log_inode);
 
 	switch (ip->i_d.di_format) {
 	case XFS_DINODE_FMT_EXTENTS:
@@ -191,10 +191,10 @@ xfs_inode_item_format(
 	nvecs	     = 1;
 
 	xfs_maybe_bump_to_ino_vers2(ip);
-	xfs_inode_to_log((struct xfs_icdinode *)buf, ip);
+	xfs_inode_to_log((struct xfs_log_inode *)buf, ip);
 
 	vecp->i_addr = buf;
-	vecp->i_len  = sizeof(struct xfs_icdinode);
+	vecp->i_len  = sizeof(struct xfs_log_inode);
 	vecp->i_type = XLOG_REG_TYPE_ICORE;
 	buf += vecp->i_len;
 	vecp++;

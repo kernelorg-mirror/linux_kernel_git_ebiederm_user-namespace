@@ -2212,7 +2212,7 @@ xlog_recover_inode_pass2(
 	int			error;
 	int			attr_index;
 	uint			fields;
-	xfs_icdinode_t		*dicp;
+	xfs_log_inode_t		*dicp;
 	int			need_free = 0;
 
 	if (item->ri_buf[0].i_len == sizeof(xfs_inode_log_format_t)) {
@@ -2349,7 +2349,7 @@ xlog_recover_inode_pass2(
 		error = EFSCORRUPTED;
 		goto error;
 	}
-	if (unlikely(item->ri_buf[1].i_len > sizeof(struct xfs_icdinode))) {
+	if (unlikely(item->ri_buf[1].i_len > sizeof(struct xfs_log_inode))) {
 		XFS_CORRUPTION_ERROR("xlog_recover_inode_pass2(7)",
 				     XFS_ERRLEVEL_LOW, mp, dicp);
 		xfs_buf_relse(bp);
@@ -2361,13 +2361,13 @@ xlog_recover_inode_pass2(
 	}
 
 	/* The core is in in-core format */
-	xfs_dinode_to_disk(dip, item->ri_buf[1].i_addr);
+	xfs_log_inode_to_disk(dip, item->ri_buf[1].i_addr);
 
 	/* the rest is in on-disk format */
-	if (item->ri_buf[1].i_len > sizeof(struct xfs_icdinode)) {
-		memcpy((xfs_caddr_t) dip + sizeof(struct xfs_icdinode),
-			item->ri_buf[1].i_addr + sizeof(struct xfs_icdinode),
-			item->ri_buf[1].i_len  - sizeof(struct xfs_icdinode));
+	if (item->ri_buf[1].i_len > sizeof(struct xfs_log_inode)) {
+		memcpy((xfs_caddr_t) dip + sizeof(struct xfs_log_inode),
+			item->ri_buf[1].i_addr + sizeof(struct xfs_log_inode),
+			item->ri_buf[1].i_len  - sizeof(struct xfs_log_inode));
 	}
 
 	fields = in_f->ilf_fields;

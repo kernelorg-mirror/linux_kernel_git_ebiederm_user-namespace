@@ -120,39 +120,6 @@ typedef struct xfs_ictimestamp {
 } xfs_ictimestamp_t;
 
 /*
- * NOTE:  This structure must be kept identical to struct xfs_dinode
- * 	  in xfs_dinode.h except for the endianness annotations.
- */
-typedef struct xfs_icdinode {
-	__uint16_t	di_magic;	/* inode magic # = XFS_DINODE_MAGIC */
-	__uint16_t	di_mode;	/* mode and type of file */
-	__int8_t	di_version;	/* inode version */
-	__int8_t	di_format;	/* format of di_c data */
-	__uint16_t	di_onlink;	/* old number of links to file */
-	__uint32_t	di_uid;		/* owner's user id */
-	__uint32_t	di_gid;		/* owner's group id */
-	__uint32_t	di_nlink;	/* number of links to file */
-	__uint16_t	di_projid_lo;	/* lower part of owner's project id */
-	__uint16_t	di_projid_hi;	/* higher part of owner's project id */
-	__uint8_t	di_pad[6];	/* unused, zeroed space */
-	__uint16_t	di_flushiter;	/* incremented on flush */
-	xfs_ictimestamp_t di_atime;	/* time last accessed */
-	xfs_ictimestamp_t di_mtime;	/* time last modified */
-	xfs_ictimestamp_t di_ctime;	/* time created/inode modified */
-	xfs_fsize_t	di_size;	/* number of bytes in file */
-	xfs_drfsbno_t	di_nblocks;	/* # of direct & btree blocks used */
-	xfs_extlen_t	di_extsize;	/* basic/minimum extent size for file */
-	xfs_extnum_t	di_nextents;	/* number of extents in data fork */
-	xfs_aextnum_t	di_anextents;	/* number of extents in attribute fork*/
-	__uint8_t	di_forkoff;	/* attr fork offs, <<3 for 64b align */
-	__int8_t	di_aformat;	/* format of attr fork's data */
-	__uint32_t	di_dmevmask;	/* DMIG event mask */
-	__uint16_t	di_dmstate;	/* DMIG state info */
-	__uint16_t	di_flags;	/* random flags, XFS_DIFLAG_... */
-	__uint32_t	di_gen;		/* generation number */
-} xfs_icdinode_t;
-
-/*
  * Flags for xfs_ichgtime().
  */
 #define	XFS_ICHGTIME_MOD	0x1	/* data fork modification timestamp */
@@ -218,6 +185,7 @@ struct xfs_inode_log_item;
 struct xfs_mount;
 struct xfs_trans;
 struct xfs_dquot;
+struct xfs_log_inode;
 
 typedef struct xfs_inode {
 	/* Inode linking and identification information. */
@@ -558,15 +526,15 @@ do { \
 #define XFS_IGET_UNTRUSTED	0x2
 #define XFS_IGET_DONTCACHE	0x4
 
-void xfs_inode_to_log(struct xfs_icdinode *to, struct xfs_inode *from);
+void xfs_inode_to_log(struct xfs_log_inode *to, struct xfs_inode *from);
 
 int		xfs_imap_to_bp(struct xfs_mount *, struct xfs_trans *,
 			       struct xfs_imap *, struct xfs_dinode **,
 			       struct xfs_buf **, uint, uint);
 int		xfs_iread(struct xfs_mount *, struct xfs_trans *,
 			  struct xfs_inode *, uint);
-void		xfs_dinode_to_disk(struct xfs_dinode *,
-				   struct xfs_icdinode *);
+void		xfs_log_inode_to_disk(struct xfs_dinode *,
+				      struct xfs_log_inode *);
 void		xfs_idestroy_fork(struct xfs_inode *, int);
 void		xfs_idata_realloc(struct xfs_inode *, int, int);
 void		xfs_iroot_realloc(struct xfs_inode *, int, int);
