@@ -142,7 +142,7 @@ xfs_inode_item_format(
 	vecp++;
 	nvecs	     = 1;
 
-	vecp->i_len  = sizeof(struct xfs_icdinode);
+	vecp->i_len  = sizeof(struct xfs_log_inode);
 	vecp->i_type = XLOG_REG_TYPE_ICORE;
 	vecp++;
 	nvecs++;
