@@ -316,6 +316,8 @@ struct xfs_trans;
 struct xfs_dquot_acct;
 struct xfs_busy_extent;
 
+struct xfs_log_vec *xlog_prepare_log_vec(struct xfs_log_item_desc *lidp);
+
 typedef struct xfs_log_item {
 	struct list_head		li_ail;		/* AIL pointers */
 	xfs_lsn_t			li_lsn;		/* last on-disk lsn */
@@ -345,6 +347,7 @@ typedef struct xfs_log_item {
 	{ XFS_LI_ABORTED,	"ABORTED" }
 
 struct xfs_item_ops {
+	struct xfs_log_vec *(*iop_prepare)(struct xfs_log_item_desc *);
 	uint (*iop_size)(xfs_log_item_t *);
 	void (*iop_format)(xfs_log_item_t *, struct xfs_log_iovec *);
 	void (*iop_pin)(xfs_log_item_t *);
@@ -355,6 +358,7 @@ struct xfs_item_ops {
 	void (*iop_committing)(xfs_log_item_t *, xfs_lsn_t);
 };
 
+#define IOP_PREPARE(desc)	(*(ip)->li_ops->iop_prepare)(desc)
 #define IOP_SIZE(ip)		(*(ip)->li_ops->iop_size)(ip)
 #define IOP_FORMAT(ip,vp)	(*(ip)->li_ops->iop_format)(ip, vp)
 #define IOP_PIN(ip)		(*(ip)->li_ops->iop_pin)(ip)
