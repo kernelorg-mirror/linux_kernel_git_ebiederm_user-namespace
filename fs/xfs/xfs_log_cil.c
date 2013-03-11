@@ -80,6 +80,49 @@ xlog_cil_init_post_recovery(
 								log->l_curr_block);
 }
 
+struct xfs_log_vec *xlog_prepare_log_vec(struct xfs_log_item *lip)
+{
+	struct xfs_log_vec *new_lv;
+	void	*ptr;
+	int	index;
+	int	len = 0;
+	uint	niovecs;
+
+	/* Skip items that do not have any vectors for writing */
+	niovecs = IOP_SIZE(lip);
+	if (!niovecs)
+		return NULL;
+
+	new_lv = kmem_zalloc(sizeof(*new_lv) +
+			     niovecs * sizeof(struct xfs_log_iovec),
+			     KM_SLEEP);
+
+	/* The allocated iovec region lies beyond the log vector. */
+	new_lv->lv_iovecp = (struct xfs_log_iovec *)&new_lv[1];
+	new_lv->lv_niovecs = niovecs;
+	new_lv->lv_item = lip;
+
+	/* build the vector array and calculate it's length */
+	IOP_FORMAT(new_lv->lv_item, new_lv->lv_iovecp);
+	for (index = 0; index < new_lv->lv_niovecs; index++)
+		len += new_lv->lv_iovecp[index].i_len;
+
+	new_lv->lv_buf_len = len;
+	new_lv->lv_buf = kmem_alloc(new_lv->lv_buf_len, KM_SLEEP|KM_NOFS);
+	ptr = new_lv->lv_buf;
+
+	for (index = 0; index < new_lv->lv_niovecs; index++) {
+		struct xfs_log_iovec *vec = &new_lv->lv_iovecp[index];
+
+		memcpy(ptr, vec->i_addr, vec->i_len);
+		vec->i_addr = ptr;
+		ptr += vec->i_len;
+	}
+	ASSERT(ptr == new_lv->lv_buf + new_lv->lv_buf_len);
+
+	return new_lv;
+}
+
 /*
  * Format log item into a flat buffers
  *
@@ -123,47 +166,14 @@ xlog_cil_prepare_log_vecs(
 
 	list_for_each_entry(lidp, &tp->t_items, lid_trans) {
 		struct xfs_log_vec *new_lv;
-		void	*ptr;
-		int	index;
-		int	len = 0;
-		uint	niovecs;
 
 		/* Skip items which aren't dirty in this transaction. */
 		if (!(lidp->lid_flags & XFS_LID_DIRTY))
 			continue;
 
-		/* Skip items that do not have any vectors for writing */
-		niovecs = IOP_SIZE(lidp->lid_item);
-		if (!niovecs)
+		new_lv = IOP_PREPARE(lidp->lid_item);
+		if (!new_lv)
 			continue;
-
-		new_lv = kmem_zalloc(sizeof(*new_lv) +
-				niovecs * sizeof(struct xfs_log_iovec),
-				KM_SLEEP);
-
-		/* The allocated iovec region lies beyond the log vector. */
-		new_lv->lv_iovecp = (struct xfs_log_iovec *)&new_lv[1];
-		new_lv->lv_niovecs = niovecs;
-		new_lv->lv_item = lidp->lid_item;
-
-		/* build the vector array and calculate it's length */
-		IOP_FORMAT(new_lv->lv_item, new_lv->lv_iovecp);
-		for (index = 0; index < new_lv->lv_niovecs; index++)
-			len += new_lv->lv_iovecp[index].i_len;
-
-		new_lv->lv_buf_len = len;
-		new_lv->lv_buf = kmem_alloc(new_lv->lv_buf_len,
-				KM_SLEEP|KM_NOFS);
-		ptr = new_lv->lv_buf;
-
-		for (index = 0; index < new_lv->lv_niovecs; index++) {
-			struct xfs_log_iovec *vec = &new_lv->lv_iovecp[index];
-
-			memcpy(ptr, vec->i_addr, vec->i_len);
-			vec->i_addr = ptr;
-			ptr += vec->i_len;
-		}
-		ASSERT(ptr == new_lv->lv_buf + new_lv->lv_buf_len);
 
 		if (!ret_lv)
 			ret_lv = new_lv;

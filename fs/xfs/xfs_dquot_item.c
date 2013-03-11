@@ -234,6 +234,7 @@ xfs_qm_dquot_logitem_committing(
  * This is the ops vector for dquots
  */
 static const struct xfs_item_ops xfs_dquot_item_ops = {
+	.iop_prepare	= xlog_prepare_log_vec,
 	.iop_size	= xfs_qm_dquot_logitem_size,
 	.iop_format	= xfs_qm_dquot_logitem_format,
 	.iop_pin	= xfs_qm_dquot_logitem_pin,
@@ -411,6 +412,7 @@ xfs_qm_qoff_logitem_committing(
 }
 
 static const struct xfs_item_ops xfs_qm_qoffend_logitem_ops = {
+	.iop_prepare	= xlog_prepare_log_vec,
 	.iop_size	= xfs_qm_qoff_logitem_size,
 	.iop_format	= xfs_qm_qoff_logitem_format,
 	.iop_pin	= xfs_qm_qoff_logitem_pin,
@@ -425,6 +427,7 @@ static const struct xfs_item_ops xfs_qm_qoffend_logitem_ops = {
  * This is the ops vector shared by all quotaoff-start log items.
  */
 static const struct xfs_item_ops xfs_qm_qoff_logitem_ops = {
+	.iop_prepare	= xlog_prepare_log_vec,
 	.iop_size	= xfs_qm_qoff_logitem_size,
 	.iop_format	= xfs_qm_qoff_logitem_format,
 	.iop_pin	= xfs_qm_qoff_logitem_pin,
