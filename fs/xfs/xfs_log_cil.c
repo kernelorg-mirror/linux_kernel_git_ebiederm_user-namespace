@@ -80,7 +80,7 @@ xlog_cil_init_post_recovery(
 								log->l_curr_block);
 }
 
-struct xfs_log_vec *xlog_prepare_log_vec(struct xfs_log_item_desc *lidp)
+struct xfs_log_vec *xlog_prepare_log_vec(struct xfs_log_item *lip)
 {
 	struct xfs_log_vec *new_lv;
 	void	*ptr;
@@ -89,9 +89,9 @@ struct xfs_log_vec *xlog_prepare_log_vec(struct xfs_log_item_desc *lidp)
 	uint	niovecs;
 
 	/* Skip items that do not have any vectors for writing */
-	niovecs = IOP_SIZE(lidp->lid_item);
+	niovecs = IOP_SIZE(lip);
 	if (!niovecs)
-		continue;
+		return NULL;
 
 	new_lv = kmem_zalloc(sizeof(*new_lv) +
 			     niovecs * sizeof(struct xfs_log_iovec),
@@ -100,7 +100,7 @@ struct xfs_log_vec *xlog_prepare_log_vec(struct xfs_log_item_desc *lidp)
 	/* The allocated iovec region lies beyond the log vector. */
 	new_lv->lv_iovecp = (struct xfs_log_iovec *)&new_lv[1];
 	new_lv->lv_niovecs = niovecs;
-	new_lv->lv_item = lidp->lid_item;
+	new_lv->lv_item = lip;
 
 	/* build the vector array and calculate it's length */
 	IOP_FORMAT(new_lv->lv_item, new_lv->lv_iovecp);
@@ -171,7 +171,9 @@ xlog_cil_prepare_log_vecs(
 		if (!(lidp->lid_flags & XFS_LID_DIRTY))
 			continue;
 
-		new_lv = IOP_PREPARE(lidp);
+		new_lv = IOP_PREPARE(lidp->lid_item);
+		if (!new_lv)
+			continue;
 
 		if (!ret_lv)
 			ret_lv = new_lv;
