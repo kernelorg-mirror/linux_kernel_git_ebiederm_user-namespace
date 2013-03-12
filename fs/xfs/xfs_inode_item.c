@@ -431,6 +431,23 @@ out:
 	iip->ili_format.ilf_size = nvecs;
 }
 
+STATIC int
+xfs_inode_item_copy_vec(
+	struct xfs_log_item	*lip,
+	void			*dest,
+	struct xfs_log_iovec	*vec)
+{
+	struct xfs_inode_log_item *iip = INODE_ITEM(lip);
+	struct xfs_inode	*ip = iip->ili_inode;
+	int 			len = vec->i_len;
+	void			*src = vec->i_addr;
+	uint			type = vec->i_type;
+
+	if (src)
+		memcpy(dest, src, len);
+	return len;
+}
+
 
 /*
  * This is called to pin the inode associated with the inode log
@@ -629,6 +646,7 @@ xfs_inode_item_committing(
 static const struct xfs_item_ops xfs_inode_item_ops = {
 	.iop_size	= xfs_inode_item_size,
 	.iop_format	= xfs_inode_item_format,
+	.iop_copy_vec	= xfs_inode_item_copy_vec,
 	.iop_pin	= xfs_inode_item_pin,
 	.iop_unpin	= xfs_inode_item_unpin,
 	.iop_unlock	= xfs_inode_item_unlock,
