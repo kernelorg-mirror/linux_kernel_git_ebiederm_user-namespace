@@ -80,6 +80,17 @@ xlog_cil_init_post_recovery(
 								log->l_curr_block);
 }
 
+static int
+xlog_cil_copy_vec(
+	struct xfs_log_item *lip,
+	void *dest,
+	struct xfs_log_iovec *vec)
+{
+	int len = vec->i_len;
+	memcpy(dest, vec->i_addr, len);
+	return len;
+}
+
 /*
  * Format log item into a flat buffers
  *
@@ -122,6 +133,7 @@ xlog_cil_prepare_log_vecs(
 	}
 
 	list_for_each_entry(lidp, &tp->t_items, lid_trans) {
+		iop_copy_vec_t copy_vec = xlog_cil_copy_vec;
 		struct xfs_log_vec *new_lv;
 		void	*ptr;
 		int	index;
@@ -156,12 +168,20 @@ xlog_cil_prepare_log_vecs(
 				KM_SLEEP|KM_NOFS);
 		ptr = new_lv->lv_buf;
 
+		if (new_lv->lv_item->li_ops->iop_copy_vec)
+			copy_vec = new_lv->lv_item->li_ops->iop_copy_vec;
 		for (index = 0; index < new_lv->lv_niovecs; index++) {
 			struct xfs_log_iovec *vec = &new_lv->lv_iovecp[index];
+			int len;
 
-			memcpy(ptr, vec->i_addr, vec->i_len);
+			len = copy_vec(new_lv->lv_item, ptr, vec);
 			vec->i_addr = ptr;
-			ptr += vec->i_len;
+			ASSERT(len <= vec->i_len);
+			if (vec->i_len > len) {
+				new_lv->lv_buf_len -= (vec->i_len - len);
+				vec->i_len = len;
+			}
+			ptr += len;
 		}
 		ASSERT(ptr == new_lv->lv_buf + new_lv->lv_buf_len);
 
