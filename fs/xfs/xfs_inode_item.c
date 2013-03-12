@@ -178,7 +178,6 @@ xfs_inode_item_format(
 	vecp++;
 	nvecs	     = 1;
 
-	vecp->i_addr = &iip->ili_d;
 	vecp->i_len  = sizeof(struct xfs_icdinode);
 	vecp->i_type = XLOG_REG_TYPE_ICORE;
 	vecp++;
@@ -212,7 +211,6 @@ xfs_inode_item_format(
 			memset(&(ip->i_d.di_pad[0]), 0, sizeof(ip->i_d.di_pad));
 		}
 	}
-	xfs_inode_to_log(&iip->ili_d, ip);
 
 	switch (ip->i_d.di_format) {
 	case XFS_DINODE_FMT_EXTENTS:
@@ -445,6 +443,8 @@ xfs_inode_item_copy_vec(
 
 	if (src)
 		memcpy(dest, src, len);
+	else if (type == XLOG_REG_TYPE_ICORE)
+		xfs_inode_to_log(dest, ip);
 	return len;
 }
 
