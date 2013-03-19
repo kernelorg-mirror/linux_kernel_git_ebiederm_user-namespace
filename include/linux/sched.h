@@ -1485,11 +1485,6 @@ static inline pid_t task_pid_vnr(struct task_struct *tsk)
 }
 
 
-static inline pid_t task_tgid_nr(struct task_struct *tsk)
-{
-	return tsk->tgid;
-}
-
 pid_t task_tgid_nr_ns(struct task_struct *tsk, struct pid_namespace *ns);
 
 static inline pid_t task_tgid_vnr(struct task_struct *tsk)
