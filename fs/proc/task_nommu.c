@@ -163,7 +163,7 @@ static int nommu_vma_show(struct seq_file *m, struct vm_area_struct *vma,
 		seq_pad(m, ' ');
 		seq_path(m, &file->f_path, "");
 	} else if (mm) {
-		pid_t tid = vm_is_stack(priv->task, vma, is_pid);
+		pid_t tid = vm_is_stack(priv->ns, priv->task, vma, is_pid);
 
 		if (tid != 0) {
 			seq_pad(m, ' ');
@@ -273,6 +273,7 @@ static int maps_open(struct inode *inode, struct file *file,
 
 	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
 	if (priv) {
+		priv->ns = inode->i_sb->s_fs_info;
 		priv->pid = proc_pid(inode);
 		ret = seq_open(file, ops);
 		if (!ret) {

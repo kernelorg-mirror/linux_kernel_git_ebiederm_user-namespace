@@ -25,6 +25,7 @@ struct anon_vma_chain;
 struct file_ra_state;
 struct user_struct;
 struct writeback_control;
+struct pid_namespace;
 
 #ifndef CONFIG_NEED_MULTIPLE_NODES	/* Don't use mapnrs, do it properly */
 extern unsigned long max_mapnr;
@@ -1248,7 +1249,8 @@ static inline int stack_guard_page_end(struct vm_area_struct *vma,
 }
 
 extern pid_t
-vm_is_stack(struct task_struct *task, struct vm_area_struct *vma, int in_group);
+vm_is_stack(struct pid_namespace *ns, struct task_struct *task,
+	    struct vm_area_struct *vma, int in_group);
 
 extern unsigned long move_page_tables(struct vm_area_struct *vma,
 		unsigned long old_addr, struct vm_area_struct *new_vma,
