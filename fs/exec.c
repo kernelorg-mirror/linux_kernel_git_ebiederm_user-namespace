@@ -948,7 +948,7 @@ static int de_thread(struct task_struct *tsk)
 		 * Note: The old leader also uses this pid until release_task
 		 *       is called.  Odd but simple and correct.
 		 */
-		tsk->pid = leader->pid;
+		tsk->__pid = leader->__pid;
 		change_pid(tsk, PIDTYPE_PID, task_pid(leader));
 		transfer_pid(leader, tsk, PIDTYPE_PGID);
 		transfer_pid(leader, tsk, PIDTYPE_SID);
@@ -1388,7 +1388,7 @@ int search_binary_handler(struct linux_binprm *bprm)
 		return retval;
 
 	/* Need to fetch pid before load_binary changes it */
-	old_pid = current->pid;
+	old_pid = task_pid_nr_ns(current, &init_pid_ns);
 	rcu_read_lock();
 	old_vpid = task_pid_nr_ns(current, task_active_pid_ns(current->parent));
 	rcu_read_unlock();

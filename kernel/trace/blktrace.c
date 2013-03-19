@@ -110,7 +110,8 @@ record_it:
 static void trace_note_tsk(struct blk_trace *bt, struct task_struct *tsk)
 {
 	tsk->btrace_seq = blktrace_seq;
-	trace_note(bt, tsk->pid, BLK_TN_PROCESS, tsk->comm, sizeof(tsk->comm));
+	trace_note(bt, task_pid_nr_ns(tsk, &init_pid_ns),
+		   BLK_TN_PROCESS, tsk->comm, sizeof(tsk->comm));
 }
 
 static void trace_note_time(struct blk_trace *bt)
@@ -210,7 +211,7 @@ static void __blk_add_trace(struct blk_trace *bt, sector_t sector, int bytes,
 	what |= MASK_TC_BIT(rw, FLUSH);
 	what |= MASK_TC_BIT(rw, FUA);
 
-	pid = tsk->pid;
+	pid = task_pid_nr_ns(tsk, &init_pid_ns);
 	if (act_log_check(bt, what, sector, pid))
 		return;
 	cpu = raw_smp_processor_id();

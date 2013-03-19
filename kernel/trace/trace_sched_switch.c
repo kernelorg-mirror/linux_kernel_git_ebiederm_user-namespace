@@ -37,10 +37,10 @@ tracing_sched_switch_trace(struct trace_array *tr,
 	if (!event)
 		return;
 	entry	= ring_buffer_event_data(event);
-	entry->prev_pid			= prev->pid;
+	entry->prev_pid			= task_pid_nr_ns(prev, &init_pid_ns);
 	entry->prev_prio		= prev->prio;
 	entry->prev_state		= prev->state;
-	entry->next_pid			= next->pid;
+	entry->next_pid			= task_pid_nr_ns(next, &init_pid_ns);
 	entry->next_prio		= next->prio;
 	entry->next_state		= next->state;
 	entry->next_cpu	= task_cpu(next);
@@ -93,10 +93,10 @@ tracing_sched_wakeup_trace(struct trace_array *tr,
 	if (!event)
 		return;
 	entry	= ring_buffer_event_data(event);
-	entry->prev_pid			= curr->pid;
+	entry->prev_pid			= task_pid_nr_ns(curr, &init_pid_ns);
 	entry->prev_prio		= curr->prio;
 	entry->prev_state		= curr->state;
-	entry->next_pid			= wakee->pid;
+	entry->next_pid			= task_pid_nr_ns(wakee, &init_pid_ns);
 	entry->next_prio		= wakee->prio;
 	entry->next_state		= wakee->state;
 	entry->next_cpu			= task_cpu(wakee);

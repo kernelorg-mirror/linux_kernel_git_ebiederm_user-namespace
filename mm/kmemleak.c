@@ -547,7 +547,7 @@ static struct kmemleak_object *create_object(unsigned long ptr, size_t size,
 		object->pid = 0;
 		strncpy(object->comm, "softirq", sizeof(object->comm));
 	} else {
-		object->pid = current->pid;
+		object->pid = task_pid_nr_ns(current, &init_pid_ns);
 		/*
 		 * There is a small chance of a race with set_task_comm(),
 		 * however using get_task_comm() here may cause locking

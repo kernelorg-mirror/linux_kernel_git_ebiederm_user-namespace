@@ -1116,9 +1116,16 @@ struct task_struct {
 	/* Revert to default priority/policy when forking */
 	unsigned sched_reset_on_fork:1;
 	unsigned sched_contributes_to_load:1;
-
-	pid_t pid;
-	pid_t tgid;
+#if 1
+	union {
+		pid_t __pid;
+		pid_t pid;
+	};
+	union {
+		pid_t __tgid;
+		pid_t tgid;
+	};
+#endif
 
 #ifdef CONFIG_CC_STACKPROTECTOR
 	/* Canary value for the -fstack-protector gcc feature */
@@ -1891,7 +1898,7 @@ extern struct task_struct *idle_task(int cpu);
  */
 static inline bool is_idle_task(const struct task_struct *p)
 {
-	return p->pid == 0;
+	return p->__pid == 0;
 }
 extern struct task_struct *curr_task(int cpu);
 extern void set_curr_task(int cpu, struct task_struct *p);
@@ -2164,13 +2171,13 @@ static inline bool thread_group_leader(struct task_struct *p)
  */
 static inline int has_group_leader_pid(struct task_struct *p)
 {
-	return p->pid == p->tgid;
+	return p->__pid == p->__tgid;
 }
 
 static inline
 int same_thread_group(struct task_struct *p1, struct task_struct *p2)
 {
-	return p1->tgid == p2->tgid;
+	return p1->__tgid == p2->__tgid;
 }
 
 static inline struct task_struct *next_thread(const struct task_struct *p)

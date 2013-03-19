@@ -21,10 +21,10 @@
 
 #if 0
 #define kdebug(FMT, ...) \
-	printk("[%-5.5s%5u] "FMT"\n", current->comm, current->pid ,##__VA_ARGS__)
+	printk("[%-5.5s%5pP] "FMT"\n", current->comm, task_pid(current) ,##__VA_ARGS__)
 #else
 #define kdebug(FMT, ...) \
-	no_printk("[%-5.5s%5u] "FMT"\n", current->comm, current->pid ,##__VA_ARGS__)
+	no_printk("[%-5.5s%5pP] "FMT"\n", current->comm, task_pid(current) ,##__VA_ARGS__)
 #endif
 
 static struct kmem_cache *cred_jar;
@@ -149,7 +149,8 @@ void exit_creds(struct task_struct *tsk)
 {
 	struct cred *cred;
 
-	kdebug("exit_creds(%u,%p,%p,{%d,%d})", tsk->pid, tsk->real_cred, tsk->cred,
+	kdebug("exit_creds(%pP,%p,%p,{%d,%d})",
+	       task_pid(tsk), tsk->real_cred, tsk->cred,
 	       atomic_read(&tsk->cred->usage),
 	       read_cred_subscribers(tsk->cred));
 

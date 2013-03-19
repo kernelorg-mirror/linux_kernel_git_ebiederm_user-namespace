@@ -508,7 +508,7 @@ static void set_track(struct kmem_cache *s, void *object,
 #endif
 		p->addr = addr;
 		p->cpu = smp_processor_id();
-		p->pid = current->pid;
+		p->pid = task_pid_nr_ns(current, &init_pid_ns);
 		p->when = jiffies;
 	} else
 		memset(p, 0, sizeof(struct track));

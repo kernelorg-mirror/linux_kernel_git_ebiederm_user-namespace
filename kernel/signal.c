@@ -222,8 +222,8 @@ static inline void print_dropped_signal(int sig)
 	if (!__ratelimit(&ratelimit_state))
 		return;
 
-	printk(KERN_INFO "%s/%d: reached RLIMIT_SIGPENDING, dropped signal %d\n",
-				current->comm, current->pid, sig);
+	printk(KERN_INFO "%s/%pP: reached RLIMIT_SIGPENDING, dropped signal %d\n",
+				current->comm, task_pid(current), sig);
 }
 
 /**
@@ -3662,9 +3662,10 @@ kdb_send_sig_info(struct task_struct *t, struct siginfo *info)
 	}
 	sig = info->si_signo;
 	if (send_sig_info(sig, info, t))
-		kdb_printf("Fail to deliver Signal %d to process %d.\n",
-			   sig, t->pid);
+		kdb_printf("Fail to deliver Signal %d to process %pP.\n",
+			   sig, task_pid(t));
 	else
-		kdb_printf("Signal %d is sent to process %d.\n", sig, t->pid);
+		kdb_printf("Signal %d is sent to process %pP.\n",
+			   sig, task_pid(t));
 }
 #endif	/* CONFIG_KGDB_KDB */
