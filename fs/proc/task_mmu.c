@@ -244,6 +244,7 @@ static int do_maps_open(struct inode *inode, struct file *file,
 	int ret = -ENOMEM;
 	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
 	if (priv) {
+		priv->ns  = inode->i_sb->s_fs_info;
 		priv->pid = proc_pid(inode);
 		ret = seq_open(file, ops);
 		if (!ret) {
@@ -321,7 +322,7 @@ show_map_vma(struct seq_file *m, struct vm_area_struct *vma, int is_pid)
 			goto done;
 		}
 
-		tid = vm_is_stack(task, vma, is_pid);
+		tid = vm_is_stack(priv->ns, task, vma, is_pid);
 
 		if (tid != 0) {
 			/*
@@ -1415,7 +1416,7 @@ static int show_numa_map(struct seq_file *m, void *v, int is_pid)
 	} else if (vma->vm_start <= mm->brk && vma->vm_end >= mm->start_brk) {
 		seq_printf(m, " heap");
 	} else {
-		pid_t tid = vm_is_stack(task, vma, is_pid);
+		pid_t tid = vm_is_stack(proc_priv->ns, task, vma, is_pid);
 		if (tid != 0) {
 			/*
 			 * Thread stack in /proc/PID/task/TID/maps or
