@@ -646,7 +646,7 @@ static int audit_log_common_recv_msg(struct audit_buffer **ab, u16 msg_type)
 {
 	int rc = 0;
 	uid_t uid = from_kuid(&init_user_ns, current_uid());
-	pid_t pid = task_tgid_nr(current);
+	pid_t pid = task_tgid_nr_ns(current, &init_pid_ns);
 
 	if (!audit_enabled && msg_type != AUDIT_USER_AVC) {
 		*ab = NULL;
@@ -1839,8 +1839,8 @@ void audit_log_task_info(struct audit_buffer *ab, struct task_struct *tsk)
 			 " ppid=%d pid=%d auid=%u uid=%u gid=%u"
 			 " euid=%u suid=%u fsuid=%u"
 			 " egid=%u sgid=%u fsgid=%u tty=%s ses=%u",
-			 task_ppid_nr(tsk),
-			 task_pid_nr(tsk),
+			 task_ppid_nr_ns(tsk, &init_pid_ns),
+			 task_pid_nr_ns(tsk, &init_pid_ns),
 			 from_kuid(&init_user_ns, audit_get_loginuid(tsk)),
 			 from_kuid(&init_user_ns, cred->uid),
 			 from_kgid(&init_user_ns, cred->gid),
