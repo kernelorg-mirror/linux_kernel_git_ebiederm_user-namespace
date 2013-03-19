@@ -168,6 +168,9 @@ UUID/GUID addresses:
 	Where no additional specifiers are used the default little endian
 	order with lower case hex characters will be printed.
 
+struct pid:
+       %pP
+
 struct va_format:
 
 	%pV
