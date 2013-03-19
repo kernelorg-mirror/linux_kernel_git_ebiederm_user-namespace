@@ -177,6 +177,9 @@ dentry names:
 	equivalent of %s dentry->d_name.name we used to use, %pd<n> prints
 	n last components.  %pD does the same thing for struct file.
 
+struct pid:
+       %pP
+
 struct va_format:
 
 	%pV
