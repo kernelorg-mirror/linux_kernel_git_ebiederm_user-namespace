@@ -1839,7 +1839,7 @@ static inline int pid_alive(const struct task_struct *p)
  */
 static inline int is_global_init(struct task_struct *tsk)
 {
-	return tsk->pid == 1;
+	return task_pid_nr(tsk) == 1;
 }
 
 extern struct pid *cad_pid;
