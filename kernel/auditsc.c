@@ -472,7 +472,7 @@ static int audit_filter_rules(struct task_struct *tsk,
 		case AUDIT_PPID:
 			if (ctx) {
 				if (!ctx->ppid)
-					ctx->ppid = sys_getppid();
+					ctx->ppid = audit_getppid();
 				result = audit_comparator(ctx->ppid, f->op, f->val);
 			}
 			break;
