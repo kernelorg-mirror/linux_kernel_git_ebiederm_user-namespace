@@ -458,10 +458,12 @@ static int audit_filter_rules(struct task_struct *tsk,
 		struct audit_field *f = &rule->fields[i];
 		struct audit_names *n;
 		int result = 0;
+		pid_t pid;
 
 		switch (f->type) {
 		case AUDIT_PID:
-			result = audit_comparator(tsk->pid, f->op, f->val);
+			pid = task_pid_nr_ns(tsk, &init_pid_ns);
+			result = audit_comparator(pid, f->op, f->val);
 			break;
 		case AUDIT_PPID:
 			if (ctx) {
@@ -1989,7 +1991,7 @@ int audit_set_loginuid(kuid_t loginuid)
 			audit_log_format(ab, "login pid=%d uid=%u "
 				"old auid=%u new auid=%u"
 				" old ses=%u new ses=%u",
-				task->pid,
+				task_pid_nr_ns(task, &init_pid_ns),
 				from_kuid(&init_user_ns, task_uid(task)),
 				from_kuid(&init_user_ns, task->loginuid),
 				from_kuid(&init_user_ns, loginuid),
@@ -2197,7 +2199,7 @@ void __audit_ptrace(struct task_struct *t)
 {
 	struct audit_context *context = current->audit_context;
 
-	context->target_pid = t->pid;
+	context->target_pid = task_pid_nr_ns(t, &init_pid_ns);
 	context->target_auid = audit_get_loginuid(t);
 	context->target_uid = task_uid(t);
 	context->target_sessionid = audit_get_sessionid(t);
@@ -2222,7 +2224,7 @@ int __audit_signal_info(int sig, struct task_struct *t)
 
 	if (audit_pid && task_tgid(t) == audit_pid) {
 		if (sig == SIGTERM || sig == SIGHUP || sig == SIGUSR1 || sig == SIGUSR2) {
-			audit_sig_pid = tsk->pid;
+			audit_sig_pid = task_pid_nr_ns(tsk, &init_pid_ns);
 			if (uid_valid(tsk->loginuid))
 				audit_sig_uid = tsk->loginuid;
 			else
@@ -2236,7 +2238,7 @@ int __audit_signal_info(int sig, struct task_struct *t)
 	/* optimize the common case by putting first signal recipient directly
 	 * in audit_context */
 	if (!ctx->target_pid) {
-		ctx->target_pid = t->tgid;
+		ctx->target_pid = task_tgid_nr_ns(t, &init_pid_ns);
 		ctx->target_auid = audit_get_loginuid(t);
 		ctx->target_uid = t_uid;
 		ctx->target_sessionid = audit_get_sessionid(t);
@@ -2257,7 +2259,7 @@ int __audit_signal_info(int sig, struct task_struct *t)
 	}
 	BUG_ON(axp->pid_count >= AUDIT_AUX_PIDS);
 
-	axp->target_pid[axp->pid_count] = t->tgid;
+	axp->target_pid[axp->pid_count] = task_tgid_nr_ns(t, &init_pid_ns);
 	axp->target_auid[axp->pid_count] = audit_get_loginuid(t);
 	axp->target_uid[axp->pid_count] = t_uid;
 	axp->target_sessionid[axp->pid_count] = audit_get_sessionid(t);
@@ -2356,7 +2358,8 @@ static void audit_log_task(struct audit_buffer *ab)
 			 from_kgid(&init_user_ns, gid),
 			 sessionid);
 	audit_log_task_context(ab);
-	audit_log_format(ab, " pid=%d comm=", current->pid);
+	audit_log_format(ab, " pid=%d comm=",
+			 task_pid_nr_ns(current, &init_pid_ns));
 	audit_log_untrustedstring(ab, current->comm);
 }
 
