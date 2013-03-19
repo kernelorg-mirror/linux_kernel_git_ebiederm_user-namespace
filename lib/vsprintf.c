@@ -1218,6 +1218,7 @@ int kptr_restrict __read_mostly;
  *            The maximum supported length is 64 bytes of the input. Consider
  *            to use print_hex_dump() for the larger input.
  * - 'a' For a phys_addr_t type and its derivative types (passed by reference)
+ * - 'P' For printing a struct pid
  *
  * Note: The difference between 'S' and 'F' is that on ia64 and ppc64
  * function pointers are really function descriptors, which contain a
@@ -1335,6 +1336,9 @@ char *pointer(const char *fmt, char *buf, char *end, void *ptr,
 		return dentry_name(buf, end,
 				   ((const struct file *)ptr)->f_path.dentry,
 				   spec, fmt);
+	case 'P':
+		spec.base = 10;
+		return number(buf, end, pid_nr_ns(ptr, &init_pid_ns), spec);
 	}
 	spec.flags |= SMALL;
 	if (spec.field_width == -1) {
@@ -1572,6 +1576,7 @@ qualifier:
  * %pI6c print an IPv6 address as specified by RFC 5952
  * %pIS depending on sa_family of 'struct sockaddr *' print IPv4/IPv6 address
  * %piS depending on sa_family of 'struct sockaddr *' print IPv4/IPv6 address
+ * %pP print a struct pid
  * %pU[bBlL] print a UUID/GUID in big or little endian using lower or upper
  *   case.
  * %*ph[CDN] a variable-length hex string with a separator (supports up to 64
