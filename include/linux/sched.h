@@ -1470,7 +1470,7 @@ pid_t __task_pid_nr_ns(struct task_struct *task, enum pid_type type,
 
 static inline pid_t task_pid_nr(struct task_struct *tsk)
 {
-	return tsk->pid;
+	return pid_nr(tsk->pids[PIDTYPE_PID].pid);
 }
 
 static inline pid_t task_pid_nr_ns(struct task_struct *tsk,
