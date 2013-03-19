@@ -461,7 +461,7 @@ DECLARE_EVENT_CLASS(sched_move_task_template,
 
 	TP_fast_assign(
 		__entry->pid		= task_pid_nr(tsk);
-		__entry->tgid		= task_tgid_nr(tsk);
+		__entry->tgid		= task_tgid_nr_ns(tsk, &init_pid_ns);
 		__entry->ngid		= task_numa_group_id(tsk);
 		__entry->src_cpu	= src_cpu;
 		__entry->src_nid	= cpu_to_node(src_cpu);
@@ -513,12 +513,12 @@ TRACE_EVENT(sched_swap_numa,
 
 	TP_fast_assign(
 		__entry->src_pid	= task_pid_nr(src_tsk);
-		__entry->src_tgid	= task_tgid_nr(src_tsk);
+		__entry->src_tgid	= task_tgid_nr_ns(src_tsk, &init_pid_ns);
 		__entry->src_ngid	= task_numa_group_id(src_tsk);
 		__entry->src_cpu	= src_cpu;
 		__entry->src_nid	= cpu_to_node(src_cpu);
 		__entry->dst_pid	= task_pid_nr(dst_tsk);
-		__entry->dst_tgid	= task_tgid_nr(dst_tsk);
+		__entry->dst_tgid	= task_tgid_nr_ns(dst_tsk, &init_pid_ns);
 		__entry->dst_ngid	= task_numa_group_id(dst_tsk);
 		__entry->dst_cpu	= dst_cpu;
 		__entry->dst_nid	= cpu_to_node(dst_cpu);
