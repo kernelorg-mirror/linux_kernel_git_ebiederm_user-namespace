@@ -416,7 +416,7 @@ struct kvm {
 	pr_debug("kvm [%i]: " fmt, task_pid_nr(current), ## __VA_ARGS__)
 #define kvm_pr_unimpl(fmt, ...) \
 	pr_err_ratelimited("kvm [%i]: " fmt, \
-			   task_tgid_nr(current), ## __VA_ARGS__)
+			   task_tgid_nr_ns(current, &init_pid_ns), ## __VA_ARGS__)
 
 /* The guest did something we don't support. */
 #define vcpu_unimpl(vcpu, fmt, ...)					\
