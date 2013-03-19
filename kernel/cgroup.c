@@ -1428,7 +1428,7 @@ static int cgroup_remount(struct kernfs_root *kf_root, int *flags, char *data)
 
 	if (opts.subsys_mask != root->subsys_mask || opts.release_agent)
 		pr_warn("option changes via remount are deprecated (pid=%d comm=%s)\n",
-			task_tgid_nr(current), current->comm);
+			task_tgid_nr_ns(current, &init_pid_ns), current->comm);
 
 	added_mask = opts.subsys_mask & ~root->subsys_mask;
 	removed_mask = root->subsys_mask & ~opts.subsys_mask;
