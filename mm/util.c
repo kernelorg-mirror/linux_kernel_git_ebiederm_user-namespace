@@ -267,13 +267,13 @@ static int vm_is_stack_for_task(struct task_struct *t,
  * just check in the current task. Returns the pid of the task that
  * the vma is stack for.
  */
-pid_t vm_is_stack(struct task_struct *task,
+pid_t vm_is_stack(struct pid_namespace *ns, struct task_struct *task,
 		  struct vm_area_struct *vma, int in_group)
 {
 	pid_t ret = 0;
 
 	if (vm_is_stack_for_task(task, vma))
-		return task->pid;
+		return task_pid_nr_ns(task, ns);
 
 	if (in_group) {
 		struct task_struct *t;
@@ -284,7 +284,7 @@ pid_t vm_is_stack(struct task_struct *task,
 		t = task;
 		do {
 			if (vm_is_stack_for_task(t, vma)) {
-				ret = t->pid;
+				ret = task_pid_nr_ns(t, ns);
 				goto done;
 			}
 		} while_each_thread(task, t);
