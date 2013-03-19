@@ -1227,7 +1227,7 @@ static int audit_filter_user_rules(struct audit_krule *rule, int type,
 
 		switch (f->type) {
 		case AUDIT_PID:
-			pid = task_pid_nr(current);
+			pid = task_pid_nr_ns(current, &init_pid_ns);
 			result = audit_comparator(pid, f->op, f->val);
 			break;
 		case AUDIT_UID:
