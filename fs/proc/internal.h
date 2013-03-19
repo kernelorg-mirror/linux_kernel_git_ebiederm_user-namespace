@@ -272,6 +272,7 @@ extern int proc_remount(struct super_block *, int *, char *);
  * task_[no]mmu.c
  */
 struct proc_maps_private {
+	struct pid_namespace *ns;
 	struct pid *pid;
 	struct task_struct *task;
 #ifdef CONFIG_MMU
