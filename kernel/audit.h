@@ -322,4 +322,16 @@ extern struct list_head *audit_killed_trees(void);
 #define audit_filter_inodes(t,c) AUDIT_DISABLED
 #endif
 
+static inline pid_t audit_getppid(void)
+{
+	pid_t ppid;
+
+	rcu_read_lock();
+	ppid = task_tgid_nr_ns(rcu_dereference(current->real_parent),
+			       &init_pid_ns);
+	rcu_read_unlock();
+
+	return ppid;
+}
+
 extern struct mutex audit_cmd_mutex;
