@@ -93,7 +93,7 @@ static int	audit_failure = AUDIT_FAIL_PRINTK;
  * contains the pid of the auditd process and audit_nlk_portid contains
  * the portid to use to send netlink messages to that process.
  */
-int		audit_pid;
+struct pid *	audit_pid;
 static u32	audit_nlk_portid;
 
 /* If audit_rate_limit is non-zero, limit the rate of sending audit records
@@ -388,9 +388,11 @@ static void kauditd_send_skb(struct sk_buff *skb)
 	err = netlink_unicast(audit_sock, skb, audit_nlk_portid, 0);
 	if (err < 0) {
 		BUG_ON(err != -ECONNREFUSED); /* Shouldn't happen */
-		printk(KERN_ERR "audit: *NO* daemon at audit_pid=%d\n", audit_pid);
+		printk(KERN_ERR "audit: *NO* daemon at audit_pid=%d\n",
+		       pid_nr_ns(audit_pid, &init_pid_ns));
 		audit_log_lost("auditd disappeared\n");
-		audit_pid = 0;
+		put_pid(audit_pid);
+		audit_pid = NULL;
 		/* we might get lucky and get this in the next auditd */
 		audit_hold_skb(skb);
 	} else
@@ -661,7 +663,7 @@ static int audit_receive_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
 	case AUDIT_GET:
 		status_set.enabled	 = audit_enabled;
 		status_set.failure	 = audit_failure;
-		status_set.pid		 = audit_pid;
+		status_set.pid		 = pid_vnr(audit_pid);
 		status_set.rate_limit	 = audit_rate_limit;
 		status_set.backlog_limit = audit_backlog_limit;
 		status_set.lost		 = atomic_read(&audit_lost);
@@ -684,10 +686,17 @@ static int audit_receive_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
 				return err;
 		}
 		if (status_get->mask & AUDIT_STATUS_PID) {
-			int new_pid = status_get->pid;
+			struct pid *new_pid = find_get_pid(status_get->pid);
+			if (status_get->pid && !new_pid)
+				return -ESRCH;
 
 			if (audit_enabled != AUDIT_OFF)
-				audit_log_config_change("audit_pid", new_pid, audit_pid, 1);
+				audit_log_config_change("audit_pid",
+							pid_nr_ns(new_pid, &init_pid_ns),
+							pid_nr_ns(audit_pid, &init_pid_ns),
+							1);
+
+			put_pid(audit_pid);
 			audit_pid = new_pid;
 			audit_nlk_portid = NETLINK_CB(skb).portid;
 		}
