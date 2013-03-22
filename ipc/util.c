@@ -270,6 +270,8 @@ int ipc_addid(struct ipc_ids* ids, struct kern_ipc_perm* new, int size)
 	if (ids->in_use >= size)
 		return -ENOSPC;
 
+	/* Can I/Should I deny id creation for processes outside of the current user namespace? */
+
 	idr_preload(GFP_KERNEL);
 
 	spin_lock_init(&new->lock);
