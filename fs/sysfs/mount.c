@@ -20,6 +20,7 @@
 #include <linux/magic.h>
 #include <linux/slab.h>
 #include <linux/user_namespace.h>
+#include <net/net_namespace.h>
 
 #include "sysfs.h"
 
@@ -112,9 +113,14 @@ static struct dentry *sysfs_mount(struct file_system_type *fs_type,
 	struct super_block *sb;
 	int error;
 
-	if (!(flags & MS_KERNMOUNT) && !capable(CAP_SYS_ADMIN) &&
-	    !fs_fully_visible(fs_type))
-		return ERR_PTR(-EPERM);
+	if (!(flags & MS_KERNMOUNT)) {
+		struct net *net = current->nsproxy->net_ns;
+		if (!capable(CAP_SYS_ADMIN) && !fs_fully_visible(fs_type))
+			return ERR_PTR(-EPERM);
+
+		if (!ns_capable(net->user_ns, CAP_SYS_ADMIN))
+			return ERR_PTR(-EPERM);
+	}
 
 	info = kzalloc(sizeof(*info), GFP_KERNEL);
 	if (!info)
