@@ -349,8 +349,8 @@ static int pidns_install(struct nsproxy *nsproxy, void *ns)
 	if (ancestor != active)
 		return -EINVAL;
 
-	put_pid_ns(nsproxy->pid_ns);
-	nsproxy->pid_ns = get_pid_ns(new);
+	put_pid_ns(nsproxy->childrens_pid_ns);
+	nsproxy->childrens_pid_ns = get_pid_ns(new);
 	return 0;
 }
 
