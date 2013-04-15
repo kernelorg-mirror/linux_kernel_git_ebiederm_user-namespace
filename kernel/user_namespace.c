@@ -620,6 +620,12 @@ static ssize_t map_write(struct file *file, const char __user *buf,
 	if (map->nr_extents != 0)
 		goto out;
 
+	/* Don't let the opener of the file be meaningfully different
+	 * from the writer of the file.
+	 */
+	if (file->f_cred != current_cred())
+		goto out;
+
 	/*
 	 * Adjusting namespace settings requires capabilities on the target.
 	 */
