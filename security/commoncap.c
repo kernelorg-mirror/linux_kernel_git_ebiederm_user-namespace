@@ -524,23 +524,39 @@ skip:
 		bprm->per_clear |= PER_CLEAR_ON_SETID;
 
 
-	/* Don't let someone trace a set[ug]id/setpcap binary with the revised
-	 * credentials unless they have the appropriate permit.
-	 *
-	 * In addition, if NO_NEW_PRIVS, then ensure we get no new privs.
+	/* 
+	 * Are the new credentials different and is the process
+	 * ptraced by an unprivileged process or otherwise in a state
+	 * that makes it unsafe to change our credentials?
 	 */
-	if ((!uid_eq(new->euid, old->uid) ||
-	     !gid_eq(new->egid, old->gid) ||
-	     !cap_issubset(new->cap_permitted, old->cap_permitted)) &&
+	if ((!uid_eq(new->euid, old->euid) ||
+	     !gid_eq(new->egid, old->egid) ||
+	     !cap_eq(new->cap_permitted, old->cap_permitted)) &&
 	    bprm->unsafe & ~LSM_UNSAFE_PTRACE_CAP) {
-		/* downgrade; they get no more than they had, and maybe less */
-		if (!capable(CAP_SETUID) || /* ns_capable? */
-		    (bprm->unsafe & LSM_UNSAFE_NO_NEW_PRIVS)) {
-			new->euid = new->uid;
-			new->egid = new->gid;
-		}
-		new->cap_permitted = cap_intersect(new->cap_permitted,
-						   old->cap_permitted);
+		/* Do we have permission to change our uid and gid by
+		 * other means?  If so it is safe to change our uid
+		 * and gid when ptrace.
+		 */
+		if (!uid_eq(new->euid, old->euid) &&
+		    !ns_capable(current_user_ns(), CAP_SETUID))
+			return -EPERM;
+
+		if (!gid_eq(new->egid, old->egid) &&
+		    !ns_capable(current_user_ns(), CAP_SETGID))
+			return -EPERM;
+
+		/* Are the credential changes safe when ptraced? */
+		if (!cap_issubset(new->cap_permitted, old->cap_permitted))
+			return -EPERM;
+
+		/* No new privs means only dropping privs is never ok */
+		if ((bprm->unsafe & LSM_UNSAFE_NO_NEW_PRIVS) &&
+		    !cap_issubset(new->cap_permitted, old->cap_permitted))
+			return -EPERM;
+
+		/* The guantlet has been run it is safe to change the privs
+		 * while being ptraced.
+		 */
 	}
 
 	new->suid = new->fsuid = new->euid;
