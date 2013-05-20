@@ -95,6 +95,17 @@ extern const kernel_cap_t __cap_init_eff_set;
 #define cap_lower(c, flag)  ((c).cap[CAP_TO_INDEX(flag)] &= ~CAP_TO_MASK(flag))
 #define cap_raised(c, flag) ((c).cap[CAP_TO_INDEX(flag)] & CAP_TO_MASK(flag))
 
+static inline bool cap_eq(const kernel_cap_t a,
+			  const kernel_cap_t b)
+{
+	unsigned __capi;
+	CAP_FOR_EACH_U32(__capi) {
+		if (a.cap[__capi] != b.cap[__capi])
+		    return false;
+	}
+	return true;
+}
+
 #define CAP_BOP_ALL(c, a, b, OP)                                    \
 do {                                                                \
 	unsigned __capi;                                            \
