@@ -549,7 +549,9 @@ skip:
 		if (!cap_issubset(new->cap_permitted, old->cap_permitted))
 			return -EPERM;
 
-		/* No new privs means only dropping privs is never ok */
+		/* No new privs allows only allows dropping
+		 * capabilities on exec.
+		 */
 		if ((bprm->unsafe & LSM_UNSAFE_NO_NEW_PRIVS) &&
 		    !cap_issubset(new->cap_permitted, old->cap_permitted))
 			return -EPERM;
