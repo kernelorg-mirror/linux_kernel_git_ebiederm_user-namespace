@@ -507,7 +507,7 @@ pid_t pid_vnr(struct pid *pid)
 }
 EXPORT_SYMBOL_GPL(pid_vnr);
 
-pid_t __task_pid_nr_ns(struct task_struct *task, enum pid_type type,
+pid_t __task_pid_nr_ns(const struct task_struct *task, enum pid_type type,
 			struct pid_namespace *ns)
 {
 	pid_t nr = 0;
@@ -526,7 +526,7 @@ pid_t __task_pid_nr_ns(struct task_struct *task, enum pid_type type,
 }
 EXPORT_SYMBOL(__task_pid_nr_ns);
 
-pid_t task_tgid_nr_ns(struct task_struct *tsk, struct pid_namespace *ns)
+pid_t task_tgid_nr_ns(const struct task_struct *tsk, struct pid_namespace *ns)
 {
 	return pid_nr_ns(task_tgid(tsk), ns);
 }
