@@ -1694,12 +1694,12 @@ static inline bool should_numa_migrate_memory(struct task_struct *p,
 }
 #endif
 
-static inline struct pid *task_pid(struct task_struct *task)
+static inline struct pid *task_pid(const struct task_struct *task)
 {
 	return task->pids[PIDTYPE_PID].pid;
 }
 
-static inline struct pid *task_tgid(struct task_struct *task)
+static inline struct pid *task_tgid(const struct task_struct *task)
 {
 	return task->group_leader->pids[PIDTYPE_PID].pid;
 }
@@ -1709,12 +1709,12 @@ static inline struct pid *task_tgid(struct task_struct *task)
  * the result of task_pgrp/task_session even if task == current,
  * we can race with another thread doing sys_setsid/sys_setpgid.
  */
-static inline struct pid *task_pgrp(struct task_struct *task)
+static inline struct pid *task_pgrp(const struct task_struct *task)
 {
 	return task->group_leader->pids[PIDTYPE_PGID].pid;
 }
 
-static inline struct pid *task_session(struct task_struct *task)
+static inline struct pid *task_session(const struct task_struct *task)
 {
 	return task->group_leader->pids[PIDTYPE_SID].pid;
 }
@@ -1734,29 +1734,29 @@ struct pid_namespace;
  *
  * see also pid_nr() etc in include/linux/pid.h
  */
-pid_t __task_pid_nr_ns(struct task_struct *task, enum pid_type type,
+pid_t __task_pid_nr_ns(const struct task_struct *task, enum pid_type type,
 			struct pid_namespace *ns);
 
-static inline pid_t task_pid_nr(struct task_struct *tsk)
+static inline pid_t task_pid_nr(const struct task_struct *tsk)
 {
 	return pid_nr(tsk->pids[PIDTYPE_PID].pid);
 }
 
-static inline pid_t task_pid_nr_ns(struct task_struct *tsk,
+static inline pid_t task_pid_nr_ns(const struct task_struct *tsk,
 					struct pid_namespace *ns)
 {
 	return __task_pid_nr_ns(tsk, PIDTYPE_PID, ns);
 }
 
-static inline pid_t task_pid_vnr(struct task_struct *tsk)
+static inline pid_t task_pid_vnr(const struct task_struct *tsk)
 {
 	return __task_pid_nr_ns(tsk, PIDTYPE_PID, NULL);
 }
 
 
-pid_t task_tgid_nr_ns(struct task_struct *tsk, struct pid_namespace *ns);
+pid_t task_tgid_nr_ns(const struct task_struct *tsk, struct pid_namespace *ns);
 
-static inline pid_t task_tgid_vnr(struct task_struct *tsk)
+static inline pid_t task_tgid_vnr(const struct task_struct *tsk)
 {
 	return pid_vnr(task_tgid(tsk));
 }
@@ -1780,31 +1780,31 @@ static inline pid_t task_ppid_nr(const struct task_struct *tsk)
 	return task_ppid_nr_ns(tsk, &init_pid_ns);
 }
 
-static inline pid_t task_pgrp_nr_ns(struct task_struct *tsk,
+static inline pid_t task_pgrp_nr_ns(const struct task_struct *tsk,
 					struct pid_namespace *ns)
 {
 	return __task_pid_nr_ns(tsk, PIDTYPE_PGID, ns);
 }
 
-static inline pid_t task_pgrp_vnr(struct task_struct *tsk)
+static inline pid_t task_pgrp_vnr(const struct task_struct *tsk)
 {
 	return __task_pid_nr_ns(tsk, PIDTYPE_PGID, NULL);
 }
 
 
-static inline pid_t task_session_nr_ns(struct task_struct *tsk,
+static inline pid_t task_session_nr_ns(const struct task_struct *tsk,
 					struct pid_namespace *ns)
 {
 	return __task_pid_nr_ns(tsk, PIDTYPE_SID, ns);
 }
 
-static inline pid_t task_session_vnr(struct task_struct *tsk)
+static inline pid_t task_session_vnr(const struct task_struct *tsk)
 {
 	return __task_pid_nr_ns(tsk, PIDTYPE_SID, NULL);
 }
 
 /* obsolete, do not use */
-static inline pid_t task_pgrp_nr(struct task_struct *tsk)
+static inline pid_t task_pgrp_nr(const struct task_struct *tsk)
 {
 	return task_pgrp_nr_ns(tsk, &init_pid_ns);
 }
@@ -1832,7 +1832,7 @@ static inline int pid_alive(const struct task_struct *p)
  *
  * Return: 1 if the task structure is init. 0 otherwise.
  */
-static inline int is_global_init(struct task_struct *tsk)
+static inline int is_global_init(const struct task_struct *tsk)
 {
 	return task_pid_nr(tsk) == 1;
 }
