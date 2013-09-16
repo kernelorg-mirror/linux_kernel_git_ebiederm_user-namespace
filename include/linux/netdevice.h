@@ -1343,6 +1343,7 @@ struct net_device {
 	} reg_state:8;
 
 	bool dismantle; /* device is going do be freed */
+	bool put_net;	/* is the netns still alive */
 
 	enum {
 		RTNL_LINK_INITIALIZED,

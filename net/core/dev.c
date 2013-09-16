@@ -5274,6 +5274,13 @@ static void rollback_registered_many(struct list_head *head)
 			continue;
 		}
 		dev->dismantle = true;
+		/* Unless the network namespace is alredy shutting
+		 * down ensure the network namespace does not start
+		 * sutting down until this network device has been
+		 * successfully unregistered.
+		 */
+		if (maybe_get_net(dev_net(dev)))
+			dev->put_net = true;
 		BUG_ON(dev->reg_state != NETREG_REGISTERED);
 	}
 
@@ -5917,6 +5924,9 @@ void netdev_run_todo(void)
 
 		if (dev->destructor)
 			dev->destructor(dev);
+
+		if (dev->put_net)
+			put_net(dev_net(dev));
 
 		/* Free network device */
 		kobject_put(&dev->dev.kobj);
