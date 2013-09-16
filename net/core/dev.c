@@ -1307,7 +1307,7 @@ static int __dev_close_many(struct list_head *head)
 	ASSERT_RTNL();
 	might_sleep();
 
-	list_for_each_entry(dev, head, unreg_list) {
+	list_for_each_entry(dev, head, close_list) {
 		call_netdevice_notifiers(NETDEV_GOING_DOWN, dev);
 
 		clear_bit(__LINK_STATE_START, &dev->state);
@@ -1323,7 +1323,7 @@ static int __dev_close_many(struct list_head *head)
 
 	dev_deactivate_many(head);
 
-	list_for_each_entry(dev, head, unreg_list) {
+	list_for_each_entry(dev, head, close_list) {
 		const struct net_device_ops *ops = dev->netdev_ops;
 
 		/*
@@ -1351,7 +1351,7 @@ static int __dev_close(struct net_device *dev)
 	/* Temporarily disable netpoll until the interface is down */
 	netpoll_rx_disable(dev);
 
-	list_add(&dev->unreg_list, &single);
+	list_add(&dev->close_list, &single);
 	retval = __dev_close_many(&single);
 	list_del(&single);
 
@@ -1362,21 +1362,21 @@ static int __dev_close(struct net_device *dev)
 static int dev_close_many(struct list_head *head)
 {
 	struct net_device *dev, *tmp;
-	LIST_HEAD(tmp_list);
+	LIST_HEAD(many);
 
-	list_for_each_entry_safe(dev, tmp, head, unreg_list)
-		if (!(dev->flags & IFF_UP))
-			list_move(&dev->unreg_list, &tmp_list);
+	/* rollback_registered_many needs the original unmodified list */
+	list_for_each_entry(dev, head, unreg_list)
+		if (dev->flags & IFF_UP)
+			list_add_tail(&dev->close_list, &many);
 
-	__dev_close_many(head);
+	__dev_close_many(&many);
 
-	list_for_each_entry(dev, head, unreg_list) {
+	list_for_each_entry_safe(dev, tmp, &many, close_list) {
 		rtmsg_ifinfo(RTM_NEWLINK, dev, IFF_UP|IFF_RUNNING);
 		call_netdevice_notifiers(NETDEV_DOWN, dev);
+		list_del_init(&dev->close_list);
 	}
 
-	/* rollback_registered_many needs the complete original list */
-	list_splice(&tmp_list, head);
 	return 0;
 }
 
@@ -1397,7 +1397,7 @@ int dev_close(struct net_device *dev)
 		/* Block netpoll rx while the interface is going down */
 		netpoll_rx_disable(dev);
 
-		list_add(&dev->unreg_list, &single);
+		list_add(&dev->close_list, &single);
 		dev_close_many(&single);
 		list_del(&single);
 
@@ -6068,6 +6068,7 @@ struct net_device *alloc_netdev_mqs(int sizeof_priv, const char *name,
 
 	INIT_LIST_HEAD(&dev->napi_list);
 	INIT_LIST_HEAD(&dev->unreg_list);
+	INIT_LIST_HEAD(&dev->close_list);
 	INIT_LIST_HEAD(&dev->link_watch_list);
 	INIT_LIST_HEAD(&dev->upper_dev_list);
 	INIT_LIST_HEAD(&dev->lower_dev_list);
