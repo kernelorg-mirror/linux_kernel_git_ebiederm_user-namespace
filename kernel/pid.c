@@ -273,6 +273,10 @@ void free_pid(struct pid *pid)
 			 */
 			wake_up_process(ns->child_reaper);
 			break;
+		case PIDNS_HASH_ADDING:
+			/* Handle a failure of the initial fork */
+			ns->nr_hashed = 0;
+			/* fall through */
 		case 0:
 			schedule_work(&ns->proc_work);
 			break;
@@ -323,6 +327,9 @@ struct pid *alloc_pid(struct pid_namespace *ns)
 	upid = pid->numbers + ns->level;
 	spin_lock_irq(&pidmap_lock);
 	if (!(ns->nr_hashed & PIDNS_HASH_ADDING))
+		goto out_unlock;
+	/* Require a child reaper process for all but the first pid */
+	if (!is_child_reaper(pid) && !ns->child_reaper)
 		goto out_unlock;
 	for ( ; upid >= pid->numbers; --upid) {
 		hlist_add_head_rcu(&upid->pid_chain,
