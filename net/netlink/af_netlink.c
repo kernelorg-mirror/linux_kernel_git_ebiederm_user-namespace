@@ -1281,7 +1281,7 @@ static int netlink_release(struct socket *sock)
 
 	skb_queue_purge(&sk->sk_write_queue);
 
-	if (nlk->portid) {
+	if (sk_hashed(sk)) {
 		struct netlink_notify n = {
 						.net = sock_net(sk),
 						.protocol = sk->sk_protocol,
@@ -1520,7 +1520,7 @@ static int netlink_bind(struct socket *sock, struct sockaddr *addr,
 			return err;
 	}
 
-	if (nlk->portid)
+	if (sk_hashed(sk))
 		if (nladdr->nl_pid != nlk->portid)
 			return -EINVAL;
 
@@ -1538,8 +1538,18 @@ static int netlink_bind(struct socket *sock, struct sockaddr *addr,
 		}
 	}
 
-	if (!nlk->portid) {
-		err = nladdr->nl_pid ?
+	if (!sk_hashed(sk)) {
+		bool autobind = nladdr->nl_pid == 0;
+		if (nladdr->nl_pid == 0 && (nladdr->nl_pad == 0xffff)) {
+			if (!(nl_table[sk->sk_protocol].flags & NL_CFG_F_IMPERSONATE_KERN))
+				return -EPERM;
+			if (net->user_ns == &init_user_ns)
+				return -EPERM;
+			if (!ns_capable(net->user_ns, CAP_NET_ADMIN))
+				return -EPERM;
+			autobind = false;
+		}
+		err = !autobind ?
 			netlink_insert(sk, net, nladdr->nl_pid) :
 			netlink_autobind(sock);
 		if (err) {
@@ -1586,7 +1596,7 @@ static int netlink_connect(struct socket *sock, struct sockaddr *addr,
 	    !netlink_allowed(sock, NL_CFG_F_NONROOT_SEND))
 		return -EPERM;
 
-	if (!nlk->portid)
+	if (!sk_hashed(sk))
 		err = netlink_autobind(sock);
 
 	if (err == 0) {
@@ -2353,7 +2363,7 @@ static int netlink_sendmsg(struct kiocb *kiocb, struct socket *sock,
 		dst_group = nlk->dst_group;
 	}
 
-	if (!nlk->portid) {
+	if (!sk_hashed(sk)) {
 		err = netlink_autobind(sock);
 		if (err)
 			goto out;
