@@ -375,8 +375,11 @@ static int uevent_net_init(struct net *net)
 	struct uevent_sock *ue_sk;
 	struct netlink_kernel_cfg cfg = {
 		.groups	= 1,
-		.flags	= NL_CFG_F_NONROOT_RECV,
+		.flags	= NL_CFG_F_NONROOT_RECV | NL_CFG_F_IMPERSONATE_KERN,
 	};
+
+	if (net->user_ns != &init_user_ns)
+		return 0;
 
 	ue_sk = kzalloc(sizeof(*ue_sk), GFP_KERNEL);
 	if (!ue_sk)
@@ -398,6 +401,9 @@ static int uevent_net_init(struct net *net)
 static void uevent_net_exit(struct net *net)
 {
 	struct uevent_sock *ue_sk;
+
+	if (net->user_ns != &init_user_ns)
+		return;
 
 	mutex_lock(&uevent_sock_mutex);
 	list_for_each_entry(ue_sk, &uevent_sock_list, list) {
