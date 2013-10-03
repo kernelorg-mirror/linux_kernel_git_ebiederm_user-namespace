@@ -39,6 +39,7 @@ extern void netlink_table_ungrab(void);
 
 #define NL_CFG_F_NONROOT_RECV	(1 << 0)
 #define NL_CFG_F_NONROOT_SEND	(1 << 1)
+#define NL_CFG_F_IMPERSONATE_KERN (1 << 2)
 
 /* optional Netlink kernel configuration parameters */
 struct netlink_kernel_cfg {
