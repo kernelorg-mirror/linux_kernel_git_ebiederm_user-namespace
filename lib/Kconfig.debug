@@ -318,6 +318,54 @@ config DEBUG_KERNEL
 	  Say Y here if you are developing drivers or trying to debug and
 	  identify kernel problems.
 
+config STRICT_PID_USAGE
+	bool "Require code to use proper pid accessors"
+	depends on EXT2_FS = n
+	depends on EXT3_FS = n
+	depends on EXT4_FS = n
+	depends on AFS_FS = n
+	depends on AUTOFS4_FS = n
+	depends on CIFS = n
+	depends on BTRFS_FS = n
+	depends on JFFS2_FS = n
+	depends on NFS_FS = n 
+	depends on NFSD = n
+	depends on OCFS2_FS = n
+	depends on XFS_FS = n
+	depends on DLM = n
+	depends on SND_TIMER = n
+	depends on ATM_SOLOS = n
+	depends on IOSCHED_CFQ = n
+	depends on AGP = n
+	depends on OPROFILE = n
+	depends on DRM = n
+	depends on FILE_LOCKING = n
+	depends on PPPOL2TP = n
+	depends on INFINIBAND_QIB = n
+	depends on SGI_GRU = n
+	depends on SLIP = n
+	depends on SCSI_AACRAID = n
+	depends on ANDROID_BINDER_IPC = n
+	depends on ANDROID_LOGGER = n
+	depends on BCM_WIMAX = n
+	depends on TIMER_STATS = n
+	depends on DEBUG_KMEMLEAK = n
+	depends on SLUB = n
+	depends on UWB = n
+	depends on MLX5_CORE = n
+	depends on SCSI_LPFC = n
+	depends on DX_SEP = n
+	depends on VHOST = n
+	depends on XEN = n
+	default n
+	help
+	  There is a lot of code in there kernel that does unreasonable things
+          with pids.  In almost every case this code gets pids from task->pid.
+	  Remove the task->pid and task->tgid fields to make this problem code
+	  easier to find and easier to fix.
+
+	  Say Y here if you want to help finding and fixing the pid abusers.
+
 menu "Memory Debugging"
 
 source mm/Kconfig.debug
