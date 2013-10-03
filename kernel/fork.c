@@ -1452,7 +1452,7 @@ static struct task_struct *copy_process(unsigned long clone_flags,
 		goto bad_fork_free_pid;
 	}
 
-	if (likely(p->pid)) {
+	if (likely(pid != &init_struct_pid)) {
 		ptrace_init_task(p, (clone_flags & CLONE_PTRACE) || trace);
 
 		init_task_pid(p, PIDTYPE_PID, pid);
