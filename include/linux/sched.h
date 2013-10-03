@@ -1314,8 +1314,10 @@ struct task_struct {
 	unsigned sched_reset_on_fork:1;
 	unsigned sched_contributes_to_load:1;
 
+#ifndef CONFIG_STRICT_PID_USAGE
 	pid_t pid;
 	pid_t tgid;
+#endif
 
 #ifdef CONFIG_CC_STACKPROTECTOR
 	/* Canary value for the -fstack-protector gcc feature */
