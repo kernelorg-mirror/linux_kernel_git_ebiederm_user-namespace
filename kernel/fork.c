@@ -1392,18 +1392,24 @@ static struct task_struct *copy_process(unsigned long clone_flags,
 	clear_all_latency_tracing(p);
 
 	/* ok, now we should be set up.. */
+#ifndef CONFIG_STRICT_PID_USAGE
 	p->pid = pid_nr(pid);
+#endif
 	if (clone_flags & CLONE_THREAD) {
 		p->exit_signal = -1;
 		p->group_leader = current->group_leader;
+#ifndef CONFIG_STRICT_PID_USAGE
 		p->tgid = current->tgid;
+#endif
 	} else {
 		if (clone_flags & CLONE_PARENT)
 			p->exit_signal = current->group_leader->exit_signal;
 		else
 			p->exit_signal = (clone_flags & CSIGNAL);
 		p->group_leader = p;
+#ifndef CONFIG_STRICT_PID_USAGE
 		p->tgid = p->pid;
+#endif
 	}
 
 	p->pdeath_signal = 0;
