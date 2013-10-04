@@ -134,7 +134,8 @@ static void audit_pre(struct audit_buffer *ab, void *ca)
 		struct aa_profile *profile = sa->aad->profile;
 		pid_t pid;
 		rcu_read_lock();
-		pid = rcu_dereference(tsk->real_parent)->pid;
+		pid = task_tgid_nr_ns(rcu_dereference(tsk->real_parent),
+				      &init_pid_ns);
 		rcu_read_unlock();
 		audit_log_format(ab, " parent=%d", pid);
 		if (profile->ns != root_ns) {
@@ -151,7 +152,7 @@ static void audit_pre(struct audit_buffer *ab, void *ca)
 	}
 
 	if (sa->aad->tsk) {
-		audit_log_format(ab, " pid=%d comm=", tsk->pid);
+		audit_log_format(ab, " pid=%d comm=", task_pid_nr_ns(tsk, &init_pid_ns));
 		audit_log_untrustedstring(ab, tsk->comm);
 	}
 
