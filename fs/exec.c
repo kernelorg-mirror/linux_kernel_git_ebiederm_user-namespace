@@ -1407,7 +1407,7 @@ static int exec_binprm(struct linux_binprm *bprm)
 	int ret;
 
 	/* Need to fetch pid before load_binary changes it */
-	old_pid = current->pid;
+	old_pid = task_pid_nr_ns(current, &init_pid_ns);
 	rcu_read_lock();
 	old_vpid = task_pid_nr_ns(current, task_active_pid_ns(current->parent));
 	rcu_read_unlock();
