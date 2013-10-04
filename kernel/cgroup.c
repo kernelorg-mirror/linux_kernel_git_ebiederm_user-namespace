@@ -4502,8 +4502,8 @@ static long cgroup_create(struct cgroup *parent, struct dentry *dentry,
 
 		if (ss->broken_hierarchy && !ss->warned_broken_hierarchy &&
 		    parent->parent) {
-			pr_warning("cgroup: %s (%d) created nested cgroup for controller \"%s\" which has incomplete hierarchy support. Nested cgroups may change behavior in the future.\n",
-				   current->comm, current->pid, ss->name);
+			pr_warning("cgroup: %s (%pP) created nested cgroup for controller \"%s\" which has incomplete hierarchy support. Nested cgroups may change behavior in the future.\n",
+				   current->comm, task_pid(current), ss->name);
 			if (!strcmp(ss->name, "memory"))
 				pr_warning("cgroup: \"memory\" requires setting use_hierarchy to 1 on the root.\n");
 			ss->warned_broken_hierarchy = true;

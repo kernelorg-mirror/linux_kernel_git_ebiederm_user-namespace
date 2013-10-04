@@ -425,7 +425,7 @@ sleep:
 	spin_lock_bh(&ts->ts_state_lock);
 	if (!ts->conn) {
 		pr_err("struct iscsi_thread_set->conn is NULL for"
-			" RX thread_id: %s/%d\n", current->comm, current->pid);
+			" RX thread_id: %s/%pP\n", current->comm, task_pid(current));
 		spin_unlock_bh(&ts->ts_state_lock);
 		return NULL;
 	}
@@ -479,7 +479,7 @@ sleep:
 	spin_lock_bh(&ts->ts_state_lock);
 	if (!ts->conn) {
 		pr_err("struct iscsi_thread_set->conn is NULL for"
-			" TX thread_id: %s/%d\n", current->comm, current->pid);
+			" TX thread_id: %s/%pP\n", current->comm, task_pid(current));
 		spin_unlock_bh(&ts->ts_state_lock);
 		return NULL;
 	}

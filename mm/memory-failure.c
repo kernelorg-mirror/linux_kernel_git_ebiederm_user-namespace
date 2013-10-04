@@ -198,8 +198,8 @@ static int kill_proc(struct task_struct *t, unsigned long addr, int trapno,
 	int ret;
 
 	printk(KERN_ERR
-		"MCE %#lx: Killing %s:%d due to hardware memory corruption\n",
-		pfn, t->comm, t->pid);
+		"MCE %#lx: Killing %s:%pP due to hardware memory corruption\n",
+		pfn, t->comm, task_pid(t));
 	si.si_signo = SIGBUS;
 	si.si_errno = 0;
 	si.si_addr = (void *)addr;
@@ -222,8 +222,8 @@ static int kill_proc(struct task_struct *t, unsigned long addr, int trapno,
 		ret = send_sig_info(SIGBUS, &si, t);  /* synchronous? */
 	}
 	if (ret < 0)
-		printk(KERN_INFO "MCE: Error sending signal to %s:%d: %d\n",
-		       t->comm, t->pid, ret);
+		printk(KERN_INFO "MCE: Error sending signal to %s:%pP: %d\n",
+		       t->comm, task_pid(t), ret);
 	return ret;
 }
 
@@ -362,8 +362,9 @@ static void kill_procs(struct list_head *to_kill, int forcekill, int trapno,
 			 */
 			if (fail || tk->addr_valid == 0) {
 				printk(KERN_ERR
-		"MCE %#lx: forcibly killing %s:%d because of failure to unmap corrupted page\n",
-					pfn, tk->tsk->comm, tk->tsk->pid);
+		"MCE %#lx: forcibly killing %s:%pP because of failure to unmap corrupted page\n",
+					pfn, tk->tsk->comm,
+					task_pid(tk->tsk));
 				force_sig(SIGKILL, tk->tsk);
 			}
 
@@ -377,7 +378,8 @@ static void kill_procs(struct list_head *to_kill, int forcekill, int trapno,
 					      pfn, page, flags) < 0)
 				printk(KERN_ERR
 		"MCE %#lx: Cannot send advisory machine check signal to %s:%d\n",
-					pfn, tk->tsk->comm, tk->tsk->pid);
+					pfn, tk->tsk->comm,
+					task_pid_nr_ns(tk->tsk, &init_pid_ns));
 		}
 		put_task_struct(tk->tsk);
 		kfree(tk);

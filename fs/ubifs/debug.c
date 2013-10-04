@@ -565,8 +565,8 @@ void ubifs_dump_budget_req(const struct ubifs_budget_req *req)
 void ubifs_dump_lstats(const struct ubifs_lp_stats *lst)
 {
 	spin_lock(&dbg_lock);
-	pr_err("(pid %d) Lprops statistics: empty_lebs %d, idx_lebs  %d\n",
-	       current->pid, lst->empty_lebs, lst->idx_lebs);
+	pr_err("(pid %pP) Lprops statistics: empty_lebs %d, idx_lebs  %d\n",
+	       task_pid(current), lst->empty_lebs, lst->idx_lebs);
 	pr_err("\ttaken_empty_lebs %d, total_free %lld, total_dirty %lld\n",
 	       lst->taken_empty_lebs, lst->total_free, lst->total_dirty);
 	pr_err("\ttotal_used %lld, total_dark %lld, total_dead %lld\n",
@@ -584,8 +584,8 @@ void ubifs_dump_budg(struct ubifs_info *c, const struct ubifs_budg_info *bi)
 
 	spin_lock(&c->space_lock);
 	spin_lock(&dbg_lock);
-	pr_err("(pid %d) Budgeting info: data budget sum %lld, total budget sum %lld\n",
-	       current->pid, bi->data_growth + bi->dd_growth,
+	pr_err("(pid %pP) Budgeting info: data budget sum %lld, total budget sum %lld\n",
+	       task_pid(current), bi->data_growth + bi->dd_growth,
 	       bi->data_growth + bi->dd_growth + bi->idx_growth);
 	pr_err("\tbudg_data_growth %lld, budg_dd_growth %lld, budg_idx_growth %lld\n",
 	       bi->data_growth, bi->dd_growth, bi->idx_growth);
@@ -739,7 +739,7 @@ void ubifs_dump_lprops(struct ubifs_info *c)
 	struct ubifs_lprops lp;
 	struct ubifs_lp_stats lst;
 
-	pr_err("(pid %d) start dumping LEB properties\n", current->pid);
+	pr_err("(pid %pP) start dumping LEB properties\n", task_pid(current));
 	ubifs_get_lp_stats(c, &lst);
 	ubifs_dump_lstats(&lst);
 
@@ -750,7 +750,7 @@ void ubifs_dump_lprops(struct ubifs_info *c)
 
 		ubifs_dump_lprop(c, &lp);
 	}
-	pr_err("(pid %d) finish dumping LEB properties\n", current->pid);
+	pr_err("(pid %pP) finish dumping LEB properties\n", task_pid(current));
 }
 
 void ubifs_dump_lpt_info(struct ubifs_info *c)
@@ -758,7 +758,7 @@ void ubifs_dump_lpt_info(struct ubifs_info *c)
 	int i;
 
 	spin_lock(&dbg_lock);
-	pr_err("(pid %d) dumping LPT information\n", current->pid);
+	pr_err("(pid %pP) dumping LPT information\n", task_pid(current));
 	pr_err("\tlpt_sz:        %lld\n", c->lpt_sz);
 	pr_err("\tpnode_sz:      %d\n", c->pnode_sz);
 	pr_err("\tnnode_sz:      %d\n", c->nnode_sz);
@@ -796,8 +796,8 @@ void ubifs_dump_sleb(const struct ubifs_info *c,
 {
 	struct ubifs_scan_node *snod;
 
-	pr_err("(pid %d) start dumping scanned data from LEB %d:%d\n",
-	       current->pid, sleb->lnum, offs);
+	pr_err("(pid %pP) start dumping scanned data from LEB %d:%d\n",
+	       task_pid(current), sleb->lnum, offs);
 
 	list_for_each_entry(snod, &sleb->nodes, list) {
 		cond_resched();
@@ -813,7 +813,7 @@ void ubifs_dump_leb(const struct ubifs_info *c, int lnum)
 	struct ubifs_scan_node *snod;
 	void *buf;
 
-	pr_err("(pid %d) start dumping LEB %d\n", current->pid, lnum);
+	pr_err("(pid %pP) start dumping LEB %d\n", task_pid(current), lnum);
 
 	buf = __vmalloc(c->leb_size, GFP_NOFS, PAGE_KERNEL);
 	if (!buf) {
@@ -837,7 +837,7 @@ void ubifs_dump_leb(const struct ubifs_info *c, int lnum)
 		ubifs_dump_node(c, snod->node);
 	}
 
-	pr_err("(pid %d) finish dumping LEB %d\n", current->pid, lnum);
+	pr_err("(pid %pP) finish dumping LEB %d\n", task_pid(current), lnum);
 	ubifs_scan_destroy(sleb);
 
 out:
@@ -888,8 +888,8 @@ void ubifs_dump_heap(struct ubifs_info *c, struct ubifs_lpt_heap *heap, int cat)
 {
 	int i;
 
-	pr_err("(pid %d) start dumping heap cat %d (%d elements)\n",
-	       current->pid, cat, heap->cnt);
+	pr_err("(pid %pP) start dumping heap cat %d (%d elements)\n",
+	       task_pid(current), cat, heap->cnt);
 	for (i = 0; i < heap->cnt; i++) {
 		struct ubifs_lprops *lprops = heap->arr[i];
 
@@ -897,7 +897,7 @@ void ubifs_dump_heap(struct ubifs_info *c, struct ubifs_lpt_heap *heap, int cat)
 		       i, lprops->lnum, lprops->hpos, lprops->free,
 		       lprops->dirty, lprops->flags);
 	}
-	pr_err("(pid %d) finish dumping heap\n", current->pid);
+	pr_err("(pid %pP) finish dumping heap\n", task_pid(current));
 }
 
 void ubifs_dump_pnode(struct ubifs_info *c, struct ubifs_pnode *pnode,
@@ -905,7 +905,7 @@ void ubifs_dump_pnode(struct ubifs_info *c, struct ubifs_pnode *pnode,
 {
 	int i;
 
-	pr_err("(pid %d) dumping pnode:\n", current->pid);
+	pr_err("(pid %pP) dumping pnode:\n", task_pid(current));
 	pr_err("\taddress %zx parent %zx cnext %zx\n",
 	       (size_t)pnode, (size_t)parent, (size_t)pnode->cnext);
 	pr_err("\tflags %lu iip %d level %d num %d\n",
@@ -924,7 +924,7 @@ void ubifs_dump_tnc(struct ubifs_info *c)
 	int level;
 
 	pr_err("\n");
-	pr_err("(pid %d) start dumping TNC tree\n", current->pid);
+	pr_err("(pid %pP) start dumping TNC tree\n", task_pid(current));
 	znode = ubifs_tnc_levelorder_next(c->zroot.znode, NULL);
 	level = znode->level;
 	pr_err("== Level %d ==\n", level);
@@ -936,7 +936,7 @@ void ubifs_dump_tnc(struct ubifs_info *c)
 		ubifs_dump_znode(c, znode);
 		znode = ubifs_tnc_levelorder_next(c->zroot.znode, znode);
 	}
-	pr_err("(pid %d) finish dumping TNC tree\n", current->pid);
+	pr_err("(pid %pP) finish dumping TNC tree\n", task_pid(current));
 }
 
 static int dump_znode(struct ubifs_info *c, struct ubifs_znode *znode,

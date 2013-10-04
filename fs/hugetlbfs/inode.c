@@ -958,8 +958,8 @@ struct file *hugetlb_file_setup(const char *name, size_t size,
 		if (user_shm_lock(size, *user)) {
 			task_lock(current);
 			printk_once(KERN_WARNING
-				"%s (%d): Using mlock ulimits for SHM_HUGETLB is deprecated\n",
-				current->comm, current->pid);
+				"%s (%pP): Using mlock ulimits for SHM_HUGETLB is deprecated\n",
+				current->comm, task_pid(current));
 			task_unlock(current);
 		} else {
 			*user = NULL;

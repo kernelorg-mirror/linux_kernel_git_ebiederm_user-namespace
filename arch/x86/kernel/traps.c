@@ -160,8 +160,8 @@ do_trap(int trapnr, int signr, char *str, struct pt_regs *regs,
 #ifdef CONFIG_X86_64
 	if (show_unhandled_signals && unhandled_signal(tsk, signr) &&
 	    printk_ratelimit()) {
-		pr_info("%s[%d] trap %s ip:%lx sp:%lx error:%lx",
-			tsk->comm, tsk->pid, str,
+		pr_info("%s[%pP] trap %s ip:%lx sp:%lx error:%lx",
+			tsk->comm, task_pid(tsk), str,
 			regs->ip, regs->sp, error_code);
 		print_vma_addr(" in ", regs->ip);
 		pr_cont("\n");

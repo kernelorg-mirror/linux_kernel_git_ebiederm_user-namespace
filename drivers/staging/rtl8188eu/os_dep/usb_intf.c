@@ -508,7 +508,7 @@ static int rtw_suspend(struct usb_interface *pusb_intf, pm_message_t message)
 
 	_func_enter_;
 
-	DBG_88E("==> %s (%s:%d)\n", __func__, current->comm, current->pid);
+	DBG_88E("==> %s (%s:%pP)\n", __func__, current->comm, task_pid(current));
 
 	if ((!padapter->bup) || (padapter->bDriverStopped) ||
 	    (padapter->bSurpriseRemoved)) {
@@ -589,7 +589,7 @@ int rtw_resume_process(struct adapter *padapter)
 	u32 start_time = rtw_get_current_time();
 	_func_enter_;
 
-	DBG_88E("==> %s (%s:%d)\n", __func__, current->comm, current->pid);
+	DBG_88E("==> %s (%s:%pP)\n", __func__, current->comm, task_pid(current));
 
 	if (padapter) {
 		pnetdev = padapter->pnetdev;
