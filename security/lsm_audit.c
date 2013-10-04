@@ -220,7 +220,8 @@ static void dump_common_audit_data(struct audit_buffer *ab,
 	 */
 	BUILD_BUG_ON(sizeof(a->u) > sizeof(void *)*2);
 
-	audit_log_format(ab, " pid=%d comm=", task_pid_nr(tsk));
+	audit_log_format(ab, " pid=%d comm=",
+			 task_pid_nr_ns(tsk, &init_pid_ns));
 	audit_log_untrustedstring(ab, tsk->comm);
 
 	switch (a->type) {
@@ -279,7 +280,7 @@ static void dump_common_audit_data(struct audit_buffer *ab,
 	case LSM_AUDIT_DATA_TASK:
 		tsk = a->u.tsk;
 		if (tsk) {
-			pid_t pid = task_pid_nr(tsk);
+			pid_t pid = task_pid_nr_ns(tsk, &init_pid_ns);
 			if (pid) {
 				audit_log_format(ab, " pid=%d comm=", pid);
 				audit_log_untrustedstring(ab, tsk->comm);
