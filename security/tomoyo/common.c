@@ -942,12 +942,12 @@ static bool tomoyo_manager(void)
 		}
 	}
 	if (!found) { /* Reduce error messages. */
-		static pid_t last_pid;
-		const pid_t pid = current->pid;
-		if (last_pid != pid) {
+		static const struct task_struct *last_tsk;
+		const struct task_struct *tsk = current;
+		if (last_tsk != tsk) {
 			printk(KERN_WARNING "%s ( %s ) is not permitted to "
 			       "update policies.\n", domainname->name, exe);
-			last_pid = pid;
+			last_tsk = tsk;
 		}
 	}
 	kfree(exe);
