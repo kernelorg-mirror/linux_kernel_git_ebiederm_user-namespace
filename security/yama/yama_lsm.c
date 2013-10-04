@@ -223,7 +223,7 @@ static int task_is_descendant(struct task_struct *parent,
 	rcu_read_lock();
 	if (!thread_group_leader(parent))
 		parent = rcu_dereference(parent->group_leader);
-	while (walker->pid > 0) {
+	while (!is_idle_task(walker)) {
 		if (!thread_group_leader(walker))
 			walker = rcu_dereference(walker->group_leader);
 		if (walker == parent) {
@@ -320,8 +320,8 @@ int yama_ptrace_access_check(struct task_struct *child,
 
 	if (rc) {
 		printk_ratelimited(KERN_NOTICE
-			"ptrace of pid %d was attempted by: %s (pid %d)\n",
-			child->pid, current->comm, current->pid);
+			"ptrace of pid %pP was attempted by: %s (pid %pP)\n",
+			task_pid(child), current->comm, task_pid(current));
 	}
 
 	return rc;
@@ -357,8 +357,8 @@ int yama_ptrace_traceme(struct task_struct *parent)
 
 	if (rc) {
 		printk_ratelimited(KERN_NOTICE
-			"ptraceme of pid %d was attempted by: %s (pid %d)\n",
-			current->pid, parent->comm, parent->pid);
+			"ptraceme of pid %pP was attempted by: %s (pid %pP)\n",
+			task_pid(current), parent->comm, task_pid(parent));
 	}
 
 	return rc;
