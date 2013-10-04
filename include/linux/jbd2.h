@@ -938,10 +938,10 @@ struct journal_s
 	int			j_wbufsize;
 
 	/*
-	 * this is the pid of hte last person to run a synchronous operation
+	 * this is the task of the last person to run a synchronous operation
 	 * through the journal
 	 */
-	pid_t			j_last_sync_writer;
+	const struct task_struct *j_last_sync_writer;
 
 	/*
 	 * the average amount of time in nanoseconds it takes to commit a
