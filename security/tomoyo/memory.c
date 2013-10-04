@@ -16,12 +16,12 @@
 void tomoyo_warn_oom(const char *function)
 {
 	/* Reduce error messages. */
-	static pid_t tomoyo_last_pid;
-	const pid_t pid = current->pid;
-	if (tomoyo_last_pid != pid) {
+	static const struct task_struct *tomoyo_last_tsk;
+	const struct task_struct *tsk = current;
+	if (tomoyo_last_tsk != tsk) {
 		printk(KERN_WARNING "ERROR: Out of memory at %s.\n",
 		       function);
-		tomoyo_last_pid = pid;
+		tomoyo_last_tsk = tsk;
 	}
 	if (!tomoyo_policy_loaded)
 		panic("MAC Initialization failed.\n");
