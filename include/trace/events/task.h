@@ -19,7 +19,7 @@ TRACE_EVENT(task_newtask,
 	),
 
 	TP_fast_assign(
-		__entry->pid = task->pid;
+		__entry->pid = task_pid_nr_ns(task, &init_pid_ns);
 		memcpy(__entry->comm, task->comm, TASK_COMM_LEN);
 		__entry->clone_flags = clone_flags;
 		__entry->oom_score_adj = task->signal->oom_score_adj;
@@ -44,7 +44,7 @@ TRACE_EVENT(task_rename,
 	),
 
 	TP_fast_assign(
-		__entry->pid = task->pid;
+		__entry->pid = task_pid_nr_ns(task, &init_pid_ns);
 		memcpy(entry->oldcomm, task->comm, TASK_COMM_LEN);
 		memcpy(entry->newcomm, comm, TASK_COMM_LEN);
 		__entry->oom_score_adj = task->signal->oom_score_adj;
