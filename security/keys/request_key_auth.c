@@ -61,7 +61,9 @@ static void request_key_auth_describe(const struct key *key,
 	seq_puts(m, "key:");
 	seq_puts(m, key->description);
 	if (key_is_instantiated(key))
-		seq_printf(m, " pid:%d ci:%zu", rka->pid, rka->callout_len);
+		seq_printf(m, " pid:%d ci:%zu",
+			   pid_nr_ns(rka->pid, &init_pid_ns),
+			   rka->callout_len);
 }
 
 /*
@@ -121,6 +123,11 @@ static void request_key_auth_destroy(struct key *key)
 		rka->cred = NULL;
 	}
 
+	if (rka->pid) {
+		put_pid(rka->pid);
+		rka->pid = NULL;
+	}
+
 	key_put(rka->target_key);
 	key_put(rka->dest_keyring);
 	kfree(rka->callout_info);
@@ -168,14 +175,14 @@ struct key *request_key_auth_new(struct key *target, const void *callout_info,
 
 		irka = cred->request_key_auth->payload.data;
 		rka->cred = get_cred(irka->cred);
-		rka->pid = irka->pid;
+		rka->pid = get_pid(irka->pid);
 
 		up_read(&cred->request_key_auth->sem);
 	}
 	else {
 		/* it isn't - use this process as the context */
 		rka->cred = get_cred(cred);
-		rka->pid = current->pid;
+		rka->pid = get_pid(task_pid(current));
 	}
 
 	rka->target_key = key_get(target);
