@@ -293,8 +293,8 @@ int ubifs_bg_thread(void *info)
 	int err;
 	struct ubifs_info *c = info;
 
-	ubifs_msg("background thread \"%s\" started, PID %d",
-		  c->bgt_name, current->pid);
+	ubifs_msg("background thread \"%s\" started, PID %pP",
+		  c->bgt_name, task_pid(current));
 	set_freezable();
 
 	while (1) {
@@ -390,7 +390,7 @@ void ubifs_request_bg_commit(struct ubifs_info *c)
  */
 static int wait_for_commit(struct ubifs_info *c)
 {
-	dbg_cmt("pid %d goes sleep", current->pid);
+	dbg_cmt("pid %pP goes sleep", task_pid(current));
 
 	/*
 	 * The following sleeps if the condition is false, and will be woken
@@ -401,7 +401,7 @@ static int wait_for_commit(struct ubifs_info *c)
 	 */
 	wait_event(c->cmt_wq, c->cmt_state != COMMIT_RUNNING_BACKGROUND &&
 			      c->cmt_state != COMMIT_RUNNING_REQUIRED);
-	dbg_cmt("commit finished, pid %d woke up", current->pid);
+	dbg_cmt("commit finished, pid %pP woke up", task_pid(current));
 	return 0;
 }
 

@@ -1886,7 +1886,7 @@ static void dump_lpt_leb(const struct ubifs_info *c, int lnum)
 	int err, len = c->leb_size, node_type, node_num, node_len, offs;
 	void *buf, *p;
 
-	pr_err("(pid %d) start dumping LEB %d\n", current->pid, lnum);
+	pr_err("(pid %pP) start dumping LEB %d\n", task_pid(current), lnum);
 	buf = p = __vmalloc(c->leb_size, GFP_NOFS, PAGE_KERNEL);
 	if (!buf) {
 		ubifs_err("cannot allocate memory to dump LPT");
@@ -1967,7 +1967,7 @@ static void dump_lpt_leb(const struct ubifs_info *c, int lnum)
 		len -= node_len;
 	}
 
-	pr_err("(pid %d) finish dumping LEB %d\n", current->pid, lnum);
+	pr_err("(pid %pP) finish dumping LEB %d\n", task_pid(current), lnum);
 out:
 	vfree(buf);
 	return;
@@ -1984,10 +1984,10 @@ void ubifs_dump_lpt_lebs(const struct ubifs_info *c)
 {
 	int i;
 
-	pr_err("(pid %d) start dumping all LPT LEBs\n", current->pid);
+	pr_err("(pid %pP) start dumping all LPT LEBs\n", task_pid(current));
 	for (i = 0; i < c->lpt_lebs; i++)
 		dump_lpt_leb(c, i + c->lpt_first);
-	pr_err("(pid %d) finish dumping all LPT LEBs\n", current->pid);
+	pr_err("(pid %pP) finish dumping all LPT LEBs\n", task_pid(current));
 }
 
 /**

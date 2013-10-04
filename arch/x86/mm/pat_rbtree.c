@@ -159,8 +159,8 @@ success:
 	return 0;
 
 failure:
-	printk(KERN_INFO "%s:%d conflicting memory types "
-		"%Lx-%Lx %s<->%s\n", current->comm, current->pid, start,
+	printk(KERN_INFO "%s:%pP conflicting memory types "
+		"%Lx-%Lx %s<->%s\n", current->comm, task_pid(current), start,
 		end, cattr_name(found_type), cattr_name(match->type));
 	return -EBUSY;
 }

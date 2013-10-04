@@ -888,9 +888,9 @@ skip:
 	tx_msg_moved = (void *) tx_msg + tx_msg->offset;
 	i2400m->tx_msg_size = tx_msg->size;
 	*bus_size = tx_msg_moved->size;
-	d_printf(2, dev, "TX: pid %d msg hdr at @%zu offset +@%zu "
+	d_printf(2, dev, "TX: pid %pP msg hdr at @%zu offset +@%zu "
 		 "size %zu bus_size %zu\n",
-		 current->pid, (void *) tx_msg - i2400m->tx_buf,
+		 task_pid(current), (void *) tx_msg - i2400m->tx_buf,
 		 (size_t) tx_msg->offset, (size_t) tx_msg->size,
 		 (size_t) tx_msg_moved->size);
 	tx_msg_moved->barker = le32_to_cpu(I2400M_H2D_PREVIEW_BARKER);

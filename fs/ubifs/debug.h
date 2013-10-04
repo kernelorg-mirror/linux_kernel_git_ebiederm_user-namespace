@@ -150,8 +150,8 @@ struct ubifs_global_debug_info {
 
 #define ubifs_assert(expr) do {                                                \
 	if (unlikely(!(expr))) {                                               \
-		pr_crit("UBIFS assert failed in %s at %u (pid %d)\n",          \
-		       __func__, __LINE__, current->pid);                      \
+		pr_crit("UBIFS assert failed in %s at %u (pid %pP)\n",         \
+		       __func__, __LINE__, task_pid(current));                 \
 		dump_stack();                                                  \
 	}                                                                      \
 } while (0)
@@ -165,13 +165,14 @@ struct ubifs_global_debug_info {
 } while (0)
 
 #define ubifs_dbg_msg(type, fmt, ...) \
-	pr_debug("UBIFS DBG " type " (pid %d): " fmt "\n", current->pid,       \
+	pr_debug("UBIFS DBG " type " (pid %pP): " fmt "\n", task_pid(current), \
 		 ##__VA_ARGS__)
 
 #define DBG_KEY_BUF_LEN 48
 #define ubifs_dbg_msg_key(type, key, fmt, ...) do {                            \
 	char __tmp_key_buf[DBG_KEY_BUF_LEN];                                   \
-	pr_debug("UBIFS DBG " type " (pid %d): " fmt "%s\n", current->pid,     \
+	pr_debug("UBIFS DBG " type " (pid %pP): " fmt "%s\n",                  \
+		task_pid(current),                                             \
 		 ##__VA_ARGS__,                                                \
 		 dbg_snprintf_key(c, key, __tmp_key_buf, DBG_KEY_BUF_LEN));    \
 } while (0)

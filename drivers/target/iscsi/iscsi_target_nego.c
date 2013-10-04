@@ -488,8 +488,8 @@ static void iscsi_target_login_timeout(unsigned long data)
 	pr_debug("Entering iscsi_target_login_timeout >>>>>>>>>>>>>>>>>>>\n");
 
 	if (conn->login_kworker) {
-		pr_debug("Sending SIGINT to conn->login_kworker %s/%d\n",
-			 conn->login_kworker->comm, conn->login_kworker->pid);
+		pr_debug("Sending SIGINT to conn->login_kworker %s/%pP\n",
+			 conn->login_kworker->comm, task_pid(conn->login_kworker));
 		send_sig(SIGINT, conn->login_kworker, 1);
 	}
 }
@@ -506,8 +506,8 @@ static void iscsi_target_do_login_rx(struct work_struct *work)
 	int rc, zero_tsih = login->zero_tsih;
 	bool state;
 
-	pr_debug("entering iscsi_target_do_login_rx, conn: %p, %s:%d\n",
-			conn, current->comm, current->pid);
+	pr_debug("entering iscsi_target_do_login_rx, conn: %p, %s:%pP\n",
+			conn, current->comm, task_pid(current));
 
 	spin_lock(&tpg->tpg_state_lock);
 	state = (tpg->tpg_state == TPG_STATE_ACTIVE);
@@ -545,7 +545,7 @@ static void iscsi_target_do_login_rx(struct work_struct *work)
 	login_timer.data = (unsigned long)conn;
 	login_timer.function = iscsi_target_login_timeout;
 	add_timer(&login_timer);
-	pr_debug("Starting login_timer for %s/%d\n", current->comm, current->pid);
+	pr_debug("Starting login_timer for %s/%pP\n", current->comm, task_pid(current));
 
 	rc = conn->conn_transport->iscsit_get_login_rx(conn, login);
 	del_timer_sync(&login_timer);
@@ -559,8 +559,8 @@ static void iscsi_target_do_login_rx(struct work_struct *work)
 		return;
 	}
 
-	pr_debug("iscsi_target_do_login_rx after rx_login_io, %p, %s:%d\n",
-			conn, current->comm, current->pid);
+	pr_debug("iscsi_target_do_login_rx after rx_login_io, %p, %s:%pP\n",
+			conn, current->comm, task_pid(current));
 
 	rc = iscsi_target_do_login(conn, login);
 	if (rc < 0) {
