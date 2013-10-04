@@ -119,8 +119,8 @@ static void trace_note_tsk(struct task_struct *tsk)
 	tsk->btrace_seq = blktrace_seq;
 	spin_lock_irqsave(&running_trace_lock, flags);
 	list_for_each_entry(bt, &running_trace_list, running_list) {
-		trace_note(bt, tsk->pid, BLK_TN_PROCESS, tsk->comm,
-			   sizeof(tsk->comm));
+		trace_note(bt, task_pid_nr_ns(tsk, &init_pid_ns),
+			   BLK_TN_PROCESS, tsk->comm, sizeof(tsk->comm));
 	}
 	spin_unlock_irqrestore(&running_trace_lock, flags);
 }
@@ -222,7 +222,7 @@ static void __blk_add_trace(struct blk_trace *bt, sector_t sector, int bytes,
 	what |= MASK_TC_BIT(rw, FLUSH);
 	what |= MASK_TC_BIT(rw, FUA);
 
-	pid = tsk->pid;
+	pid = task_pid_nr_ns(tsk, &init_pid_ns);
 	if (act_log_check(bt, what, sector, pid))
 		return;
 	cpu = raw_smp_processor_id();
