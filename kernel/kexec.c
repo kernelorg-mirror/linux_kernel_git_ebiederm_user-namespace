@@ -67,7 +67,7 @@ struct resource crashk_low_res = {
 
 int kexec_should_crash(struct task_struct *p)
 {
-	if (in_interrupt() || !p->pid || is_global_init(p) || panic_on_oops)
+	if (in_interrupt() || is_idle_task(p) || is_global_init(p) || panic_on_oops)
 		return 1;
 	return 0;
 }
@@ -1216,7 +1216,7 @@ void crash_save_cpu(struct pt_regs *regs, int cpu)
 	if (!buf)
 		return;
 	memset(&prstatus, 0, sizeof(prstatus));
-	prstatus.pr_pid = current->pid;
+	prstatus.pr_pid = task_pid_nr_ns(current, &init_pid_ns);
 	elf_core_copy_kernel_regs(&prstatus.pr_reg, regs);
 	buf = append_elf_note(buf, KEXEC_CORE_NOTE_NAME, NT_PRSTATUS,
 			      &prstatus, sizeof(prstatus));
