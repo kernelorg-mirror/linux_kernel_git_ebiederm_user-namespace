@@ -1509,7 +1509,7 @@ long keyctl_session_to_parent(void)
 	parent = me->real_parent;
 
 	/* the parent mustn't be init and mustn't be a kernel thread */
-	if (parent->pid <= 1 || !parent->mm)
+	if (is_idle_task(parent) || is_global_init(parent) || !parent->mm)
 		goto unlock;
 
 	/* the parent must be single threaded */
