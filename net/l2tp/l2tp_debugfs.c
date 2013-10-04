@@ -266,7 +266,7 @@ static int l2tp_dfs_seq_open(struct inode *inode, struct file *file)
 	/* Derive the network namespace from the pid opening the
 	 * file.
 	 */
-	pd->net = get_net_ns_by_pid(current->pid);
+	pd->net = get_net(current->nsproxy->net_ns);
 	if (IS_ERR(pd->net)) {
 		rc = PTR_ERR(pd->net);
 		goto err_free_pd;
