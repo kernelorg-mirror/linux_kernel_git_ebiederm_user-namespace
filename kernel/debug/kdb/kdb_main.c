@@ -1142,8 +1142,8 @@ static int kdb_local(kdb_reason_t reason, int error, struct pt_regs *regs,
 	if (reason == KDB_REASON_DEBUG) {
 		/* special case below */
 	} else {
-		kdb_printf("\nEntering kdb (current=0x%p, pid %d) ",
-			   kdb_current, kdb_current ? kdb_current->pid : 0);
+		kdb_printf("\nEntering kdb (current=0x%p, pid %pP) ",
+			   kdb_current, kdb_current ? task_pid(kdb_current) : NULL);
 #if defined(CONFIG_SMP)
 		kdb_printf("on processor %d ", raw_smp_processor_id());
 #endif
@@ -1158,8 +1158,8 @@ static int kdb_local(kdb_reason_t reason, int error, struct pt_regs *regs,
 		 */
 		switch (db_result) {
 		case KDB_DB_BPT:
-			kdb_printf("\nEntering kdb (0x%p, pid %d) ",
-				   kdb_current, kdb_current->pid);
+			kdb_printf("\nEntering kdb (0x%p, pid %pP) ",
+				   kdb_current, task_pid(kdb_current));
 #if defined(CONFIG_SMP)
 			kdb_printf("on processor %d ", raw_smp_processor_id());
 #endif
@@ -2267,8 +2267,8 @@ void kdb_ps1(const struct task_struct *p)
 		return;
 
 	cpu = kdb_process_cpu(p);
-	kdb_printf("0x%p %8d %8d  %d %4d   %c  0x%p %c%s\n",
-		   (void *)p, p->pid, p->parent->pid,
+	kdb_printf("0x%p %8pP %8pP  %d %4d   %c  0x%p %c%s\n",
+		   (void *)p, task_pid(p), task_pid(p->parent),
 		   kdb_task_has_cpu(p), kdb_process_cpu(p),
 		   kdb_task_state_char(p),
 		   (void *)(&p->thread),
@@ -2346,9 +2346,9 @@ static int kdb_pid(int argc, const char **argv)
 		}
 		kdb_set_current_task(p);
 	}
-	kdb_printf("KDB current process is %s(pid=%d)\n",
+	kdb_printf("KDB current process is %s(pid=%pP)\n",
 		   kdb_current_task->comm,
-		   kdb_current_task->pid);
+		   task_pid(kdb_current_task));
 
 	return 0;
 }
