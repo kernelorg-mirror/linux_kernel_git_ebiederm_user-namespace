@@ -461,12 +461,12 @@ static struct task_struct *getthread(struct pt_regs *regs, int tid)
  * Remap normal tasks to their real PID,
  * CPU shadow threads are mapped to -CPU - 2
  */
-static inline int shadow_pid(int realpid)
+static inline int shadow_pid(struct task_struct *task)
 {
-	if (realpid)
-		return realpid;
+	if (!is_idle_task(task))
+		return task_pid_nr_ns(task, &init_pid_ns);
 
-	return -raw_smp_processor_id() - 2;
+	return -cpumask_first(&task->cpus_allowed) - 2;
 }
 
 /*
@@ -726,7 +726,7 @@ static void gdb_cmd_query(struct kgdb_state *ks)
 
 		do_each_thread(g, p) {
 			if (i >= ks->thr_query && !finished) {
-				int_to_threadref(thref, p->pid);
+				int_to_threadref(thref, shadow_pid(p));
 				ptr = pack_threadid(ptr, thref);
 				*(ptr++) = ',';
 				ks->thr_query++;
@@ -742,7 +742,7 @@ static void gdb_cmd_query(struct kgdb_state *ks)
 	case 'C':
 		/* Current thread id */
 		strcpy(remcom_out_buffer, "QC");
-		ks->threadid = shadow_pid(current->pid);
+		ks->threadid = shadow_pid(current);
 		int_to_threadref(thref, ks->threadid);
 		pack_threadid(remcom_out_buffer + 2, thref);
 		break;
@@ -948,7 +948,7 @@ int gdb_serial_stub(struct kgdb_state *ks)
 	/* Initialize comm buffer and globals. */
 	memset(remcom_out_buffer, 0, sizeof(remcom_out_buffer));
 	kgdb_usethread = kgdb_info[ks->cpu].task;
-	ks->kgdb_usethreadid = shadow_pid(kgdb_info[ks->cpu].task->pid);
+	ks->kgdb_usethreadid = shadow_pid(kgdb_info[ks->cpu].task);
 	ks->pass_exception = 0;
 
 	if (kgdb_connected) {
@@ -960,7 +960,7 @@ int gdb_serial_stub(struct kgdb_state *ks)
 		*ptr++ = 'T';
 		ptr = hex_byte_pack(ptr, ks->signo);
 		ptr += strlen(strcpy(ptr, "thread:"));
-		int_to_threadref(thref, shadow_pid(current->pid));
+		int_to_threadref(thref, shadow_pid(current));
 		ptr = pack_threadid(ptr, thref);
 		*ptr++ = ';';
 		put_packet(remcom_out_buffer);
