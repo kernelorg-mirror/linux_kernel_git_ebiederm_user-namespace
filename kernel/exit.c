@@ -670,7 +670,7 @@ void do_exit(long code)
 
 	if (unlikely(in_interrupt()))
 		panic("Aiee, killing interrupt handler!");
-	if (unlikely(!tsk->pid))
+	if (unlikely(is_idle_task(tsk)))
 		panic("Attempted to kill the idle task!");
 
 	/*
