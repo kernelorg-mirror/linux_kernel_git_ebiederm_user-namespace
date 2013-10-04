@@ -173,7 +173,7 @@ static void aio_free_ring(struct kioctx *ctx)
 	struct file *aio_ring_file = ctx->aio_ring_file;
 
 	for (i = 0; i < ctx->nr_pages; i++) {
-		pr_debug("pid(%d) [%d] page->count=%d\n", current->pid, i,
+		pr_debug("pid(%pP) [%d] page->count=%d\n", task_pid(current), i,
 				page_count(ctx->ring_pages[i]));
 		put_page(ctx->ring_pages[i]);
 	}
@@ -276,8 +276,8 @@ static int aio_setup_ring(struct kioctx *ctx)
 					   i, GFP_HIGHUSER | __GFP_ZERO);
 		if (!page)
 			break;
-		pr_debug("pid(%d) page[%d]->count=%d\n",
-			 current->pid, i, page_count(page));
+		pr_debug("pid(%pP) page[%d]->count=%d\n",
+			 task_pid(current), i, page_count(page));
 		SetPageUptodate(page);
 		SetPageDirty(page);
 		unlock_page(page);

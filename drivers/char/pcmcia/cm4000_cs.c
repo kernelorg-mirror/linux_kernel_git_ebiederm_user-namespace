@@ -926,7 +926,7 @@ static ssize_t cmm_read(struct file *filp, __user char *buf, size_t count,
 	ssize_t rc;
 	int i, j, k;
 
-	DEBUGP(2, dev, "-> cmm_read(%s,%d)\n", current->comm, current->pid);
+	DEBUGP(2, dev, "-> cmm_read(%s,%pP)\n", current->comm, task_pid(current));
 
 	if (count == 0)		/* according to manpage */
 		return 0;
@@ -1056,7 +1056,7 @@ static ssize_t cmm_write(struct file *filp, const char __user *buf,
 	ssize_t rc;
 	int i;
 
-	DEBUGP(2, dev, "-> cmm_write(%s,%d)\n", current->comm, current->pid);
+	DEBUGP(2, dev, "-> cmm_write(%s,%pP)\n", current->comm, task_pid(current));
 
 	if (count == 0)		/* according to manpage */
 		return 0;
@@ -1654,8 +1654,8 @@ static int cmm_open(struct inode *inode, struct file *filp)
 	dev = link->priv;
 	filp->private_data = dev;
 
-	DEBUGP(2, dev, "-> cmm_open(device=%d.%d process=%s,%d)\n",
-	      imajor(inode), minor, current->comm, current->pid);
+	DEBUGP(2, dev, "-> cmm_open(device=%d.%d process=%s,%pP)\n",
+	      imajor(inode), minor, current->comm, task_pid(current));
 
 	/* init device variables, they may be "polluted" after close
 	 * or, the device may never have been closed (i.e. open failed)

@@ -50,7 +50,7 @@ int jffs2_start_garbage_collect_thread(struct jffs2_sb_info *c)
 		ret = PTR_ERR(tsk);
 	} else {
 		/* Wait for it... */
-		jffs2_dbg(1, "Garbage collect thread is pid %d\n", tsk->pid);
+		jffs2_dbg(1, "Garbage collect thread is pid %pP\n", task_pid(tsk));
 		wait_for_completion(&c->gc_thread_start);
 		ret = tsk->pid;
 	}

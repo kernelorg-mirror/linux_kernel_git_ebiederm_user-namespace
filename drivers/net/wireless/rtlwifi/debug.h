@@ -200,8 +200,8 @@ do {									\
 do {									\
 	if (unlikely(((_comp) & rtlpriv->dbg.global_debugcomponents) &&	\
 		     (_level <= rtlpriv->dbg.global_debuglevel))) {	\
-		printk(KERN_DEBUG "%s: In process \"%s\" (pid %i): %s\n", \
-		       KBUILD_MODNAME, current->comm, current->pid,	\
+		printk(KERN_DEBUG "%s: In process \"%s\" (pid %pP): %s\n", \
+		       KBUILD_MODNAME, current->comm, task_pid(current), \
 		       _titlestring);					\
 		print_hex_dump_bytes("", DUMP_PREFIX_NONE,		\
 				     _hexdata, _hexdatalen);		\

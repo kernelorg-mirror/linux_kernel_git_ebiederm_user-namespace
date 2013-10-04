@@ -144,8 +144,8 @@ static ssize_t bcm_char_read(struct file *filp, char __user *buf, size_t size,
 			return -EFAULT;
 		}
 		BCM_DEBUG_PRINT(Adapter, DBG_TYPE_OTHERS, OSAL_DBG, DBG_LVL_ALL,
-				"Read %zd Bytes From Adapter packet = %p by process %d!\n",
-				PktLen, Packet, current->pid);
+				"Read %zd Bytes From Adapter packet = %p by process %pP!\n",
+				PktLen, Packet, task_pid(current));
 		dev_kfree_skb(Packet);
 	}
 
@@ -763,7 +763,7 @@ cntrlEnd:
 		}
 
 		BCM_DEBUG_PRINT(Adapter, DBG_TYPE_PRINTK, 0, 0,
-				"Starting the firmware download PID =0x%x!!!!\n", current->pid);
+				"Starting the firmware download PID =%pP!!!!\n", task_pid(current));
 
 		if (down_trylock(&Adapter->fw_download_sema))
 			return -EBUSY;

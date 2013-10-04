@@ -86,7 +86,7 @@ kdb_bt1(struct task_struct *p, unsigned long mask,
 		return KDB_BADADDR;
 	if (!kdb_task_state(p, mask))
 		return 0;
-	kdb_printf("Stack traceback for pid %d\n", p->pid);
+	kdb_printf("Stack traceback for pid %pP\n", task_pid(p));
 	kdb_ps1(p);
 	kdb_show_stack(p, NULL);
 	if (btaprompt) {

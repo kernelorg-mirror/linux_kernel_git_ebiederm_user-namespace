@@ -41,8 +41,8 @@
 #include "ubi-media.h"
 
 #define err_msg(fmt, ...)                                   \
-	pr_err("gluebi (pid %d): %s: " fmt "\n",            \
-	       current->pid, __func__, ##__VA_ARGS__)
+	pr_err("gluebi (pid %pP): %s: " fmt "\n",           \
+	       task_pid(current), __func__, ##__VA_ARGS__)
 
 /**
  * struct gluebi_device - a gluebi device description data structure.

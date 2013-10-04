@@ -375,8 +375,8 @@ int free_memtype(u64 start, u64 end)
 	spin_unlock(&memtype_lock);
 
 	if (!entry) {
-		printk(KERN_INFO "%s:%d freeing invalid memtype [mem %#010Lx-%#010Lx]\n",
-		       current->comm, current->pid, start, end - 1);
+		printk(KERN_INFO "%s:%pP freeing invalid memtype [mem %#010Lx-%#010Lx]\n",
+		       current->comm, task_pid(current), start, end - 1);
 		return -EINVAL;
 	}
 
@@ -575,9 +575,9 @@ int kernel_map_sync_memtype(u64 base, unsigned long size, unsigned long flags)
 				size;
 
 	if (ioremap_change_attr((unsigned long)__va(base), id_sz, flags) < 0) {
-		printk(KERN_INFO "%s:%d ioremap_change_attr failed %s "
+		printk(KERN_INFO "%s:%pP ioremap_change_attr failed %s "
 			"for [mem %#010Lx-%#010Lx]\n",
-			current->comm, current->pid,
+			current->comm, task_pid(current),
 			cattr_name(flags),
 			base, (unsigned long long)(base + size-1));
 		return -EINVAL;
@@ -611,8 +611,8 @@ static int reserve_pfn_range(u64 paddr, unsigned long size, pgprot_t *vma_prot,
 
 		flags = lookup_memtype(paddr);
 		if (want_flags != flags) {
-			printk(KERN_WARNING "%s:%d map pfn RAM range req %s for [mem %#010Lx-%#010Lx], got %s\n",
-				current->comm, current->pid,
+			printk(KERN_WARNING "%s:%pP map pfn RAM range req %s for [mem %#010Lx-%#010Lx], got %s\n",
+				current->comm, task_pid(current),
 				cattr_name(want_flags),
 				(unsigned long long)paddr,
 				(unsigned long long)(paddr + size - 1),
@@ -632,9 +632,9 @@ static int reserve_pfn_range(u64 paddr, unsigned long size, pgprot_t *vma_prot,
 		if (strict_prot ||
 		    !is_new_memtype_allowed(paddr, size, want_flags, flags)) {
 			free_memtype(paddr, paddr + size);
-			printk(KERN_ERR "%s:%d map pfn expected mapping type %s"
+			printk(KERN_ERR "%s:%pP map pfn expected mapping type %s"
 				" for [mem %#010Lx-%#010Lx], got %s\n",
-				current->comm, current->pid,
+				current->comm, task_pid(current),
 				cattr_name(want_flags),
 				(unsigned long long)paddr,
 				(unsigned long long)(paddr + size - 1),

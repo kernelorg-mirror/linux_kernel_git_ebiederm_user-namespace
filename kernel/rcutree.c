@@ -375,9 +375,9 @@ static void rcu_eqs_enter_common(struct rcu_dynticks *rdtp, long long oldval,
 
 		trace_rcu_dyntick(TPS("Error on entry: not idle task"), oldval, 0);
 		ftrace_dump(DUMP_ORIG);
-		WARN_ONCE(1, "Current pid: %d comm: %s / Idle pid: %d comm: %s",
-			  current->pid, current->comm,
-			  idle->pid, idle->comm); /* must be idle task! */
+		WARN_ONCE(1, "Current pid: %pP comm: %s / Idle pid: %pP comm: %s",
+			  task_pid(current), current->comm,
+			  task_pid(idle), idle->comm); /* must be idle task! */
 	}
 	rcu_prepare_for_idle(smp_processor_id());
 	/* CPUs seeing atomic_inc() must see prior RCU read-side crit sects */
@@ -513,9 +513,9 @@ static void rcu_eqs_exit_common(struct rcu_dynticks *rdtp, long long oldval,
 		trace_rcu_dyntick(TPS("Error on exit: not idle task"),
 				  oldval, rdtp->dynticks_nesting);
 		ftrace_dump(DUMP_ORIG);
-		WARN_ONCE(1, "Current pid: %d comm: %s / Idle pid: %d comm: %s",
-			  current->pid, current->comm,
-			  idle->pid, idle->comm); /* must be idle task! */
+		WARN_ONCE(1, "Current pid: %pP comm: %s / Idle pid: %pP comm: %s",
+			  task_pid(current), current->comm,
+			  task_pid(idle), idle->comm); /* must be idle task! */
 	}
 }
 
