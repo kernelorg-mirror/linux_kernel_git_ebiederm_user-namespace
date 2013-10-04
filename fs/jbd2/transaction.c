@@ -1532,7 +1532,6 @@ int jbd2_journal_stop(handle_t *handle)
 	journal_t *journal;
 	int err = 0, wait_for_commit = 0;
 	tid_t tid;
-	pid_t pid;
 
 	if (!transaction)
 		goto free_and_exit;
@@ -1587,11 +1586,10 @@ int jbd2_journal_stop(handle_t *handle)
 	 * case where a single process is doing a stream of sync
 	 * writes.  No point in waiting for joiners in that case.
 	 */
-	pid = current->pid;
-	if (handle->h_sync && journal->j_last_sync_writer != pid) {
+	if (handle->h_sync && journal->j_last_sync_writer != current) {
 		u64 commit_time, trans_time;
 
-		journal->j_last_sync_writer = pid;
+		journal->j_last_sync_writer = current;
 
 		read_lock(&journal->j_state_lock);
 		commit_time = journal->j_average_commit_time;
