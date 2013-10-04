@@ -188,7 +188,7 @@ struct request_key_auth {
 	const struct cred	*cred;
 	void			*callout_info;
 	size_t			callout_len;
-	pid_t			pid;
+	struct pid		*pid;
 };
 
 extern struct key_type key_type_request_key_auth;
