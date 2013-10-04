@@ -270,8 +270,7 @@ static void __exit_idle(void)
 /* Called from interrupts to signify idle end */
 void exit_idle(void)
 {
-	/* idle loop has pid 0 */
-	if (current->pid)
+	if (!is_idle_task(current))
 		return;
 	__exit_idle();
 }
