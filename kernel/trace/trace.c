@@ -937,7 +937,7 @@ __update_max_tr(struct trace_array *tr, struct task_struct *tsk, int cpu)
 	max_data->critical_end = data->critical_end;
 
 	memcpy(max_data->comm, tsk->comm, TASK_COMM_LEN);
-	max_data->pid = tsk->pid;
+	max_data->pid = task_pid_nr_ns(tsk, &init_pid_ns);
 	/*
 	 * If tsk == current, then use current_uid(), as that does not use
 	 * RCU. The irq tracer can be called out of RCU scope.
@@ -1411,8 +1411,9 @@ void trace_stop_cmdline_recording(void);
 static void trace_save_cmdline(struct task_struct *tsk)
 {
 	unsigned pid, idx;
+	pid_t nr = task_pid_nr_ns(tsk, &init_pid_ns);
 
-	if (!tsk->pid || unlikely(tsk->pid > PID_MAX_DEFAULT))
+	if (is_idle_task(tsk) || unlikely(nr > PID_MAX_DEFAULT))
 		return;
 
 	/*
@@ -1424,7 +1425,7 @@ static void trace_save_cmdline(struct task_struct *tsk)
 	if (!arch_spin_trylock(&trace_cmdline_lock))
 		return;
 
-	idx = map_pid_to_cmdline[tsk->pid];
+	idx = map_pid_to_cmdline[nr];
 	if (idx == NO_CMDLINE_MAP) {
 		idx = (cmdline_idx + 1) % SAVED_CMDLINES;
 
@@ -1438,8 +1439,8 @@ static void trace_save_cmdline(struct task_struct *tsk)
 		if (pid != NO_CMDLINE_MAP)
 			map_pid_to_cmdline[pid] = NO_CMDLINE_MAP;
 
-		map_cmdline_to_pid[idx] = tsk->pid;
-		map_pid_to_cmdline[tsk->pid] = idx;
+		map_cmdline_to_pid[idx] = nr;
+		map_pid_to_cmdline[nr] = idx;
 
 		cmdline_idx = idx;
 	}
@@ -1499,8 +1500,8 @@ tracing_generic_entry_update(struct trace_entry *entry, unsigned long flags,
 {
 	struct task_struct *tsk = current;
 
-	entry->preempt_count		= pc & 0xff;
-	entry->pid			= (tsk) ? tsk->pid : 0;
+	entry->preempt_count	= pc & 0xff;
+	entry->pid		= (tsk) ? task_pid_nr_ns(tsk, &init_pid_ns) : 0;
 	entry->flags =
 #ifdef CONFIG_TRACE_IRQFLAGS_SUPPORT
 		(irqs_disabled_flags(flags) ? TRACE_FLAG_IRQS_OFF : 0) |
@@ -1807,7 +1808,7 @@ ftrace_trace_userstack(struct ring_buffer *buffer, unsigned long flags, int pc)
 		goto out_drop_count;
 	entry	= ring_buffer_event_data(event);
 
-	entry->tgid		= current->tgid;
+	entry->tgid		= task_tgid_nr_ns(current, &init_pid_ns);
 	memset(&entry->caller, 0, sizeof(entry->caller));
 
 	trace.nr_entries	= 0;
