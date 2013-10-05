@@ -109,3 +109,12 @@ struct proc_mounts {
 #define proc_mounts(p) (container_of((p), struct proc_mounts, m))
 
 extern const struct seq_operations mounts_op;
+
+extern int __is_local_mountpoint(struct dentry *dentry);
+static inline int is_local_mountpoint(struct dentry *dentry)
+{
+	if (!d_mountpoint(dentry))
+		return 0;
+
+	return __is_local_mountpoint(dentry);
+}
