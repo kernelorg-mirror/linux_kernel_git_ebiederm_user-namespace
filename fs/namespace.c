@@ -2327,7 +2327,7 @@ int copy_mount_string(const void __user *data, char **where)
 long do_mount(const char *dev_name, const char *dir_name,
 		const char *type_page, unsigned long flags, void *data_page)
 {
-	struct path path;
+	struct path path, parent;
 	int retval = 0;
 	int mnt_flags = 0;
 
@@ -2344,9 +2344,12 @@ long do_mount(const char *dev_name, const char *dir_name,
 		((char *)data_page)[PAGE_SIZE - 1] = 0;
 
 	/* ... and get the mountpoint */
-	retval = kern_path(dir_name, LOOKUP_FOLLOW, &path);
-	if (retval)
-		return retval;
+	/* FIXME LOOKUP_FOLLOW needs to be supplied to kern_path_locked somewhere */
+	path.dentry = kern_path_locked(dir_name, &parent);
+	if (IS_ERR(path.dentry))
+		return PTR_ERR(path.dentry);
+
+	path.mnt = mntget(parent.mnt);
 
 	retval = security_sb_mount(dev_name, &path,
 				   type_page, flags, data_page);
@@ -2393,6 +2396,8 @@ long do_mount(const char *dev_name, const char *dir_name,
 				      dev_name, data_page);
 dput_out:
 	path_put(&path);
+	mutex_unlock(&parent.dentry->d_inode->i_mutex);
+	path_put(&parent);
 	return retval;
 }
 
