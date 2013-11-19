@@ -560,11 +560,12 @@ void kobject_del(struct kobject *kobj)
 	if (!kobj)
 		return;
 
-	sd = kobj->sd;
-	sysfs_remove_dir(kobj);
-	sysfs_put(sd);
-
-	kobj->state_in_sysfs = 0;
+	if (kobj->state_in_sysfs) {
+		sd = kobj->sd;
+		sysfs_remove_dir(kobj);
+		sysfs_put(sd);
+		kobj->state_in_sysfs = 0;
+	}
 	kobj_kset_leave(kobj);
 	kobject_put(kobj->parent);
 	kobj->parent = NULL;
