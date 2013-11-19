@@ -14,6 +14,8 @@
 #include <linux/user_namespace.h>
 #include "internal.h"
 
+/* Maximum number of bytes in the string describing a namespace in proc. */
+#define NS_MAX_PROC_STR 32
 
 static const struct proc_ns_operations *ns_entries[] = {
 #ifdef CONFIG_NET_NS
@@ -145,7 +147,7 @@ static int proc_ns_readlink(struct dentry *dentry, char __user *buffer, int bufl
 	const struct proc_ns_operations *ns_ops = ei->ns.ns_ops;
 	struct task_struct *task;
 	void *ns;
-	char name[50];
+	char name[NS_MAX_PROC_STR];
 	int res = -EACCES;
 
 	task = get_proc_task(inode);
