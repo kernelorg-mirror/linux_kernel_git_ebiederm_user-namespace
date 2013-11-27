@@ -24,6 +24,7 @@
 #include <linux/proc_ns.h>
 #include <linux/magic.h>
 #include <linux/bootmem.h>
+#include <linux/file.h>
 #include "pnode.h"
 #include "internal.h"
 
@@ -2978,6 +2979,34 @@ bool current_chrooted(void)
 	return chrooted;
 }
 
+struct emptydir_callback {
+	struct dir_context ctx;
+	bool empty;
+};
+
+static int emptydiritem(void * __buf, const char *name, int namelen, loff_t offset,
+			u64 ino, unsigned int d_type)
+{
+	struct emptydir_callback *buf = (struct emptydir_callback *) __buf;
+
+	if (d_type != DT_DIR)
+		goto fail;
+
+	if ((namelen > 2) || (namelen < 1))
+		goto fail;
+
+	if (name[0] != '.')
+		goto fail;
+
+	if ((namelen == 2) && (name[1] != '.'))
+		goto fail;
+
+	return 0;
+fail:
+	buf->empty = false;
+	return -EINVAL;
+}
+
 bool fs_fully_visible(struct file_system_type *type)
 {
 	struct mnt_namespace *ns = current->nsproxy->mnt_ns;
@@ -2993,14 +3022,38 @@ bool fs_fully_visible(struct file_system_type *type)
 		if (mnt->mnt.mnt_sb->s_type != type)
 			continue;
 
+		/* Ensure it is the root directory that is mounted */
+		if (mnt->mnt.mnt_sb->s_root != mnt->mnt.mnt_root)  /* CHECK ME */
+			continue;
+
 		/* This mount is not fully visible if there are any child mounts
 		 * that cover anything except for empty directories.
 		 */
 		list_for_each_entry(child, &mnt->mnt_mounts, mnt_child) {
 			struct inode *inode = child->mnt_mountpoint->d_inode;
+			struct emptydir_callback cb = {
+				.ctx.actor = emptydiritem,
+				.empty = true,
+			};
+			struct path path;
+			struct file *file;
+			int ret;
+			/* Is the entire mount hidden? */
+			if (child->mnt_mountpoint == mnt->mnt.mnt_root)
+				goto next;
+			/* Is the mount point on an empty directory? */
 			if (!S_ISDIR(inode->i_mode))
 				goto next;
 			if (inode->i_nlink > 2)
+				goto next;
+			path.mnt = mntget(&mnt->mnt);
+			path.dentry = dget(child->mnt_mountpoint);
+			file = dentry_open(&path, O_RDONLY | O_DIRECTORY, current_cred());
+			if (IS_ERR(file))
+				goto next;
+			ret = iterate_dir(file, &cb.ctx);
+			fput(file);
+			if (!cb.empty)
 				goto next;
 		}
 		visible = true;
