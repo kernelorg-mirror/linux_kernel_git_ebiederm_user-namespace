@@ -773,6 +773,8 @@ static int proc_sys_revalidate(struct dentry *dentry, unsigned int flags)
 {
 	if (flags & LOOKUP_RCU)
 		return -ECHILD;
+	if (have_submounts(dentry))
+		return 0;
 	return !PROC_I(dentry->d_inode)->sysctl->unregistering;
 }
 
