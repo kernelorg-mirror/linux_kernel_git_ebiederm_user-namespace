@@ -2202,14 +2202,14 @@ pfm_alloc_file(pfm_context_t *ctx)
 	/*
 	 * allocate a new dcache entry
 	 */
-	path.dentry = d_alloc(pfmfs_mnt->mnt_root, &this);
+	path.dentry = d_alloc_pseudo(pfmfs_mnt->mnt_sb, &this);
 	if (!path.dentry) {
 		iput(inode);
 		return ERR_PTR(-ENOMEM);
 	}
 	path.mnt = mntget(pfmfs_mnt);
 
-	d_add(path.dentry, inode);
+	d_instantiate(path.dentry, inode);
 
 	file = alloc_file(&path, FMODE_READ, &pfm_file_ops);
 	if (IS_ERR(file)) {
