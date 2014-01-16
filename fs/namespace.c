@@ -2989,6 +2989,11 @@ static int emptydiritem(void * __buf, const char *name, int namelen, loff_t offs
 {
 	struct emptydir_callback *buf = (struct emptydir_callback *) __buf;
 
+#if 1
+	printk(KERN_EMERG "item: %*.*s d_type: %u\n",
+	       namelen, namelen, name, d_type);
+#endif
+
 	if (d_type != DT_DIR)
 		goto fail;
 
@@ -3007,10 +3012,39 @@ fail:
 	return -EINVAL;
 }
 
+static bool is_empty_dir(struct vfsmount *mnt, struct dentry *dentry)
+{
+	struct emptydir_callback cb = {
+		.ctx.actor = emptydiritem,
+		.empty = true,
+	};
+	struct path path;
+	struct file *file;
+	int ret;
+
+	path.mnt = mntget(mnt);
+	path.dentry = dget(dentry);
+#if 1
+	printk(KERN_EMERG "is_empty_dir %s\n", path.dentry->d_name.name);
+#endif
+	file = dentry_open(&path, O_RDONLY | O_DIRECTORY, current_cred());
+	if (IS_ERR(file))
+		return false;
+#if 1
+	printk(KERN_EMERG "is_empty_dir %s file: %p\n", path.dentry->d_name.name, file);
+#endif
+	ret = iterate_dir(file, &cb.ctx);
+	fput(file);
+#if 1
+	printk(KERN_EMERG "is_empty_dir %s -> %d empty: %d\n", path.dentry->d_name.name, ret, cb.empty);
+#endif
+	return cb.empty;
+}
+
 bool fs_fully_visible(struct file_system_type *type)
 {
 	struct mnt_namespace *ns = current->nsproxy->mnt_ns;
-	struct mount *mnt;
+	struct mount *mnt, *last = NULL, *last_child = NULL;
 	bool visible = false;
 
 	if (unlikely(!ns))
@@ -3019,49 +3053,62 @@ bool fs_fully_visible(struct file_system_type *type)
 	down_read(&namespace_sem);
 	list_for_each_entry(mnt, &ns->list, mnt_list) {
 		struct mount *child;
+#if 0
+		/* Skip over previously tested mounts */
+		if (last_child && last != mnt)
+		if (last) {
+			if (last == mnt)
+				last = NULL;
+			continue;
+		}
+#endif
+
+		/* Is it the filesystem type I am looking for? */
 		if (mnt->mnt.mnt_sb->s_type != type)
 			continue;
 
-		/* Ensure it is the root directory that is mounted */
-		if (mnt->mnt.mnt_sb->s_root != mnt->mnt.mnt_root)  /* CHECK ME */
+		/* Is the root directory mounted? */
+		if (mnt->mnt.mnt_sb->s_root != mnt->mnt.mnt_root)
 			continue;
+
+#if 0
+		last = mnt;
+		mntget(&mnt->mnt);
+		up_read(&namespace_sem);
+#endif
 
 		/* This mount is not fully visible if there are any child mounts
 		 * that cover anything except for empty directories.
 		 */
 		list_for_each_entry(child, &mnt->mnt_mounts, mnt_child) {
-			struct inode *inode = child->mnt_mountpoint->d_inode;
-			struct emptydir_callback cb = {
-				.ctx.actor = emptydiritem,
-				.empty = true,
-			};
-			struct path path;
-			struct file *file;
-			int ret;
+			struct dentry *mountpoint = child->mnt_mountpoint;
 			/* Is the entire mount hidden? */
-			if (child->mnt_mountpoint == mnt->mnt.mnt_root)
+			if (mountpoint == mnt->mnt.mnt_root)
 				goto next;
-			/* Is the mount point on an empty directory? */
-			if (!S_ISDIR(inode->i_mode))
+			/* Is the mountpoint a directory? */
+			if (!S_ISDIR(mountpoint->d_inode->i_mode))
 				goto next;
-			if (inode->i_nlink > 2)
+			/* Are there subdirectories? */
+			if (mountpoint->d_inode->i_nlink > 2)
 				goto next;
-			path.mnt = mntget(&mnt->mnt);
-			path.dentry = dget(child->mnt_mountpoint);
-			file = dentry_open(&path, O_RDONLY | O_DIRECTORY, current_cred());
-			if (IS_ERR(file))
+#if 0
+			mntget(&mnt->mnt);
+			mntget(&child->mnt);
+			up_read(&namespace_sem);
+#endif
+			/* Is the mountpoint an empty directory? */
+			if (is_empty_dir(&mnt->mnt, mountpoint))
 				goto next;
-			ret = iterate_dir(file, &cb.ctx);
-			fput(file);
-			if (!cb.empty)
-				goto next;
+
+			
 		}
 		visible = true;
 		goto found;
-	next:	;
+	next:
+		down_read(&namespace_sem);
 	}
-found:
 	up_read(&namespace_sem);
+found:
 	return visible;
 }
 
