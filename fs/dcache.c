@@ -2914,6 +2914,7 @@ restart:
 				     (int) dentry->d_name.len,
 				     dentry->d_name.name);
 			}
+			/* unreachable from current root */
 			if (!error)
 				error = is_mounted(vfsmnt) ? 1 : 2;
 			break;
