@@ -23,6 +23,8 @@
 #include <linux/projid.h>
 #include <linux/fs_struct.h>
 
+static atomic_t user_ns_count;
+
 static struct kmem_cache *user_ns_cachep __read_mostly;
 
 static bool new_idmap_permitted(const struct file *file,
@@ -65,14 +67,18 @@ int create_user_ns(struct cred *new)
 	if (parent_ns->level > 32)
 		return -EUSERS;
 
+	if (atomic_add_unless(&user_ns_count, 1, PID_MAX_LIMIT))
+		return -EUSERS;
+
 	/*
 	 * Verify that we can not violate the policy of which files
 	 * may be accessed that is specified by the root directory,
 	 * by verifing that the root directory is at the root of the
 	 * mount namespace which allows all files to be accessed.
 	 */
+	ret = -EPERM;
 	if (current_chrooted())
-		return -EPERM;
+		goto fail;
 
 	/* The creator needs a mapping in the parent user namespace
 	 * or else we won't be able to reasonably tell userspace who
@@ -80,17 +86,15 @@ int create_user_ns(struct cred *new)
 	 */
 	if (!kuid_has_mapping(parent_ns, owner) ||
 	    !kgid_has_mapping(parent_ns, group))
-		return -EPERM;
+		goto fail;
 
 	ns = kmem_cache_zalloc(user_ns_cachep, GFP_KERNEL);
 	if (!ns)
-		return -ENOMEM;
+		goto fail;
 
 	ret = proc_alloc_inum(&ns->proc_inum);
-	if (ret) {
-		kmem_cache_free(user_ns_cachep, ns);
-		return ret;
-	}
+	if (ret)
+		goto fail_put_cache;
 
 	atomic_set(&ns->count, 1);
 	/* Leave the new->user_ns reference with the new user namespace. */
@@ -105,6 +109,11 @@ int create_user_ns(struct cred *new)
 	init_rwsem(&ns->persistent_keyring_register_sem);
 #endif
 	return 0;
+fail_put_cache:
+	kmem_cache_free(user_ns_cachep, ns);
+fail:
+	atomic_dec(&user_ns_count);
+	return ret;
 }
 
 int unshare_userns(unsigned long unshare_flags, struct cred **new_cred)
@@ -138,6 +147,7 @@ void free_user_ns(struct user_namespace *ns)
 #endif
 		proc_free_inum(ns->proc_inum);
 		kmem_cache_free(user_ns_cachep, ns);
+		atomic_dec(&user_ns_count);
 		ns = parent;
 	} while (atomic_dec_and_test(&parent->count));
 }
