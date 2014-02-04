@@ -3144,6 +3144,8 @@ restart:
 	done_seqretry(&rename_lock, seq);
 	if (error)
 		goto Elong;
+	if (dentry->d_op && dentry->d_op->d_dname)
+		retval = dentry->d_op->d_dname(dentry, buf, len);
 	return retval;
 Elong:
 	return ERR_PTR(-ENAMETOOLONG);
