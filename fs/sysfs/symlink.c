@@ -153,20 +153,18 @@ void sysfs_remove_link(struct kobject *kobj, const char *name)
 EXPORT_SYMBOL_GPL(sysfs_remove_link);
 
 /**
- *	sysfs_rename_link_ns - rename symlink in object's directory.
+ *	sysfs_rename_link - rename symlink in object's directory.
  *	@kobj:	object we're acting for.
  *	@targ:	object we're pointing to.
  *	@old:	previous name of the symlink.
  *	@new:	new name of the symlink.
- *	@new_ns: new namespace of the symlink.
- *
  *	A helper function for the common rename symlink idiom.
  */
-int sysfs_rename_link_ns(struct kobject *kobj, struct kobject *targ,
-			 const char *old, const char *new, const void *new_ns)
+int sysfs_rename_link(struct kobject *kobj, struct kobject *targ,
+		      const char *old, const char *new)
 {
 	struct kernfs_node *parent, *kn = NULL;
-	const void *old_ns = NULL;
+	const void *old_ns = NULL, *new_ns = NULL;
 	int result;
 
 	if (!kobj)
@@ -188,10 +186,13 @@ int sysfs_rename_link_ns(struct kobject *kobj, struct kobject *targ,
 	if (kn->symlink.target_kn->priv != targ)
 		goto out;
 
+	if (kernfs_ns_enabled(parent))
+		new_ns = kobject_namespace(targ);
+
 	result = kernfs_rename_ns(kn, parent, new, new_ns);
 
 out:
 	kernfs_put(kn);
 	return result;
 }
-EXPORT_SYMBOL_GPL(sysfs_rename_link_ns);
+EXPORT_SYMBOL_GPL(sysfs_rename_link);

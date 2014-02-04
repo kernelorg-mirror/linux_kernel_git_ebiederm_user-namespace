@@ -1811,9 +1811,8 @@ int device_rename(struct device *dev, const char *new_name)
 	}
 
 	if (dev->class) {
-		error = sysfs_rename_link_ns(&dev->class->p->subsys.kobj,
-					     kobj, old_device_name,
-					     new_name, kobject_namespace(kobj));
+		error = sysfs_rename_link(&dev->class->p->subsys.kobj,
+					  kobj, old_device_name, new_name);
 		if (error)
 			goto out;
 	}
