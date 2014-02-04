@@ -3126,6 +3126,9 @@ static char *__dentry_path(struct dentry *d, char *buf, int buflen)
 	if (buflen < 2)
 		goto Elong;
 
+	if (d->d_op && d->d_op->d_dname)
+		return d->d_op->d_dname(d, buf, buflen);
+
 	rcu_read_lock();
 restart:
 	dentry = d;
