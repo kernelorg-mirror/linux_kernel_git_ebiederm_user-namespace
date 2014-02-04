@@ -755,8 +755,8 @@ isert_release_conn_kref(struct kref *kref)
 	struct isert_conn *isert_conn = container_of(kref,
 				struct isert_conn, conn_kref);
 
-	pr_debug("Calling isert_connect_release for final kref %s/%d\n",
-		 current->comm, current->pid);
+	pr_debug("Calling isert_connect_release for final kref %s/%pP\n",
+		 current->comm, task_pid(current));
 
 	isert_connect_release(isert_conn);
 }

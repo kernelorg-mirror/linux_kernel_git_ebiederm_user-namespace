@@ -4200,8 +4200,8 @@ asmlinkage __visible void lockdep_sys_exit(void)
 		printk("[ BUG: lock held when returning to user space! ]\n");
 		print_kernel_ident();
 		printk("------------------------------------------------\n");
-		printk("%s/%d is leaving the kernel with locks still held!\n",
-				curr->comm, curr->pid);
+		printk("%s/%pP is leaving the kernel with locks still held!\n",
+				curr->comm, task_pid(curr));
 		lockdep_print_held_locks(curr);
 	}
 }

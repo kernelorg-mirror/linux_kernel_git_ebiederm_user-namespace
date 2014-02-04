@@ -827,8 +827,8 @@ struct brcmf_if *brcmf_add_if(struct brcmf_pub *drvr, s32 bssidx, s32 ifidx,
 	if (mac_addr != NULL)
 		memcpy(ifp->mac_addr, mac_addr, ETH_ALEN);
 
-	brcmf_dbg(TRACE, " ==== pid:%x, if:%s (%pM) created ===\n",
-		  current->pid, name, ifp->mac_addr);
+	brcmf_dbg(TRACE, " ==== pid:%pP, if:%s (%pM) created ===\n",
+		  task_pid(current), name, ifp->mac_addr);
 
 	return ifp;
 }

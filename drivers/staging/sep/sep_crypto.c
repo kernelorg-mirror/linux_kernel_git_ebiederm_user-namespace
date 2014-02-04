@@ -952,8 +952,8 @@ static void sep_clear_out(struct this_task_ctx *ta_ctx)
 		ta_ctx->sep_used->pid_doing_transaction = 0;
 
 		dev_dbg(&ta_ctx->sep_used->pdev->dev,
-			"[PID%d] waking up next transaction\n",
-			current->pid);
+			"[PID%pP] waking up next transaction\n",
+			task_pid(current));
 
 		clear_bit(SEP_TRANSACTION_STARTED_LOCK_BIT,
 			&ta_ctx->sep_used->in_use_flags);
@@ -1030,7 +1030,7 @@ static int sep_crypto_take_sep(struct this_task_ctx *ta_ctx)
 
 	if (!ta_ctx->queue_elem) {
 		dev_dbg(&sep->pdev->dev,
-			"[PID%d] updating queue status error\n", current->pid);
+			"[PID%pP] updating queue status error\n", task_pid(current));
 		return -EINVAL;
 	}
 
@@ -1072,15 +1072,15 @@ static int sep_crypto_take_sep(struct this_task_ctx *ta_ctx)
 
 	result = sep_send_command_handler(sep);
 
-	dev_dbg(&sep->pdev->dev, "[PID%d]: sending command to the sep\n",
-		current->pid);
+	dev_dbg(&sep->pdev->dev, "[PID%pP]: sending command to the sep\n",
+		task_pid(current));
 
 	if (!result)
-		dev_dbg(&sep->pdev->dev, "[PID%d]: command sent okay\n",
-			current->pid);
+		dev_dbg(&sep->pdev->dev, "[PID%pP]: command sent okay\n",
+			task_pid(current));
 	else {
-		dev_dbg(&sep->pdev->dev, "[PID%d]: cant send command\n",
-			current->pid);
+		dev_dbg(&sep->pdev->dev, "[PID%pP]: cant send command\n",
+			task_pid(current));
 		clear_bit(SEP_LEGACY_SENDMSG_DONE_OFFSET,
 			&ta_ctx->call_status.status);
 	}
@@ -1952,38 +1952,38 @@ static void sep_finish(unsigned long data)
 	if (0 == test_bit(SEP_LEGACY_SENDMSG_DONE_OFFSET,
 		&sep_dev->ta_ctx->call_status.status)) {
 
-		dev_warn(&sep_dev->pdev->dev, "[PID%d] sendmsg not called\n",
-			current->pid);
+		dev_warn(&sep_dev->pdev->dev, "[PID%pP] sendmsg not called\n",
+			task_pid(current));
 		return;
 	}
 
 	if (sep_dev->send_ct != sep_dev->reply_ct) {
 		dev_warn(&sep_dev->pdev->dev,
-			"[PID%d] poll; no message came back\n",
-			current->pid);
+			"[PID%pP] poll; no message came back\n",
+			task_pid(current));
 		return;
 	}
 
 	/* Check for error (In case time ran out) */
 	if ((res != 0x0) && (res != 0x8)) {
 		dev_warn(&sep_dev->pdev->dev,
-			"[PID%d] poll; poll error GPR3 is %x\n",
-			current->pid, res);
+			"[PID%pP] poll; poll error GPR3 is %x\n",
+			task_pid(current), res);
 		return;
 	}
 
 	/* What kind of interrupt from sep was this? */
 	res = sep_read_reg(sep_dev, HW_HOST_SEP_HOST_GPR2_REG_ADDR);
 
-	dev_dbg(&sep_dev->pdev->dev, "[PID%d] GPR2 at crypto finish is %x\n",
-		current->pid, res);
+	dev_dbg(&sep_dev->pdev->dev, "[PID%pP] GPR2 at crypto finish is %x\n",
+		task_pid(current), res);
 
 	/* Print request? */
 	if ((res >> 30) & 0x1) {
-		dev_dbg(&sep_dev->pdev->dev, "[PID%d] sep print req\n",
-			current->pid);
-		dev_dbg(&sep_dev->pdev->dev, "[PID%d] contents: %s\n",
-			current->pid,
+		dev_dbg(&sep_dev->pdev->dev, "[PID%pP] sep print req\n",
+			task_pid(current));
+		dev_dbg(&sep_dev->pdev->dev, "[PID%pP] contents: %s\n",
+			task_pid(current),
 			(char *)(sep_dev->shared_addr +
 			SEP_DRIVER_PRINTF_OFFSET_IN_BYTES));
 		return;
@@ -1992,16 +1992,16 @@ static void sep_finish(unsigned long data)
 	/* Request for daemon (not currently in POR)? */
 	if (res >> 31) {
 		dev_dbg(&sep_dev->pdev->dev,
-			"[PID%d] sep request; ignoring\n",
-			current->pid);
+			"[PID%pP] sep request; ignoring\n",
+			task_pid(current));
 		return;
 	}
 
 	/* If we got here, then we have a replay to a sep command */
 
 	dev_dbg(&sep_dev->pdev->dev,
-		"[PID%d] sep reply to command; processing request: %x\n",
-		current->pid, sep_dev->current_request);
+		"[PID%pP] sep reply to command; processing request: %x\n",
+		task_pid(current), sep_dev->current_request);
 
 	switch (sep_dev->current_request) {
 	case AES_CBC:

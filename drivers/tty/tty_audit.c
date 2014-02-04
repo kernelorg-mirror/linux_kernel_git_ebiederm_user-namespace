@@ -68,6 +68,7 @@ static void tty_audit_log(const char *description, int major, int minor,
 	pid_t pid = task_pid_nr(tsk);
 	uid_t uid = from_kuid(&init_user_ns, task_uid(tsk));
 	uid_t loginuid = from_kuid(&init_user_ns, audit_get_loginuid(tsk));
+	pid_t pid = task_pid_nr_ns(tsk, &init_pid_ns);
 	unsigned int sessionid = audit_get_sessionid(tsk);
 
 	ab = audit_log_start(NULL, GFP_KERNEL, AUDIT_TTY);

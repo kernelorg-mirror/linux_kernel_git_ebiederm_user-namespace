@@ -40,9 +40,9 @@
 extern int mlx5_core_debug_mask;
 
 #define mlx5_core_dbg(dev, format, ...)					\
-	pr_debug("%s:%s:%d:(pid %d): " format,				\
-		 (dev)->priv.name, __func__, __LINE__, current->pid,	\
-		 ##__VA_ARGS__)
+	pr_debug("%s:%s:%d:(pid %pP): " format,				\
+		 (dev)->priv.name, __func__, __LINE__,			\
+		 task_pid(current), ##__VA_ARGS__)
 
 #define mlx5_core_dbg_mask(dev, mask, format, ...)			\
 do {									\
@@ -51,14 +51,14 @@ do {									\
 } while (0)
 
 #define mlx5_core_err(dev, format, ...)					\
-	pr_err("%s:%s:%d:(pid %d): " format,				\
-	       (dev)->priv.name, __func__, __LINE__, current->pid,	\
-	       ##__VA_ARGS__)
+	pr_err("%s:%s:%d:(pid %pP): " format,				\
+	       (dev)->priv.name, __func__, __LINE__,			\
+	       task_pid(current), ##__VA_ARGS__)
 
 #define mlx5_core_warn(dev, format, ...)				\
-	pr_warn("%s:%s:%d:(pid %d): " format,				\
-		(dev)->priv.name, __func__, __LINE__, current->pid,	\
-		##__VA_ARGS__)
+	pr_warn("%s:%s:%d:(pid %pP): " format,				\
+		(dev)->priv.name, __func__, __LINE__,			\
+		task_pid(current), ##__VA_ARGS__)
 
 enum {
 	MLX5_CMD_DATA, /* print command payload only */

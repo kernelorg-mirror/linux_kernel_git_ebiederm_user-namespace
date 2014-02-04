@@ -224,8 +224,8 @@ static inline void print_dropped_signal(int sig)
 	if (!__ratelimit(&ratelimit_state))
 		return;
 
-	printk(KERN_INFO "%s/%d: reached RLIMIT_SIGPENDING, dropped signal %d\n",
-				current->comm, current->pid, sig);
+	printk(KERN_INFO "%s/%pP: reached RLIMIT_SIGPENDING, dropped signal %d\n",
+				current->comm, task_pid(current), sig);
 }
 
 /**
