@@ -2808,7 +2808,7 @@ static int prepend(char **buffer, int *buflen, const char *str, int namelen)
  * retry it again when a d_move() does happen. So any garbage in the buffer
  * due to mismatched pointer and length will be discarded.
  */
-static int prepend_name(char **buffer, int *buflen, struct qstr *name)
+static char *prepend_name(char *buffer, int *buflen, struct qstr *name)
 {
 	const char *dname = ACCESS_ONCE(name->name);
 	u32 dlen = ACCESS_ONCE(name->len);
@@ -2816,8 +2816,8 @@ static int prepend_name(char **buffer, int *buflen, struct qstr *name)
 
 	*buflen -= dlen + 1;
 	if (*buflen < 0)
-		return -ENAMETOOLONG;
-	p = *buffer -= dlen + 1;
+		return ERR_PTR(-ENAMETOOLONG);
+	p = buffer -= dlen + 1;
 	*p++ = '/';
 	while (dlen--) {
 		char c = *dname++;
@@ -2825,7 +2825,7 @@ static int prepend_name(char **buffer, int *buflen, struct qstr *name)
 			break;
 		*p++ = c;
 	}
-	return 0;
+	return buffer;
 }
 
 /**
@@ -2920,9 +2920,11 @@ restart:
 		}
 		parent = dentry->d_parent;
 		prefetch(parent);
-		error = prepend_name(&bptr, &blen, &dentry->d_name);
-		if (error)
+		bptr = prepend_name(bptr, &blen, &dentry->d_name);
+		if (IS_ERR(bptr)) {
+			error = PTR_ERR(bptr);
 			break;
+		}
 
 		dentry = parent;
 	}
@@ -3107,12 +3109,11 @@ EXPORT_SYMBOL(simple_dname);
 static char *__dentry_path(struct dentry *d, char *buf, int buflen)
 {
 	struct dentry *dentry;
-	char *end, *retval;
+	char *end, *retval = ERR_PTR(-ENAMETOOLONG);
 	int len, seq = 0;
-	int error = 0;
 
 	if (buflen < 2)
-		goto Elong;
+		goto out;
 
 	rcu_read_lock();
 restart:
@@ -3128,11 +3129,10 @@ restart:
 		struct dentry *parent = dentry->d_parent;
 
 		prefetch(parent);
-		error = prepend_name(&end, &len, &dentry->d_name);
-		if (error)
+		retval = end = prepend_name(end, &len, &dentry->d_name);  
+		if (IS_ERR(retval))
 			break;
 
-		retval = end;
 		dentry = parent;
 	}
 	if (!(seq & 1))
@@ -3142,13 +3142,10 @@ restart:
 		goto restart;
 	}
 	done_seqretry(&rename_lock, seq);
-	if (error)
-		goto Elong;
-	if (dentry->d_op && dentry->d_op->d_dname)
+	if (!IS_ERR(retval) && dentry->d_op && dentry->d_op->d_dname)
 		retval = dentry->d_op->d_dname(dentry, buf, len);
+out:
 	return retval;
-Elong:
-	return ERR_PTR(-ENAMETOOLONG);
 }
 
 char *dentry_path_raw(struct dentry *dentry, char *buf, int buflen)
