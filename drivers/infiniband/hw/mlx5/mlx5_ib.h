@@ -44,16 +44,16 @@
 #include <linux/types.h>
 
 #define mlx5_ib_dbg(dev, format, arg...)				\
-pr_debug("%s:%s:%d:(pid %d): " format, (dev)->ib_dev.name, __func__,	\
-	 __LINE__, current->pid, ##arg)
+pr_debug("%s:%s:%d:(pid %pP): " format, (dev)->ib_dev.name, __func__,	\
+	 __LINE__, task_pid(current), ##arg)
 
 #define mlx5_ib_err(dev, format, arg...)				\
-pr_err("%s:%s:%d:(pid %d): " format, (dev)->ib_dev.name, __func__,	\
-	__LINE__, current->pid, ##arg)
+pr_err("%s:%s:%d:(pid %pP): " format, (dev)->ib_dev.name, __func__,	\
+	__LINE__, task_pid(current), ##arg)
 
 #define mlx5_ib_warn(dev, format, arg...)				\
-pr_warn("%s:%s:%d:(pid %d): " format, (dev)->ib_dev.name, __func__,	\
-	__LINE__, current->pid, ##arg)
+pr_warn("%s:%s:%d:(pid %pP): " format, (dev)->ib_dev.name, __func__,	\
+	__LINE__, task_pid(current), ##arg)
 
 enum {
 	MLX5_IB_MMAP_CMD_SHIFT	= 8,

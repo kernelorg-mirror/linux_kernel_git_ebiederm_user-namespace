@@ -1609,8 +1609,8 @@ static int try_alloc_port(struct ipath_devdata *dd, int port,
 		init_user_egr_sizes(pd);
 		if ((ret = init_subports(dd, pd, uinfo)) != 0)
 			goto bail;
-		ipath_cdbg(PROC, "%s[%u] opened unit:port %u:%u\n",
-			   current->comm, current->pid, dd->ipath_unit,
+		ipath_cdbg(PROC, "%s[%pP] opened unit:port %u:%u\n",
+			   current->comm, task_pid(current), dd->ipath_unit,
 			   port);
 		pd->port_cnt = 1;
 		port_fp(fp) = pd;
@@ -1693,9 +1693,9 @@ static int find_best_unit(struct file *fp,
 		get_online_cpus();
 		for_each_online_cpu(i)
 			if (cpumask_test_cpu(i, tsk_cpus_allowed(current))) {
-				ipath_cdbg(PROC, "%s[%u] affinity set for "
+				ipath_cdbg(PROC, "%s[%pP] affinity set for "
 					   "cpu %d/%d\n", current->comm,
-					   current->pid, i, ncpus);
+					   task_pid(current), i, ncpus);
 				curcpu = i;
 				nset++;
 			}
@@ -1703,9 +1703,9 @@ static int find_best_unit(struct file *fp,
 		if (curcpu != -1 && nset != ncpus) {
 			if (npresent) {
 				prefunit = curcpu / (ncpus / npresent);
-				ipath_cdbg(PROC,"%s[%u] %d chips, %d cpus, "
+				ipath_cdbg(PROC,"%s[%pP] %d chips, %d cpus, "
 					  "%d cpus/chip, select unit %d\n",
-					  current->comm, current->pid,
+					  current->comm, task_pid(current),
 					  npresent, ncpus, ncpus / npresent,
 					  prefunit);
 			}
@@ -1748,9 +1748,9 @@ recheck:
 			if (prefunit > 0) {
 				/* if started above 0, retry from 0 */
 				ipath_cdbg(PROC,
-					   "%s[%u] no ports on prefunit "
+					   "%s[%pP] no ports on prefunit "
 					   "%d, clear and re-check\n",
-					   current->comm, current->pid,
+					   current->comm, task_pid(current),
 					   prefunit);
 				devmax = ipath_count_units(NULL, NULL,
 							   NULL);
@@ -1805,8 +1805,8 @@ static int find_shared_port(struct file *fp,
 			tidcursor_fp(fp) = 0;
 			pd->active_slaves |= 1 << subport_fp(fp);
 			ipath_cdbg(PROC,
-				   "%s[%u] %u sharing %s[%u] unit:port %u:%u\n",
-				   current->comm, current->pid,
+				   "%s[%pP] %u sharing %s[%u] unit:port %u:%u\n",
+				   current->comm, task_pid(current),
 				   subport_fp(fp),
 				   pd->port_comm, pid_nr(pd->port_pid),
 				   dd->ipath_unit, pd->port_port);
