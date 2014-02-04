@@ -223,7 +223,7 @@ static ssize_t cm4040_read(struct file *filp, char __user *buf,
 	int rc;
 	unsigned char uc;
 
-	DEBUGP(2, dev, "-> cm4040_read(%s,%d)\n", current->comm, current->pid);
+	DEBUGP(2, dev, "-> cm4040_read(%s,%pP)\n", current->comm, task_pid(current));
 
 	if (count == 0)
 		return 0;
@@ -323,7 +323,7 @@ static ssize_t cm4040_write(struct file *filp, const char __user *buf,
 	int i;
 	unsigned int bytes_to_write;
 
-	DEBUGP(2, dev, "-> cm4040_write(%s,%d)\n", current->comm, current->pid);
+	DEBUGP(2, dev, "-> cm4040_write(%s,%pP)\n", current->comm, task_pid(current));
 
 	if (count == 0) {
 		DEBUGP(2, dev, "<- cm4040_write empty read (successfully)\n");

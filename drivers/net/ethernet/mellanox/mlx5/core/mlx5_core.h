@@ -40,23 +40,23 @@
 extern int mlx5_core_debug_mask;
 
 #define mlx5_core_dbg(dev, format, arg...)				       \
-pr_debug("%s:%s:%d:(pid %d): " format, (dev)->priv.name, __func__, __LINE__,   \
-	 current->pid, ##arg)
+pr_debug("%s:%s:%d:(pid %pP): " format, (dev)->priv.name, __func__, __LINE__,  \
+	 task_pid(current), ##arg)
 
 #define mlx5_core_dbg_mask(dev, mask, format, arg...)			       \
 do {									       \
 	if ((mask) & mlx5_core_debug_mask)				       \
-		pr_debug("%s:%s:%d:(pid %d): " format, (dev)->priv.name,       \
-			 __func__, __LINE__, current->pid, ##arg);	       \
+		pr_debug("%s:%s:%d:(pid %pP): " format, (dev)->priv.name,      \
+			 __func__, __LINE__, task_pid(current), ##arg);	       \
 } while (0)
 
 #define mlx5_core_err(dev, format, arg...) \
-pr_err("%s:%s:%d:(pid %d): " format, (dev)->priv.name, __func__, __LINE__,     \
-	current->pid, ##arg)
+pr_err("%s:%s:%d:(pid %pP): " format, (dev)->priv.name, __func__, __LINE__,    \
+	task_pid(current), ##arg)
 
 #define mlx5_core_warn(dev, format, arg...) \
-pr_warn("%s:%s:%d:(pid %d): " format, (dev)->priv.name, __func__, __LINE__,    \
-	current->pid, ##arg)
+pr_warn("%s:%s:%d:(pid %pP): " format, (dev)->priv.name, __func__, __LINE__,   \
+	task_pid(current), ##arg)
 
 enum {
 	MLX5_CMD_DATA, /* print command payload only */

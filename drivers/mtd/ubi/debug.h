@@ -29,8 +29,8 @@ void ubi_dump_vid_hdr(const struct ubi_vid_hdr *vid_hdr);
 
 #define ubi_assert(expr)  do {                                               \
 	if (unlikely(!(expr))) {                                             \
-		pr_crit("UBI assert failed in %s at %u (pid %d)\n",          \
-		       __func__, __LINE__, current->pid);                    \
+		pr_crit("UBI assert failed in %s at %u (pid %pP)\n",         \
+		       __func__, __LINE__, task_pid(current));               \
 		dump_stack();                                                \
 	}                                                                    \
 } while (0)
@@ -39,7 +39,7 @@ void ubi_dump_vid_hdr(const struct ubi_vid_hdr *vid_hdr);
 		print_hex_dump(l, ps, pt, r, g, b, len, a)
 
 #define ubi_dbg_msg(type, fmt, ...) \
-	pr_debug("UBI DBG " type " (pid %d): " fmt "\n", current->pid,       \
+	pr_debug("UBI DBG " type " (pid %pP): " fmt "\n", task_pid(current), \
 		 ##__VA_ARGS__)
 
 /* General debugging messages */
