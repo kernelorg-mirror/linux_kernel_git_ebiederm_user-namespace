@@ -95,7 +95,7 @@ static u32	audit_failure = AUDIT_FAIL_PRINTK;
  * contains the pid of the auditd process and audit_nlk_portid contains
  * the portid to use to send netlink messages to that process.
  */
-int		audit_pid;
+struct pid *	audit_pid;
 static __u32	audit_nlk_portid;
 
 /* If audit_rate_limit is non-zero, limit the rate of sending audit records
@@ -405,9 +405,11 @@ static void kauditd_send_skb(struct sk_buff *skb)
 	if (err < 0) {
 		BUG_ON(err != -ECONNREFUSED); /* Shouldn't happen */
 		if (audit_pid) {
-			pr_err("*NO* daemon at audit_pid=%d\n", audit_pid);
-			audit_log_lost("auditd disappeared");
-			audit_pid = 0;
+			pr_err("*NO* daemon at audit_pid=%d\n",
+			       pid_nr_ns(audit_pid, &init_pid_ns));
+			audit_log_lost("auditd disappeared\n");
+			put_pid(audit_pid);
+			audit_pid = NULL;
 			audit_sock = NULL;
 		}
 		/* we might get lucky and get this in the next auditd */
@@ -786,7 +788,7 @@ static int audit_receive_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
 		memset(&s, 0, sizeof(s));
 		s.enabled		= audit_enabled;
 		s.failure		= audit_failure;
-		s.pid			= audit_pid;
+		s.pid			= pid_vnr(audit_pid);
 		s.rate_limit		= audit_rate_limit;
 		s.backlog_limit		= audit_backlog_limit;
 		s.lost			= atomic_read(&audit_lost);
@@ -812,12 +814,19 @@ static int audit_receive_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
 				return err;
 		}
 		if (s.mask & AUDIT_STATUS_PID) {
-			int new_pid = s.pid;
+			struct pid *new_pid = find_get_pid(s.pid);
+			if (s.pid && !new_pid)
+				return -ESRCH;
 
-			if ((!new_pid) && (task_tgid_vnr(current) != audit_pid))
+			if ((!new_pid) && (task_tgid(current) != audit_pid))
 				return -EACCES;
 			if (audit_enabled != AUDIT_OFF)
-				audit_log_config_change("audit_pid", new_pid, audit_pid, 1);
+				audit_log_config_change("audit_pid",
+							pid_nr_ns(new_pid, &init_pid_ns),
+							pid_nr_ns(audit_pid, &init_pid_ns),
+							1);
+
+			put_pid(audit_pid);
 			audit_pid = new_pid;
 			audit_nlk_portid = NETLINK_CB(skb).portid;
 			audit_sock = skb->sk;
@@ -1325,7 +1334,7 @@ struct audit_buffer *audit_log_start(struct audit_context *ctx, gfp_t gfp_mask,
 		return NULL;
 
 	if (gfp_mask & __GFP_WAIT) {
-		if (audit_pid && audit_pid == current->pid)
+		if (audit_pid && audit_pid == task_pid(current))
 			gfp_mask &= ~__GFP_WAIT;
 		else
 			reserve = 0;
