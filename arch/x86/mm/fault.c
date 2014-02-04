@@ -863,8 +863,8 @@ do_sigbus(struct pt_regs *regs, unsigned long error_code, unsigned long address,
 #ifdef CONFIG_MEMORY_FAILURE
 	if (fault & (VM_FAULT_HWPOISON|VM_FAULT_HWPOISON_LARGE)) {
 		printk(KERN_ERR
-	"MCE: Killing %s:%d due to hardware memory corruption fault at %lx\n",
-			tsk->comm, tsk->pid, address);
+	"MCE: Killing %s:%pP due to hardware memory corruption fault at %lx\n",
+			tsk->comm, task_pid(tsk), address);
 		code = BUS_MCEERR_AR;
 	}
 #endif

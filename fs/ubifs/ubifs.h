@@ -45,12 +45,12 @@
 #define ubifs_msg(fmt, ...) pr_notice("UBIFS: " fmt "\n", ##__VA_ARGS__)
 /* UBIFS error messages */
 #define ubifs_err(fmt, ...)                                         \
-	pr_err("UBIFS error (pid %d): %s: " fmt "\n", current->pid, \
-	       __func__, ##__VA_ARGS__)
+	pr_err("UBIFS error (pid %pP): %s: " fmt "\n",              \
+	        task_pid(current), __func__, ##__VA_ARGS__)
 /* UBIFS warning messages */
 #define ubifs_warn(fmt, ...)                                        \
-	pr_warn("UBIFS warning (pid %d): %s: " fmt "\n",            \
-		current->pid, __func__, ##__VA_ARGS__)
+	pr_warn("UBIFS warning (pid %pP): %s: " fmt "\n",            \
+		task_pid(current), __func__, ##__VA_ARGS__)
 /*
  * A variant of 'ubifs_err()' which takes the UBIFS file-sytem description
  * object as an argument.

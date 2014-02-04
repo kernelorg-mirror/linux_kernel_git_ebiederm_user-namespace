@@ -1384,8 +1384,8 @@ out:
 		 * leave kernel.
 		 */
 		if (p->mm && printk_ratelimit()) {
-			printk_deferred("process %d (%s) no longer affine to cpu%d\n",
-					task_pid_nr(p), p->comm, cpu);
+			printk_deferred("process %pP (%s) no longer affine to cpu%d\n",
+					task_pid(p), p->comm, cpu);
 		}
 	}
 
@@ -2615,8 +2615,8 @@ static noinline void __schedule_bug(struct task_struct *prev)
 	if (oops_in_progress)
 		return;
 
-	printk(KERN_ERR "BUG: scheduling while atomic: %s/%d/0x%08x\n",
-		prev->comm, prev->pid, preempt_count());
+	printk(KERN_ERR "BUG: scheduling while atomic: %s/%pP/0x%08x\n",
+		prev->comm, task_pid(prev), preempt_count());
 
 	debug_show_held_locks(prev);
 	print_modules();
@@ -4464,10 +4464,10 @@ void sched_show_task(struct task_struct *p)
 	free = stack_not_used(p);
 #endif
 	rcu_read_lock();
-	ppid = task_pid_nr(rcu_dereference(p->real_parent));
+	ppid = task_pid_nr_ns(rcu_dereference(p->real_parent), &init_pid_ns);
 	rcu_read_unlock();
-	printk(KERN_CONT "%5lu %5d %6d 0x%08lx\n", free,
-		task_pid_nr(p), ppid,
+	printk(KERN_CONT "%5lu %5pP %6d 0x%08lx\n", free,
+		task_pid(p), ppid,
 		(unsigned long)task_thread_info(p)->flags);
 
 	print_worker_info(KERN_INFO, p);
@@ -7057,9 +7057,9 @@ void __might_sleep(const char *file, int line, int preempt_offset)
 		"BUG: sleeping function called from invalid context at %s:%d\n",
 			file, line);
 	printk(KERN_ERR
-		"in_atomic(): %d, irqs_disabled(): %d, pid: %d, name: %s\n",
+		"in_atomic(): %d, irqs_disabled(): %d, pid: %pP, name: %s\n",
 			in_atomic(), irqs_disabled(),
-			current->pid, current->comm);
+			task_pid(current), current->comm);
 
 	debug_show_held_locks(current);
 	if (irqs_disabled())

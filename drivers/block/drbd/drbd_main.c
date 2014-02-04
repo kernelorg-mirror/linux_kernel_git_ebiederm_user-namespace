@@ -393,8 +393,8 @@ int drbd_thread_start(struct drbd_thread *thi)
 
 	switch (thi->t_state) {
 	case NONE:
-		drbd_info(resource, "Starting %s thread (from %s [%d])\n",
-			 thi->name, current->comm, current->pid);
+		drbd_info(resource, "Starting %s thread (from %s [%pP])\n",
+			 thi->name, current->comm, task_pid(current));
 
 		/* Get ref on module for thread - this is released when thread exits */
 		if (!try_module_get(THIS_MODULE)) {
@@ -433,8 +433,8 @@ int drbd_thread_start(struct drbd_thread *thi)
 		break;
 	case EXITING:
 		thi->t_state = RESTARTING;
-		drbd_info(resource, "Restarting %s thread (from %s [%d])\n",
-				thi->name, current->comm, current->pid);
+		drbd_info(resource, "Restarting %s thread (from %s [%pP])\n",
+				thi->name, current->comm, task_pid(current));
 		/* fall through */
 	case RUNNING:
 	case RESTARTING:
@@ -1438,8 +1438,8 @@ static int we_should_drop_the_connection(struct drbd_connection *connection, str
 
 	drop_it = !--connection->ko_count;
 	if (!drop_it) {
-		drbd_err(connection, "[%s/%d] sock_sendmsg time expired, ko = %u\n",
-			 current->comm, current->pid, connection->ko_count);
+		drbd_err(connection, "[%s/%pP] sock_sendmsg time expired, ko = %u\n",
+			 current->comm, task_pid(current), connection->ko_count);
 		request_ping(connection);
 	}
 

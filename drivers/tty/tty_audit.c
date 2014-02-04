@@ -65,7 +65,7 @@ static void tty_audit_log(const char *description, int major, int minor,
 {
 	struct audit_buffer *ab;
 	struct task_struct *tsk = current;
-	pid_t pid = task_pid_nr(tsk);
+	pid_t pid = task_pid_nr_ns(tsk, &init_pid_ns);
 	uid_t uid = from_kuid(&init_user_ns, task_uid(tsk));
 	uid_t loginuid = from_kuid(&init_user_ns, audit_get_loginuid(tsk));
 	unsigned int sessionid = audit_get_sessionid(tsk);

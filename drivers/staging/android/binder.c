@@ -441,8 +441,8 @@ static void binder_set_nice(long nice)
 	}
 	min_nice = rlimit_to_nice(current->signal->rlim[RLIMIT_NICE].rlim_cur);
 	binder_debug(BINDER_DEBUG_PRIORITY_CAP,
-		     "%d: nice value %ld not allowed use %ld instead\n",
-		      current->pid, nice, min_nice);
+		     "%pP: nice value %ld not allowed use %ld instead\n",
+		      task_pid(current), nice, min_nice);
 	set_user_nice(current, min_nice);
 	if (min_nice <= MAX_NICE)
 		return;

@@ -203,15 +203,15 @@ int drbd_md_sync_page_io(struct drbd_device *device, struct drbd_backing_dev *bd
 
 	BUG_ON(!bdev->md_bdev);
 
-	dynamic_drbd_dbg(device, "meta_data io: %s [%d]:%s(,%llus,%s) %pS\n",
-	     current->comm, current->pid, __func__,
+	dynamic_drbd_dbg(device, "meta_data io: %s [%pP]:%s(,%llus,%s) %pS\n",
+	     current->comm, task_pid(current), __func__,
 	     (unsigned long long)sector, (rw & WRITE) ? "WRITE" : "READ",
 	     (void*)_RET_IP_ );
 
 	if (sector < drbd_md_first_sector(bdev) ||
 	    sector + 7 > drbd_md_last_sector(bdev))
-		drbd_alert(device, "%s [%d]:%s(,%llus,%s) out of range md access!\n",
-		     current->comm, current->pid, __func__,
+		drbd_alert(device, "%s [%pP]:%s(,%llus,%s) out of range md access!\n",
+		     current->comm, task_pid(current), __func__,
 		     (unsigned long long)sector, (rw & WRITE) ? "WRITE" : "READ");
 
 	/* we do all our meta data IO in aligned 4k blocks. */

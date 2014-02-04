@@ -2061,15 +2061,15 @@ static int srpt_compl_thread(void *arg)
 
 	ch = arg;
 	BUG_ON(!ch);
-	printk(KERN_INFO "Session %s: kernel thread %s (PID %d) started\n",
-	       ch->sess_name, ch->thread->comm, current->pid);
+	printk(KERN_INFO "Session %s: kernel thread %s (PID %pP) started\n",
+	       ch->sess_name, ch->thread->comm, task_pid(current));
 	while (!kthread_should_stop()) {
 		wait_event_interruptible(ch->wait_queue,
 			(srpt_process_completion(ch->cq, ch),
 			 kthread_should_stop()));
 	}
-	printk(KERN_INFO "Session %s: kernel thread %s (PID %d) stopped\n",
-	       ch->sess_name, ch->thread->comm, current->pid);
+	printk(KERN_INFO "Session %s: kernel thread %s (PID %pP) stopped\n",
+	       ch->sess_name, ch->thread->comm, task_pid(current));
 	return 0;
 }
 

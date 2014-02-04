@@ -1530,8 +1530,8 @@ static void prepare_uretprobe(struct uprobe *uprobe, struct pt_regs *regs)
 
 	if (utask->depth >= MAX_URETPROBE_DEPTH) {
 		printk_ratelimited(KERN_INFO "uprobe: omit uretprobe due to"
-				" nestedness limit pid/tgid=%d/%d\n",
-				current->pid, current->tgid);
+				" nestedness limit pid/tgid=%pP/%pP\n",
+				task_pid(current), task_tgid(current));
 		return;
 	}
 
@@ -1555,8 +1555,8 @@ static void prepare_uretprobe(struct uprobe *uprobe, struct pt_regs *regs)
 			 * This situation is not possible. Likely we have an
 			 * attack from user-space.
 			 */
-			pr_warn("uprobe: unable to set uretprobe pid/tgid=%d/%d\n",
-						current->pid, current->tgid);
+			pr_warn("uprobe: unable to set uretprobe pid/tgid=%pP/%pP\n",
+						task_pid(current), task_tgid(current));
 			goto fail;
 		}
 
@@ -1828,8 +1828,8 @@ static void handle_swbp(struct pt_regs *regs)
 		if (handle_trampoline(regs))
 			return;
 
-		pr_warn("uprobe: unable to handle uretprobe pid/tgid=%d/%d\n",
-						current->pid, current->tgid);
+		pr_warn("uprobe: unable to handle uretprobe pid/tgid=%pP/%pP\n",
+						task_pid(current), task_tgid(current));
 	}
 
 	uprobe = find_active_uprobe(bp_vaddr, &is_swbp);

@@ -142,8 +142,8 @@ static void nbd_xmit_timeout(unsigned long arg)
 {
 	struct task_struct *task = (struct task_struct *)arg;
 
-	printk(KERN_WARNING "nbd: killing hung xmit (%s, pid: %d)\n",
-		task->comm, task->pid);
+	printk(KERN_WARNING "nbd: killing hung xmit (%s, pid: %pP)\n",
+		task->comm, task_pid(task));
 	force_sig(SIGKILL, task);
 }
 
