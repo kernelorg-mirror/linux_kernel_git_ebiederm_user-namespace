@@ -2873,6 +2873,27 @@ restart:
 	while (dentry != root->dentry || vfsmnt != root->mnt) {
 		struct dentry * parent;
 
+		/*
+		 * We have various synthetic files allocated with
+		 * d_alloc_pseudo that are not available through
+		 * ordinary path lookup and don't need a name until
+		 * a user wants to identify the object in
+		 * /proc/pid/fd/ or similiar.
+		 */
+		if (IS_ROOT(dentry) && dentry != vfsmnt->mnt_root &&
+		    dentry->d_op && dentry->d_op->d_dname) {
+			char *buf  = bptr - blen;
+			char *name = dentry->d_op->d_dname(dentry, buf, blen);
+			if (IS_ERR(name)) {
+				error = PTR_ERR(name);
+				break;
+			}
+			blen = name - buf;
+			bptr = name;
+			error = 2; /* unmounted by definition */
+			break;
+		}
+
 		if (dentry == vfsmnt->mnt_root || IS_ROOT(dentry)) {
 			struct mount *parent = ACCESS_ONCE(mnt->mnt_parent);
 			/* Global root? */
@@ -3035,17 +3056,6 @@ char *d_path(const struct path *path, char *buf, int buflen)
 	char *res = buf + buflen;
 	struct path root;
 	int error;
-
-	/*
-	 * We have various synthetic files allocated with
-	 * d_alloc_pseudo that are not available through
-	 * ordinary path lookup and don't need a name until
-	 * a user wants to identify the object in
-	 * /proc/pid/fd/ or similiar.
-	 */
-	if (path->dentry->d_op && path->dentry->d_op->d_dname &&
-	    IS_ROOT(path->dentry) && path->dentry != path->mnt->mnt_root)
-		return path->dentry->d_op->d_dname(path->dentry, buf, buflen);
 
 	rcu_read_lock();
 	get_fs_root_rcu(current->fs, &root);
