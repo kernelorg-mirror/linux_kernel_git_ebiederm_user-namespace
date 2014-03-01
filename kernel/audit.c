@@ -180,12 +180,6 @@ struct audit_buffer {
 	gfp_t		     gfp_mask;
 };
 
-struct audit_reply {
-	__u32 portid;
-	struct net *net;
-	struct sk_buff *skb;
-};
-
 static void audit_set_portid(struct audit_buffer *ab, __u32 portid)
 {
 	if (ab) {
@@ -528,26 +522,6 @@ static int kauditd_thread(void *dummy)
 	return 0;
 }
 
-int audit_send_list(void *_dest)
-{
-	struct audit_netlink_list *dest = _dest;
-	struct sk_buff *skb;
-	struct net *net = dest->net;
-	struct audit_net *aunet = net_generic(net, audit_net_id);
-
-	/* wait for parent to finish and send an ACK */
-	mutex_lock(&audit_cmd_mutex);
-	mutex_unlock(&audit_cmd_mutex);
-
-	while ((skb = __skb_dequeue(&dest->q)) != NULL)
-		netlink_unicast(aunet->nlsk, skb, dest->portid, 0);
-
-	put_net(net);
-	kfree(dest);
-
-	return 0;
-}
-
 struct sk_buff *audit_make_reply(__u32 portid, int seq, int type, int done,
 				 int multi, const void *payload, int size)
 {
@@ -573,22 +547,6 @@ out_kfree_skb:
 	return NULL;
 }
 
-static int audit_send_reply_thread(void *arg)
-{
-	struct audit_reply *reply = (struct audit_reply *)arg;
-	struct net *net = reply->net;
-	struct audit_net *aunet = net_generic(net, audit_net_id);
-
-	mutex_lock(&audit_cmd_mutex);
-	mutex_unlock(&audit_cmd_mutex);
-
-	/* Ignore failure. It'll only happen if the sender goes away,
-	   because our timeout is set to infinite. */
-	netlink_unicast(aunet->nlsk , reply->skb, reply->portid, 0);
-	put_net(net);
-	kfree(reply);
-	return 0;
-}
 /**
  * audit_send_reply - send an audit reply message via netlink
  * @request_skb: skb of request we are replying to (used to target the reply)
@@ -602,33 +560,24 @@ static int audit_send_reply_thread(void *arg)
  * Allocates an skb, builds the netlink message, and sends it to the port id.
  * No failure notifications.
  */
-static void audit_send_reply(struct sk_buff *request_skb, int seq, int type, int done,
-			     int multi, const void *payload, int size)
+int audit_send_reply(struct sk_buff *request_skb, int seq, int type, int done,
+		     int multi, const void *payload, int size)
 {
 	u32 portid = NETLINK_CB(request_skb).portid;
 	struct net *net = sock_net(NETLINK_CB(request_skb).sk);
+	struct audit_net *aunet = net_generic(net, audit_net_id);
 	struct sk_buff *skb;
-	struct task_struct *tsk;
-	struct audit_reply *reply = kmalloc(sizeof(struct audit_reply),
-					    GFP_KERNEL);
-
-	if (!reply)
-		return;
 
 	skb = audit_make_reply(portid, seq, type, done, multi, payload, size);
 	if (!skb)
-		goto out;
+		return -ENOMEM;
 
-	reply->net = get_net(net);
-	reply->portid = portid;
-	reply->skb = skb;
-
-	tsk = kthread_run(audit_send_reply_thread, reply, "audit_send_reply");
-	if (!IS_ERR(tsk))
-		return;
-	kfree_skb(skb);
-out:
-	kfree(reply);
+	/*
+	 * audit_send_reply runs in the context of the requesting process
+	 * which means that a blocking send can deadlock.  Peform a
+	 * non-blocking send, and in general ignore errors.
+	 */
+	return netlink_unicast(aunet->nlsk, skb, portid, 1);
 }
 
 /*
@@ -954,7 +903,7 @@ static int audit_receive_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
 					   seq, data, nlmsg_len(nlh));
 		break;
 	case AUDIT_LIST_RULES:
-		err = audit_list_rules_send(skb, seq);
+		audit_list_rules_send(skb, seq);
 		break;
 	case AUDIT_TRIM:
 		audit_trim_trees();
