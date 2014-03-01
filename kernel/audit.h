@@ -246,18 +246,10 @@ extern int audit_uid_comparator(kuid_t left, u32 op, kuid_t right);
 extern int audit_gid_comparator(kgid_t left, u32 op, kgid_t right);
 extern int parent_len(const char *path);
 extern int audit_compare_dname_path(const char *dname, const char *path, int plen);
-extern struct sk_buff *audit_make_reply(__u32 portid, int seq, int type,
-					int done, int multi,
-					const void *payload, int size);
+extern int audit_send_reply(struct sk_buff *request_skb, int seq, int type,
+			    int done, int multi, const void *payload, int size);
+
 extern void		    audit_panic(const char *message);
-
-struct audit_netlink_list {
-	__u32 portid;
-	struct net *net;
-	struct sk_buff_head q;
-};
-
-int audit_send_list(void *);
 
 struct audit_net {
 	struct sock *nlsk;
