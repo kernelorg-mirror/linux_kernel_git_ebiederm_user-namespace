@@ -989,7 +989,8 @@ static void cleanup_mnt(struct mount *mnt)
 	dput(mnt->mnt.mnt_root);
 	deactivate_super(mnt->mnt.mnt_sb);
 	mnt_free_id(mnt);
-	complete(mnt->mnt_undone);
+	if (mnt->mnt_undone)
+		complete(mnt->mnt_undone);
 	call_rcu(&mnt->mnt_rcu, delayed_free_vfsmnt);
 }
 
@@ -998,36 +999,38 @@ static void cleanup_mnt_work(struct work_struct *work)
 	cleanup_mnt(container_of(work, struct mount, mnt_cleanup_work));
 }
 
-static void mntput_no_expire(struct mount *mnt)
+static void mntput_no_expire(struct mount *mnt, struct completion *undone)
 {
-	struct completion undone;
-
 	rcu_read_lock();
 	mnt_add_count(mnt, -1);
 	if (likely(mnt->mnt_ns)) { /* shouldn't be the last one */
 		rcu_read_unlock();
+		if (undone)
+			complete(undone);
 		return;
 	}
 	lock_mount_hash();
 	if (mnt_get_count(mnt)) {
 		rcu_read_unlock();
 		unlock_mount_hash();
+		if (undone)
+			complete(undone);
 		return;
 	}
 	if (unlikely(mnt->mnt_pinned)) {
-		init_completion(&undone);
-		mnt->mnt_undone = &undone;
+		mnt->mnt_undone = undone;
 		mnt_add_count(mnt, mnt->mnt_pinned);
 		mnt->mnt_pinned = 0;
 		rcu_read_unlock();
 		unlock_mount_hash();
 		acct_auto_close_mnt(&mnt->mnt);
-		wait_for_completion(&undone);
 		return;
 	}
 	if (unlikely(mnt->mnt.mnt_flags & MNT_DOOMED)) {
 		rcu_read_unlock();
 		unlock_mount_hash();
+		if (undone)
+			complete(undone);
 		return;
 	}
 	mnt->mnt.mnt_flags |= MNT_DOOMED;
@@ -1050,17 +1053,31 @@ static void mntput_no_expire(struct mount *mnt)
 	/* The stack may be deep here, cleanup the mount on a work
 	 * queue where the stack is guaranteed to be shallow.
 	 */
-	init_completion(&undone);
 	if (!mnt->mnt_undone)
-		mnt->mnt_undone = &undone;
-	else
-		complete(&undone);
+		mnt->mnt_undone = undone;
 
 	INIT_WORK(&mnt->mnt_cleanup_work, cleanup_mnt_work);
 	schedule_work(&mnt->mnt_cleanup_work);
+}
 
+static void mntput_no_expire_sync(struct mount *mnt)
+{
+	DECLARE_COMPLETION_ONSTACK(undone);
+	mntput_no_expire(mnt, &undone);
 	wait_for_completion(&undone);
 }
+
+void mntput_sync(struct vfsmount *mnt)
+{
+	if (mnt) {
+		struct mount *m = real_mount(mnt);
+		/* avoid cacheline pingpong, hope gcc doesn't get "smart" */
+		if (unlikely(m->mnt_expiry_mark))
+			m->mnt_expiry_mark = 0;
+		mntput_no_expire_sync(m);
+	}
+}
+EXPORT_SYMBOL(mntput_sync);
 
 void mntput(struct vfsmount *mnt)
 {
@@ -1069,7 +1086,7 @@ void mntput(struct vfsmount *mnt)
 		/* avoid cacheline pingpong, hope gcc doesn't get "smart" */
 		if (unlikely(m->mnt_expiry_mark))
 			m->mnt_expiry_mark = 0;
-		mntput_no_expire(m);
+		mntput_no_expire(m, NULL);
 	}
 }
 EXPORT_SYMBOL(mntput);
@@ -1527,7 +1544,10 @@ SYSCALL_DEFINE2(umount, char __user *, name, int, flags)
 dput_and_out:
 	/* we mustn't call path_put() as that would clear mnt_expiry_mark */
 	dput(path.dentry);
-	mntput_no_expire(mnt);
+	if (flags & MNT_DETACH)
+		mntput_no_expire(mnt, NULL);
+	else
+		mntput_no_expire_sync(mnt);
 out:
 	return retval;
 }
@@ -3007,7 +3027,7 @@ void kern_unmount(struct vfsmount *mnt)
 	if (!IS_ERR_OR_NULL(mnt)) {
 		real_mount(mnt)->mnt_ns = NULL;
 		synchronize_rcu();	/* yecchhh... */
-		mntput(mnt);
+		mntput_sync(mnt);
 	}
 }
 EXPORT_SYMBOL(kern_unmount);

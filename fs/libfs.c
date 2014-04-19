@@ -569,7 +569,7 @@ void simple_release_fs(struct vfsmount **mount, int *count)
 	if (!--*count)
 		*mount = NULL;
 	spin_unlock(&pin_fs_lock);
-	mntput(mnt);
+	mntput_sync(mnt);
 }
 EXPORT_SYMBOL(simple_release_fs);
 
