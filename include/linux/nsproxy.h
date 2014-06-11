@@ -46,7 +46,7 @@ extern struct nsproxy init_nsproxy;
  *     precautions should be taken - just dereference the pointers
  *
  *  3. the access to other task namespaces is performed like this
- *     rcu_read_lock();
+ *     task_lock(tsk);
  *     nsproxy = task_nsproxy(tsk);
  *     if (nsproxy != NULL) {
  *             / *
@@ -57,13 +57,13 @@ extern struct nsproxy init_nsproxy;
  *         * NULL task_nsproxy() means that this task is
  *         * almost dead (zombie)
  *         * /
- *     rcu_read_unlock();
+ *     task_unlock(tsk);
  *
  */
 
 static inline struct nsproxy *task_nsproxy(struct task_struct *tsk)
 {
-	return rcu_dereference(tsk->nsproxy);
+	return tsk->nsproxy;
 }
 
 int copy_namespaces(unsigned long flags, struct task_struct *tsk);
