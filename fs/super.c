@@ -302,6 +302,14 @@ EXPORT_SYMBOL(deactivate_locked_super);
  */
 void deactivate_super(struct super_block *s)
 {
+#if 1
+	{
+		unsigned long free = stack_not_used(current);
+		printk(KERN_INFO "%s (%d) deactivate_super %lu bytes untouched %lu bytes free\n",
+			current->comm, task_pid_nr(current), free,
+			(void *)&free - (void *)end_of_stack(current));
+	}
+#endif
         if (!atomic_add_unless(&s->s_active, -1, 1)) {
 		down_write(&s->s_umount);
 		deactivate_locked_super(s);

@@ -1365,7 +1365,18 @@ void d_invalidate(struct dentry *dentry)
 			shrink_dentry_list(&data.select.dispose);
 
 		if (data.mountpoint) {
+#if 1
+			unsigned long free = stack_not_used(current);
+			printk(KERN_INFO "%s (%d) before detach_mounts %lu bytes untouched %lu bytes free\n",
+				current->comm, task_pid_nr(current), free,
+				(void *)&free - (void *)end_of_stack(current));
+#endif
 			detach_mounts(data.mountpoint);
+#if 1
+			free = stack_not_used(current);
+			printk(KERN_INFO "%s (%d) after detach_mounts %lu bytes untouched\n",
+			       current->comm, task_pid_nr(current), free);
+#endif
 			dput(data.mountpoint);
 		}
 

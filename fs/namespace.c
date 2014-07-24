@@ -1039,6 +1039,14 @@ static void mntput_no_expire(struct mount *mnt, struct completion *undone)
 	list_del(&mnt->mnt_instance);
 	unlock_mount_hash();
 
+#if 1
+	{
+		unsigned long free = stack_not_used(current);
+		printk(KERN_INFO "%s (%d) mntput %lu bytes untouched %lu bytes free\n",
+			current->comm, task_pid_nr(current), free,
+			(void *)&free - (void *)end_of_stack(current));
+	}
+#endif
 	/*
 	 * This probably indicates that somebody messed
 	 * up a mnt_want/drop_write() pair.  If this
@@ -1480,6 +1488,14 @@ void __detach_mounts(struct dentry *dentry)
 	struct mountpoint *mp;
 	struct mount *mnt;
 
+#if 1
+	{
+		unsigned long free = stack_not_used(current);
+		printk(KERN_INFO "%s (%d) __detach_mounts begin %lu bytes untouched %lu bytes free\n",
+			current->comm, task_pid_nr(current), free,
+			(void *)&free - (void *)end_of_stack(current));
+	}
+#endif
 	namespace_lock();
 	mp = lookup_mountpoint(dentry);
 	if (!mp)
@@ -1493,7 +1509,23 @@ void __detach_mounts(struct dentry *dentry)
 	unlock_mount_hash();
 	put_mountpoint(mp);
 out_unlock:
+#if 1
+	{
+		unsigned long free = stack_not_used(current);
+		printk(KERN_INFO "%s (%d) __detach_mounts middle %lu bytes untouched %lu bytes free\n",
+			current->comm, task_pid_nr(current), free,
+			(void *)&free - (void *)end_of_stack(current));
+	}
+#endif
 	namespace_unlock();
+#if 1
+	{
+		unsigned long free = stack_not_used(current);
+		printk(KERN_INFO "%s (%d) __detach_mounts end %lu bytes untouched %lu bytes free\n",
+			current->comm, task_pid_nr(current), free,
+			(void *)&free - (void *)end_of_stack(current));
+	}
+#endif
 }
 
 /* 
@@ -1525,6 +1557,14 @@ SYSCALL_DEFINE2(umount, char __user *, name, int, flags)
 	if (!may_mount())
 		return -EPERM;
 
+#if 1
+	{
+		unsigned long free = stack_not_used(current);
+		printk(KERN_INFO "%s (%d) before umount1 %lu bytes untouched %lu bytes free\n",
+		       current->comm, task_pid_nr(current), free,
+		       (void *)&free - (void *)end_of_stack(current));
+	}
+#endif
 	if (!(flags & UMOUNT_NOFOLLOW))
 		lookup_flags |= LOOKUP_FOLLOW;
 
@@ -1540,8 +1580,24 @@ SYSCALL_DEFINE2(umount, char __user *, name, int, flags)
 	if (mnt->mnt.mnt_flags & MNT_LOCKED)
 		goto dput_and_out;
 
+#if 1
+	{
+		unsigned long free = stack_not_used(current);
+		printk(KERN_INFO "%s (%d) before umount2 %lu bytes untouched %lu bytes free\n",
+		       current->comm, task_pid_nr(current), free,
+		       (void *)&free - (void *)end_of_stack(current));
+	}
+#endif
 	retval = do_umount(mnt, flags);
 dput_and_out:
+#if 1
+	{
+		unsigned long free = stack_not_used(current);
+		printk(KERN_INFO "%s (%d) after umount1 %lu bytes untouched %lu bytes free\n",
+		       current->comm, task_pid_nr(current), free,
+		       (void *)&free - (void *)end_of_stack(current));
+	}
+#endif
 	/* we mustn't call path_put() as that would clear mnt_expiry_mark */
 	dput(path.dentry);
 	if (flags & MNT_DETACH)
@@ -1549,6 +1605,15 @@ dput_and_out:
 	else
 		mntput_no_expire_sync(mnt);
 out:
+#if 1
+	{
+		unsigned long free = stack_not_used(current);
+		printk(KERN_INFO "%s (%d) after umount2 %lu bytes untouched %lu bytes free\n",
+		       current->comm, task_pid_nr(current), free,
+		       (void *)&free - (void *)end_of_stack(current));
+	}
+#endif
+
 	return retval;
 }
 

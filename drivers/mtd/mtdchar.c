@@ -1190,7 +1190,7 @@ int __init init_mtdchar(void)
 		return ret;
 	}
 
-	ret = register_filesystem(&mtd_inodefs_type);
+	ret = register_filesystem(&mtd_inodefs_type); /* BUG This filesystem should not be registered */
 	if (ret) {
 		pr_err("Can't register mtd_inodefs filesystem, error %d\n",
 		       ret);
@@ -1206,7 +1206,7 @@ err_unregister_chdev:
 
 void __exit cleanup_mtdchar(void)
 {
-	unregister_filesystem(&mtd_inodefs_type);
+	unregister_filesystem(&mtd_inodefs_type); /* BUG */
 	__unregister_chrdev(MTD_CHAR_MAJOR, 0, 1 << MINORBITS, "mtd");
 }
 

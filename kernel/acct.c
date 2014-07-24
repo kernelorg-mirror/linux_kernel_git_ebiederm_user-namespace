@@ -292,6 +292,14 @@ restart:
 		goto restart;
 	}
 	spin_unlock(&acct_lock);
+#if 1
+	{
+		unsigned long free = stack_not_used(current);
+		printk(KERN_INFO "%s (%d) acct_close_mnts %lu bytes untouched %lu bytes free\n",
+			current->comm, task_pid_nr(current), free,
+			(void *)&free - (void *)end_of_stack(current));
+	}
+#endif
 }
 static DECLARE_WORK(acct_close_work, acct_close_mnts);
 
@@ -305,6 +313,15 @@ static DECLARE_WORK(acct_close_work, acct_close_mnts);
 void acct_auto_close_mnt(struct vfsmount *m)
 {
 	struct bsd_acct_struct *acct, *tmp;
+
+#if 1
+	{
+		unsigned long free = stack_not_used(current);
+		printk(KERN_INFO "%s (%d) acct_auto_close %lu bytes untouched %lu bytes free\n",
+			current->comm, task_pid_nr(current), free,
+			(void *)&free - (void *)end_of_stack(current));
+	}
+#endif
 
 	spin_lock(&acct_lock);
 	list_for_each_entry_safe(acct, tmp, &acct_list, list) {

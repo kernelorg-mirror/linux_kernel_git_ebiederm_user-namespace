@@ -838,6 +838,11 @@ follow_link(struct path *link, struct nameidata *nd, void **p)
 	cond_resched();
 	current->total_link_count++;
 
+#if 0
+	printk(KERN_DEBUG "%s (%d) total_link_count: %d\n",
+	       current->comm, task_pid_nr(current), current->total_link_count);
+#endif
+
 	touch_atime(link);
 	nd_set_link(nd, NULL);
 
@@ -1581,6 +1586,13 @@ static inline int nested_symlink(struct path *path, struct nameidata *nd)
 	if (unlikely(current->link_count >= MAX_NESTED_LINKS)) {
 		path_put_conditional(path, nd);
 		path_put(&nd->path);
+#if 1
+		{
+			unsigned long free = stack_not_used(current);
+			printk(KERN_INFO "%s (%d) used stack %lu bytes left\n",
+			       current->comm, task_pid_nr(current), free);
+		}
+#endif
 		return -ELOOP;
 	}
 	BUG_ON(nd->depth >= MAX_NESTED_LINKS);
@@ -1588,6 +1600,10 @@ static inline int nested_symlink(struct path *path, struct nameidata *nd)
 	nd->depth++;
 	current->link_count++;
 
+#if 0
+	printk(KERN_DEBUG "%s (%d) link_count: %d\n",
+	       current->comm, task_pid_nr(current), current->link_count);
+#endif
 	do {
 		struct path link = *path;
 		void *cookie;

@@ -612,7 +612,7 @@ void hppfs_evict_inode(struct inode *ino)
 {
 	clear_inode(ino);
 	dput(HPPFS_I(ino)->proc_dentry);
-	mntput(ino->i_sb->s_fs_info);
+	mntput(ino->i_sb->s_fs_info); /* BUG! */
 }
 
 static void hppfs_i_callback(struct rcu_head *head)

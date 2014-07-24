@@ -2634,6 +2634,11 @@ static inline unsigned long stack_not_used(struct task_struct *p)
 
 	return (unsigned long)n - (unsigned long)end_of_stack(p);
 }
+#else
+static inline unsigned long stack_not_used(struct task_struct *p)
+{
+	return 0;
+}
 #endif
 
 /* set thread flags in other task's structures
