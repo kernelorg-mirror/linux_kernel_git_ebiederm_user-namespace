@@ -2306,6 +2306,10 @@ static int do_new_mount(struct path *path, const char *fstype, int flags,
 		return -ENODEV;
 
 	if (user_ns != &init_user_ns) {
+		if (!(type->fs_flags & FS_UNPRIV_MOUNT) && !capable(CAP_SYS_ADMIN)) {
+			put_filesystem(type);
+			return -EPERM;
+		}
 		if (!(type->fs_flags & FS_USERNS_MOUNT)) {
 			put_filesystem(type);
 			return -EPERM;
