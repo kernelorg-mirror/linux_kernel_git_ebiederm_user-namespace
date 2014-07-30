@@ -1238,6 +1238,7 @@ static int nfs_server_list_open(struct inode *inode, struct file *file)
 {
 	struct seq_file *m;
 	int ret;
+	/* This looks like a bug!!!  Anyway I measure it! */
 	struct pid_namespace *pid_ns = file->f_dentry->d_sb->s_fs_info;
 	struct net *net = pid_ns->child_reaper->nsproxy->net_ns;
 
@@ -1323,6 +1324,7 @@ static int nfs_volume_list_open(struct inode *inode, struct file *file)
 {
 	struct seq_file *m;
 	int ret;
+	/* This looks like a bug!!!  Anyway I measure it! */
 	struct pid_namespace *pid_ns = file->f_dentry->d_sb->s_fs_info;
 	struct net *net = pid_ns->child_reaper->nsproxy->net_ns;
 
