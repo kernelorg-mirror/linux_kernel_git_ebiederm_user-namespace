@@ -1755,6 +1755,7 @@ struct super_operations {
 				  struct shrink_control *);
 	long (*free_cached_objects)(struct super_block *,
 				    struct shrink_control *);
+	bool (*may_overmount)(struct super_block *, int, const char *, void *);
 };
 
 /*

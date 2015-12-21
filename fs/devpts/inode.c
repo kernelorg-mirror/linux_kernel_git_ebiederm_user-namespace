@@ -339,10 +339,25 @@ static int devpts_show_options(struct seq_file *seq, struct dentry *root)
 	return 0;
 }
 
+bool devpts_may_overmount(struct super_block *sb,
+			  int flags, const char *dev_name, void *data)
+{
+	if ((sb == devpts_mnt->mnt_sb) &&
+	    (current_user_ns() == &init_user_ns) &&
+	    !parse_newinstance(data)) {
+		down_write(&sb->s_umount);
+		devpts_remount(sb, &flags, data);
+		up_write(&sb->s_umount);
+		return false;
+	}
+	return true;
+}
+
 static const struct super_operations devpts_sops = {
 	.statfs		= simple_statfs,
 	.remount_fs	= devpts_remount,
 	.show_options	= devpts_show_options,
+	.may_overmount	= devpts_may_overmount,
 };
 
 static void *new_pts_fs_info(void)

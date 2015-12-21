@@ -2401,6 +2401,7 @@ static int do_new_mount(struct path *path, const char *fstype, int flags,
 {
 	struct file_system_type *type;
 	struct user_namespace *user_ns = current->nsproxy->mnt_ns->user_ns;
+	struct super_block *path_sb;
 	struct vfsmount *mnt;
 	int err;
 
@@ -2428,6 +2429,13 @@ static int do_new_mount(struct path *path, const char *fstype, int flags,
 				return -EPERM;
 		}
 	}
+
+	path_sb = path->mnt->mnt_sb;
+	if ((path_sb->s_type == type) &&
+	    (path->mnt->mnt_root == path->dentry) &&
+	    path_sb->s_op->may_overmount &&
+	    !path_sb->s_op->may_overmount(path_sb, flags, name, data))
+		return -EBUSY;
 
 	mnt = vfs_kern_mount(type, flags, name, data);
 	if (!IS_ERR(mnt) && (type->fs_flags & FS_HAS_SUBTYPE) &&
