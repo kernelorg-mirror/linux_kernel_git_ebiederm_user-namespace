@@ -249,12 +249,6 @@ static int mknod_ptmx(struct super_block *sb)
 
 	inode_lock(d_inode(root));
 
-	/* If we have already created ptmx node, return */
-	if (fsi->ptmx_dentry) {
-		rc = 0;
-		goto out;
-	}
-
 	dentry = d_alloc_name(root, "ptmx");
 	if (!dentry) {
 		pr_err("Unable to alloc dentry for ptmx node\n");
@@ -464,16 +458,20 @@ static struct dentry *devpts_mount(struct file_system_type *fs_type,
 		error = devpts_fill_super(s, data, flags & MS_SILENT ? 1 : 0);
 		if (error)
 			goto out_undo_sget;
+
+		error = parse_mount_options(data, &DEVPTS_SB(s)->mount_opts);
+		if (error)
+			goto out_undo_sget;
+
+		error = mknod_ptmx(s);
+		if (error)
+			goto out_undo_sget;
+
 		s->s_flags |= MS_ACTIVE;
+	} else {
+		/* Match mount_single ignore errors on remount */
+		devpts_remount(s, &flags, data);
 	}
-
-	error = parse_mount_options(data, &DEVPTS_SB(s)->mount_opts);
-	if (error)
-		goto out_undo_sget;
-
-	error = mknod_ptmx(s);
-	if (error)
-		goto out_undo_sget;
 
 	return dget(s->s_root);
 
