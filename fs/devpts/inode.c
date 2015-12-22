@@ -534,7 +534,7 @@ retry:
 
 	mutex_lock(&allocated_ptys_lock);
 	if (pty_count >= pty_limit -
-			(fsi->mount_opts.newinstance ? pty_reserve : 0)) {
+			((devpts_mnt->mnt_sb == sb) ? pty_reserve : 0)) {
 		mutex_unlock(&allocated_ptys_lock);
 		return -ENOSPC;
 	}
