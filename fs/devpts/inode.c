@@ -97,7 +97,6 @@ struct pts_mount_opts {
 	kgid_t   gid;
 	umode_t mode;
 	umode_t ptmxmode;
-	int newinstance;
 	int max;
 };
 
@@ -140,19 +139,27 @@ static inline struct super_block *pts_sb_from_inode(struct inode *inode)
 	return devpts_mnt->mnt_sb;
 }
 
-#define PARSE_MOUNT	0
-#define PARSE_REMOUNT	1
+static bool parse_newinstance(const char *data)
+{
+	while (data) {
+		const char *p = strchr(data, ',');
+		size_t len = p ? p - data : strlen(data);
+		if ((len == 11) && (memcmp(data, "newinstance", 11) == 0)) {
+			return true;
+		}
+		data = p ? p + 1 : NULL;
+	}
+	return false;
+}
 
 /*
  * parse_mount_options():
  *	Set @opts to mount options specified in @data. If an option is not
- *	specified in @data, set it to its default value. The exception is
- *	'newinstance' option which can only be set/cleared on a mount (i.e.
- *	cannot be changed during remount).
+ *	specified in @data, set it to its default value.
  *
  * Note: @data may be NULL (in which case all options are set to default).
  */
-static int parse_mount_options(char *data, int op, struct pts_mount_opts *opts)
+static int parse_mount_options(char *data, struct pts_mount_opts *opts)
 {
 	char *p;
 	kuid_t uid;
@@ -165,10 +172,6 @@ static int parse_mount_options(char *data, int op, struct pts_mount_opts *opts)
 	opts->mode    = DEVPTS_DEFAULT_MODE;
 	opts->ptmxmode = DEVPTS_DEFAULT_PTMX_MODE;
 	opts->max     = NR_UNIX98_PTY_MAX;
-
-	/* newinstance makes sense only on initial mount */
-	if (op == PARSE_MOUNT)
-		opts->newinstance = 0;
 
 	while ((p = strsep(&data, ",")) != NULL) {
 		substring_t args[MAX_OPT_ARGS];
@@ -210,9 +213,6 @@ static int parse_mount_options(char *data, int op, struct pts_mount_opts *opts)
 			opts->ptmxmode = option & S_IALLUGO;
 			break;
 		case Opt_newinstance:
-			/* newinstance makes sense only on initial mount */
-			if (op == PARSE_MOUNT)
-				opts->newinstance = 1;
 			break;
 		case Opt_max:
 			if (match_int(&args[0], &option) ||
@@ -311,7 +311,7 @@ static int devpts_remount(struct super_block *sb, int *flags, char *data)
 	struct pts_mount_opts *opts = &fsi->mount_opts;
 
 	sync_filesystem(sb);
-	err = parse_mount_options(data, PARSE_REMOUNT, opts);
+	err = parse_mount_options(data, opts);
 
 	/*
 	 * parse_mount_options() restores options to default values
@@ -440,20 +440,18 @@ static struct dentry *devpts_mount(struct file_system_type *fs_type,
 	int flags, const char *dev_name, void *data)
 {
 	int error;
-	struct pts_mount_opts opts;
 	struct super_block *s;
+	bool newinstance;
 
-	error = parse_mount_options(data, PARSE_MOUNT, &opts);
-	if (error)
-		return ERR_PTR(error);
+	newinstance = parse_newinstance(data);
 
 	/* Require newinstance for all user namespace mounts to ensure
 	 * the mount options are not changed.
 	 */
-	if ((current_user_ns() != &init_user_ns) && !opts.newinstance)
+	if ((current_user_ns() != &init_user_ns) && !newinstance)
 		return ERR_PTR(-EINVAL);
 
-	if (opts.newinstance)
+	if (newinstance)
 		s = sget(fs_type, NULL, set_anon_super, flags, NULL);
 	else
 		s = sget(fs_type, compare_init_pts_sb, set_anon_super, flags,
@@ -469,7 +467,9 @@ static struct dentry *devpts_mount(struct file_system_type *fs_type,
 		s->s_flags |= MS_ACTIVE;
 	}
 
-	memcpy(&(DEVPTS_SB(s))->mount_opts, &opts, sizeof(opts));
+	error = parse_mount_options(data, &DEVPTS_SB(s)->mount_opts);
+	if (error)
+		goto out_undo_sget;
 
 	error = mknod_ptmx(s);
 	if (error)
