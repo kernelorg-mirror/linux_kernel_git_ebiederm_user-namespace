@@ -379,6 +379,7 @@ static int
 devpts_fill_super(struct super_block *s, void *data, int silent)
 {
 	struct inode *inode;
+	int error;
 
 	s->s_blocksize = 1024;
 	s->s_blocksize_bits = 10;
@@ -386,10 +387,16 @@ devpts_fill_super(struct super_block *s, void *data, int silent)
 	s->s_op = &devpts_sops;
 	s->s_time_gran = 1;
 
+	error = -ENOMEM;
 	s->s_fs_info = new_pts_fs_info();
 	if (!s->s_fs_info)
 		goto fail;
 
+	error = parse_mount_options(data, &DEVPTS_SB(s)->mount_opts);
+	if (error)
+		goto fail;
+
+	error = -ENOMEM;
 	inode = new_inode(s);
 	if (!inode)
 		goto fail;
@@ -407,7 +414,7 @@ devpts_fill_super(struct super_block *s, void *data, int silent)
 	pr_err("get root dentry failed\n");
 
 fail:
-	return -ENOMEM;
+	return error;
 }
 
 #ifdef CONFIG_DEVPTS_MULTIPLE_INSTANCES
@@ -471,10 +478,6 @@ static struct dentry *devpts_mount(struct file_system_type *fs_type,
 
 	if (!s->s_root) {
 		error = devpts_fill_super(s, data, flags & MS_SILENT ? 1 : 0);
-		if (error)
-			goto out_undo_sget;
-
-		error = parse_mount_options(data, &DEVPTS_SB(s)->mount_opts);
 		if (error)
 			goto out_undo_sget;
 
