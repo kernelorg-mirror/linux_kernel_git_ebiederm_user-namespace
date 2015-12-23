@@ -467,7 +467,6 @@ static int compare_init_pts_sb(struct super_block *s, void *p)
 static struct dentry *devpts_mount(struct file_system_type *fs_type,
 	int flags, const char *dev_name, void *data)
 {
-	int error;
 	struct super_block *s;
 	bool newinstance;
 
@@ -480,30 +479,16 @@ static struct dentry *devpts_mount(struct file_system_type *fs_type,
 		return ERR_PTR(-EINVAL);
 
 	if (newinstance)
-		s = sget(fs_type, NULL, set_anon_super, flags, NULL);
-	else
-		s = sget(fs_type, compare_init_pts_sb, set_anon_super, flags,
-			 NULL);
+		return mount_nodev(fs_type, flags, data, devpts_fill_super);
 
+	s = sget(fs_type, compare_init_pts_sb, set_anon_super, flags, NULL);
 	if (IS_ERR(s))
 		return ERR_CAST(s);
 
-	if (!s->s_root) {
-		error = devpts_fill_super(s, data, flags & MS_SILENT ? 1 : 0);
-		if (error)
-			goto out_undo_sget;
-
-		s->s_flags |= MS_ACTIVE;
-	} else {
-		/* Match mount_single ignore errors on remount */
-		devpts_remount(s, &flags, data);
-	}
+	/* Match mount_single ignore errors on remount */
+	devpts_remount(s, &flags, data);
 
 	return dget(s->s_root);
-
-out_undo_sget:
-	deactivate_locked_super(s);
-	return ERR_PTR(error);
 }
 
 #else
