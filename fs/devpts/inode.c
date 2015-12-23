@@ -430,13 +430,6 @@ fail:
 }
 
 #ifdef CONFIG_DEVPTS_MULTIPLE_INSTANCES
-static int compare_init_pts_sb(struct super_block *s, void *p)
-{
-	if (devpts_mnt)
-		return devpts_mnt->mnt_sb == s;
-	return 0;
-}
-
 /*
  * devpts_mount()
  *
@@ -467,28 +460,26 @@ static int compare_init_pts_sb(struct super_block *s, void *p)
 static struct dentry *devpts_mount(struct file_system_type *fs_type,
 	int flags, const char *dev_name, void *data)
 {
-	struct super_block *s;
+	struct dentry *root;
 	bool newinstance;
 
 	newinstance = parse_newinstance(data);
+	if (flags & MS_KERNMOUNT)
+		newinstance = true;
 
-	/* Require newinstance for all user namespace mounts to ensure
+	/* Force newinstance for all user namespace mounts to ensure
 	 * the mount options are not changed.
 	 */
-	if ((current_user_ns() != &init_user_ns) && !newinstance)
-		return ERR_PTR(-EINVAL);
+	if (current_user_ns() != &init_user_ns)
+		newinstance = true;
 
-	if (newinstance)
-		return mount_nodev(fs_type, flags, data, devpts_fill_super);
+	root = NULL;
+	if (!newinstance)
+		root = mount_super_once(devpts_mnt->mnt_sb, flags, data);
+	if (IS_ERR_OR_NULL(root))
+		root = mount_nodev(fs_type, flags, data, devpts_fill_super);
 
-	s = sget(fs_type, compare_init_pts_sb, set_anon_super, flags, NULL);
-	if (IS_ERR(s))
-		return ERR_CAST(s);
-
-	/* Match mount_single ignore errors on remount */
-	devpts_remount(s, &flags, data);
-
-	return dget(s->s_root);
+	return root;
 }
 
 #else
