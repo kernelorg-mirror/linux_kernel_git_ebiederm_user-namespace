@@ -33,6 +33,7 @@
 #include <linux/cleancache.h>
 #include <linux/fsnotify.h>
 #include <linux/lockdep.h>
+#include "mount.h"
 #include "internal.h"
 
 
@@ -1100,6 +1101,39 @@ struct dentry *mount_single(struct file_system_type *fs_type,
 	return dget(s->s_root);
 }
 EXPORT_SYMBOL(mount_single);
+
+struct dentry *mount_super_once(struct super_block *sb, int flags, void *data)
+{
+	/* Allow mounting the specified superblock by userspace if there
+	 * are not any existing userspace mounts of it.
+	 */
+	struct mount *mnt;
+	int count = 0;
+
+	/* Walk through the existing mounts of this superblock.  Fail
+	 * if any of those mounts are exported to userspace.  Otherwise
+	 * increment s_active if the superblock s_active count matches
+	 * the number of mounts in the list.  This ensures that multiple
+	 * simultaneous calls to mount_super_once do not race and result
+	 * in the filesystem exported to userspace multiple times.
+	 */
+	lock_mount_hash();
+	list_for_each_entry(mnt, &sb->s_mounts, mnt_instance) {
+		if (is_mounted(&mnt->mnt) && (mnt->mnt.mnt_root == sb->s_root)) {
+			unlock_mount_hash();
+			return ERR_PTR(-EBUSY);
+		}
+		count++;
+	}
+	if (atomic_cmpxchg(&sb->s_active, count, count + 1) != count) {
+		unlock_mount_hash();
+		return ERR_PTR(-EBUSY);
+	}
+	unlock_mount_hash();
+	down_write(&sb->s_umount);
+	do_remount_sb(sb, flags, data, 0);
+	return dget(sb->s_root);
+}
 
 struct dentry *
 mount_fs(struct file_system_type *type, int flags, const char *name, void *data)
