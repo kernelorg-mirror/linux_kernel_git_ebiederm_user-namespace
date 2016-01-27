@@ -20,6 +20,8 @@
 
 #ifdef CONFIG_UNIX98_PTYS
 
+extern struct file_operations ptmx_fops;
+
 int devpts_new_index(struct inode *ptmx_inode);
 void devpts_kill_index(struct inode *ptmx_inode, int idx);
 void devpts_add_ref(struct inode *ptmx_inode);

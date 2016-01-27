@@ -232,7 +232,6 @@ static int parse_mount_options(char *data, int op, struct pts_mount_opts *opts)
 #ifdef CONFIG_DEVPTS_MULTIPLE_INSTANCES
 static int mknod_ptmx(struct super_block *sb)
 {
-	int mode;
 	int rc = -ENOMEM;
 	struct dentry *dentry;
 	struct inode *inode;
@@ -274,8 +273,9 @@ static int mknod_ptmx(struct super_block *sb)
 	inode->i_ino = 2;
 	inode->i_mtime = inode->i_atime = inode->i_ctime = CURRENT_TIME;
 
-	mode = S_IFCHR|opts->ptmxmode;
-	init_special_inode(inode, mode, MKDEV(TTYAUX_MAJOR, 2));
+	inode->i_mode = S_IFCHR|opts->ptmxmode;
+	inode->i_fop = &ptmx_fops;
+	inode->i_rdev = MKDEV(TTYAUX_MAJOR, PTMX_MINOR);
 	inode->i_uid = root_uid;
 	inode->i_gid = root_gid;
 

@@ -803,7 +803,7 @@ err_file:
 	return retval;
 }
 
-static struct file_operations ptmx_fops;
+struct file_operations ptmx_fops;
 
 static void __init unix98_pty_init(void)
 {
