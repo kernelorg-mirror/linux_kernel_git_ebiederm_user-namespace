@@ -18,6 +18,7 @@
 #include <linux/buffer_head.h> /* for inode_has_buffers */
 #include <linux/ratelimit.h>
 #include <linux/list_lru.h>
+#include <linux/devpts_fs.h>
 #include <trace/events/writeback.h>
 #include "internal.h"
 
@@ -1917,6 +1918,8 @@ void init_special_inode(struct inode *inode, umode_t mode, dev_t rdev)
 	if (S_ISCHR(mode)) {
 		inode->i_fop = &def_chr_fops;
 		inode->i_rdev = rdev;
+		if (is_dev_ptmx(inode))
+			inode->i_flags |= S_AUTOMOUNT;
 	} else if (S_ISBLK(mode)) {
 		inode->i_fop = &def_blk_fops;
 		inode->i_rdev = rdev;

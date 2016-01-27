@@ -19,8 +19,11 @@
 #define PTMX_MINOR	2
 
 #ifdef CONFIG_UNIX98_PTYS
+#include <linux/major.h>
 
 extern struct file_operations ptmx_fops;
+
+struct vfsmount *ptmx_automount(struct path *path);
 
 int devpts_new_index(struct inode *ptmx_inode);
 void devpts_kill_index(struct inode *ptmx_inode, int idx);
@@ -34,6 +37,10 @@ void *devpts_get_priv(struct inode *pts_inode);
 /* unlink */
 void devpts_pty_kill(struct inode *inode);
 
+static inline bool is_dev_ptmx(struct inode *inode)
+{
+	return inode->i_rdev == MKDEV(TTYAUX_MAJOR, PTMX_MINOR);
+}
 #else
 
 /* Dummy stubs in the no-pty case */
@@ -52,6 +59,12 @@ static inline void *devpts_get_priv(struct inode *pts_inode)
 }
 static inline void devpts_pty_kill(struct inode *inode) { }
 
+#define ptmx_automount NULL
+
+static inline bool is_dev_ptmx(struct inode *inode)
+{
+	return false;
+}
 #endif
 
 

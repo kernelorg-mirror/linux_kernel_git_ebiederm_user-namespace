@@ -17,6 +17,7 @@
 #include <linux/fs.h>
 #include <linux/sched.h>
 #include <linux/namei.h>
+#include <linux/fs_struct.h>
 #include <linux/slab.h>
 #include <linux/mount.h>
 #include <linux/tty.h>
@@ -693,6 +694,60 @@ void devpts_pty_kill(struct inode *inode)
 	dput(dentry);		/* d_find_alias above */
 
 	inode_unlock(d_inode(root));
+}
+
+static void ptmx_expire_automounts(struct work_struct *work);
+static LIST_HEAD(ptmx_automounts);
+static DECLARE_DELAYED_WORK(ptmx_automount_work, ptmx_expire_automounts);
+static unsigned long ptmx_automount_timeout = 10 * 60 * HZ;
+
+static void ptmx_expire_automounts(struct work_struct *work)
+{
+	struct list_head *list = &ptmx_automounts;
+
+	mark_mounts_for_expiry(list);
+	if (!list_empty(list))
+		schedule_delayed_work(&ptmx_automount_work,
+				      ptmx_automount_timeout);
+}
+
+struct vfsmount *ptmx_automount(struct path *input_path)
+{
+	struct vfsmount *newmnt;
+	struct path path;
+	struct dentry *old;
+
+	/* Can the pts filesystem be found with a path walk? */
+	path = *input_path;
+	path_get(&path);
+
+	if ((path_pts(&path) != 0) ||
+	    /* Is the path the root of a devpts filesystem? */
+	    (path.mnt->mnt_sb->s_magic != DEVPTS_SUPER_MAGIC) ||
+	    (path.mnt->mnt_root != path.mnt->mnt_sb->s_root)) {
+		/* No devpts filesystem found use the system devpts */
+		path_put(&path);
+		path.mnt = devpts_mnt;
+		path.dentry = DEVPTS_SB(devpts_mnt->mnt_sb)->ptmx_dentry;
+		path_get(&path);
+	}
+	else {
+		/* Advance path to the ptmx dentry */
+		old = path.dentry;
+		path.dentry = dget(DEVPTS_SB(path.mnt->mnt_sb)->ptmx_dentry);
+		dput(old);
+	}
+
+	newmnt = vfs_loopback_mount(&path);
+	if (IS_ERR(newmnt))
+		goto fail;
+
+	mntget(newmnt);
+	mnt_set_expiry(newmnt, &ptmx_automounts);
+	schedule_delayed_work(&ptmx_automount_work, ptmx_automount_timeout);
+fail:
+	path_put(&path);
+	return newmnt;
 }
 
 static int __init init_devpts_fs(void)

@@ -35,6 +35,7 @@
 #include <linux/fs_struct.h>
 #include <linux/posix_acl.h>
 #include <linux/hash.h>
+#include <linux/devpts_fs.h>
 #include <asm/uaccess.h>
 
 #include "internal.h"
@@ -1087,10 +1088,15 @@ EXPORT_SYMBOL(follow_up);
 static int follow_automount(struct path *path, struct nameidata *nd,
 			    bool *need_mntput)
 {
+	struct vfsmount *(*automount)(struct path *) = NULL;
 	struct vfsmount *mnt;
 	int err;
 
-	if (!path->dentry->d_op || !path->dentry->d_op->d_automount)
+	if (path->dentry->d_op)
+		automount = path->dentry->d_op->d_automount;
+	if (path->dentry->d_inode && is_dev_ptmx(path->dentry->d_inode))
+		automount = ptmx_automount;
+	if (!automount)
 		return -EREMOTE;
 
 	/* We don't want to mount if someone's just doing a stat -
@@ -1113,7 +1119,7 @@ static int follow_automount(struct path *path, struct nameidata *nd,
 	if (nd->total_link_count >= 40)
 		return -ELOOP;
 
-	mnt = path->dentry->d_op->d_automount(path);
+	mnt = automount(path);
 	if (IS_ERR(mnt)) {
 		/*
 		 * The filesystem is allowed to return -EISDIR here to indicate
@@ -1415,29 +1421,41 @@ static void follow_mount(struct path *path)
 	}
 }
 
-static int follow_dotdot(struct nameidata *nd)
+static int path_parent(struct path *root, struct path *path)
 {
-	while(1) {
-		struct dentry *old = nd->path.dentry;
+	int ret = 0;
 
-		if (nd->path.dentry == nd->root.dentry &&
-		    nd->path.mnt == nd->root.mnt) {
+	while(1) {
+		struct dentry *old = path->dentry;
+
+		if (old == root->dentry &&
+		    path->mnt == root->mnt) {
 			break;
 		}
-		if (nd->path.dentry != nd->path.mnt->mnt_root) {
+		if (old != path->mnt->mnt_root) {
 			/* rare case of legitimate dget_parent()... */
-			nd->path.dentry = dget_parent(nd->path.dentry);
+			path->dentry = dget_parent(path->dentry);
 			dput(old);
-			if (unlikely(!path_connected(&nd->path)))
+			if (unlikely(!path_connected(path)))
 				return -ENOENT;
+			ret = 1;
 			break;
 		}
-		if (!follow_up(&nd->path))
+		if (!follow_up(path))
 			break;
 	}
-	follow_mount(&nd->path);
-	nd->inode = nd->path.dentry->d_inode;
-	return 0;
+	follow_mount(path);
+	return ret;
+}
+
+static int follow_dotdot(struct nameidata *nd)
+{
+	int ret = path_parent(&nd->root, &nd->path);
+	if (ret >= 0) {
+		ret = 0;
+		nd->inode = nd->path.dentry->d_inode;
+	}
+	return ret;
 }
 
 /*
@@ -2373,6 +2391,45 @@ struct dentry *lookup_one_len_unlocked(const char *name,
 	return ret;
 }
 EXPORT_SYMBOL(lookup_one_len_unlocked);
+
+#ifdef CONFIG_UNIX98_PTYS
+int path_pts(struct path *path)
+{
+	/* A pathwalk of "../pts" with no permission checks. */
+	struct dentry *child, *parent = path->dentry;
+	struct qstr this;
+	struct path root;
+	int ret;
+
+	get_fs_root(current->fs, &root);
+	ret = path_parent(&root, path);
+	path_put(&root);
+	if (ret != 1)
+		return -ENOENT;
+
+	if (!d_can_lookup(parent))
+		return -ENOENT;
+
+	this.name = "pts";
+	this.len = 3;
+	this.hash = full_name_hash(this.name, this.len);
+	if (parent->d_flags & DCACHE_OP_HASH) {
+		int err = parent->d_op->d_hash(parent, &this);
+		if (err < 0)
+			return err;
+	}
+	inode_lock(parent->d_inode);
+	child = d_lookup(parent, &this);
+	inode_unlock(parent->d_inode);
+	if (!child)
+		return -ENOENT;
+
+	path->dentry = child;
+	dput(parent);
+	follow_mount(path);
+	return 0;
+}
+#endif
 
 int user_path_at_empty(int dfd, const char __user *name, unsigned flags,
 		 struct path *path, int *empty)
