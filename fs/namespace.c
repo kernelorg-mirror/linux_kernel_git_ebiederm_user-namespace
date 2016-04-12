@@ -718,8 +718,14 @@ bool __is_local_mountpoint(struct dentry *dentry)
 	down_read(&namespace_sem);
 	list_for_each_entry(mnt, &ns->list, mnt_list) {
 		is_covered = (mnt->mnt_mountpoint == dentry);
-		if (is_covered)
+		if (is_covered) {
+			if (!d_is_dir(dentry) &&
+			    (mnt->mnt.mnt_flags & MNT_SHRINKABLE)) {
+				is_covered = false;
+				continue;
+			}
 			break;
+		}
 	}
 	up_read(&namespace_sem);
 out:
