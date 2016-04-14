@@ -1047,6 +1047,15 @@ static struct mount *clone_mnt(struct mount *old, struct dentry *root,
 	return ERR_PTR(err);
 }
 
+struct vfsmount *vfs_loopback_mount(struct path *path)
+{
+	struct mount *p;
+	p = clone_mnt(real_mount(path->mnt), path->dentry, 0);
+	if (IS_ERR(p))
+		return ERR_CAST(p);
+	return &p->mnt;
+}
+
 static void cleanup_mnt(struct mount *mnt)
 {
 	/*
