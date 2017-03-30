@@ -2423,8 +2423,9 @@ static void retarget_shared_pending(struct task_struct *tsk, sigset_t *which)
 	if (sigisemptyset(&retarget))
 		return;
 
-	t = tsk;
-	while_each_thread(tsk, t) {
+	for_each_thread(tsk, t) {
+		if (t == tsk)
+			continue;
 		if (t->flags & PF_EXITING)
 			continue;
 
