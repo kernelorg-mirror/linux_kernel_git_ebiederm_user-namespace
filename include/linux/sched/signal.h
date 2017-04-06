@@ -502,6 +502,7 @@ static inline unsigned long sigsp(unsigned long sp, struct ksignal *ksig)
 	return sp;
 }
 
+extern struct sighand_struct *new_sighand(struct task_struct *tsk);
 extern void __cleanup_sighand(struct sighand_struct *);
 #ifdef CONFIG_POSIX_TIMERS
 extern void flush_posix_timer_signals(void);

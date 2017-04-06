@@ -1135,13 +1135,9 @@ no_thread_group:
 		 * This ->sighand is shared with the CLONE_SIGHAND
 		 * but not CLONE_THREAD task, switch to the new one.
 		 */
-		newsighand = kmem_cache_alloc(sighand_cachep, GFP_KERNEL);
+		newsighand = new_sighand(current);
 		if (!newsighand)
 			return -ENOMEM;
-
-		atomic_set(&newsighand->count, 1);
-		memcpy(newsighand->action, oldsighand->action,
-		       sizeof(newsighand->action));
 
 		write_lock_irq(&tasklist_lock);
 		spin_lock(&sig->siglock);

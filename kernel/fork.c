@@ -293,7 +293,7 @@ void thread_stack_cache_init(void)
 static struct kmem_cache *signal_cachep;
 
 /* SLAB cache for sighand_struct structures (tsk->sighand) */
-struct kmem_cache *sighand_cachep;
+static struct kmem_cache *sighand_cachep;
 
 /* SLAB cache for files_struct structures (tsk->files) */
 struct kmem_cache *files_cachep;
@@ -1316,6 +1316,20 @@ static int copy_io(unsigned long clone_flags, struct task_struct *tsk)
 	return 0;
 }
 
+struct sighand_struct *new_sighand(struct task_struct *tsk)
+{
+	struct sighand_struct *sighand;
+
+	sighand = kmem_cache_alloc(sighand_cachep, GFP_KERNEL);
+	if (!sighand)
+		return NULL;
+
+	atomic_set(&sighand->count, 1);
+	memcpy(sighand->action, tsk->sighand->action, sizeof(sighand->action));
+
+	return sighand;
+}
+
 static int copy_sighand(unsigned long clone_flags, struct task_struct *tsk)
 {
 	struct sighand_struct *sig;
@@ -1324,13 +1338,11 @@ static int copy_sighand(unsigned long clone_flags, struct task_struct *tsk)
 		atomic_inc(&current->sighand->count);
 		return 0;
 	}
-	sig = kmem_cache_alloc(sighand_cachep, GFP_KERNEL);
+	sig = new_sighand(tsk);
 	rcu_assign_pointer(tsk->sighand, sig);
 	if (!sig)
 		return -ENOMEM;
 
-	atomic_set(&sig->count, 1);
-	memcpy(sig->action, current->sighand->action, sizeof(sig->action));
 	return 0;
 }
 

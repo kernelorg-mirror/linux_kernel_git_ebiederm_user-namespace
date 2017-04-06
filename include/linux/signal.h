@@ -272,8 +272,6 @@ static inline void disallow_signal(int sig)
 	kernel_sigaction(sig, SIG_IGN);
 }
 
-extern struct kmem_cache *sighand_cachep;
-
 int unhandled_signal(struct task_struct *tsk, int sig);
 
 /*
