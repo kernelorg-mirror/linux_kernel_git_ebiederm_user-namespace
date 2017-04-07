@@ -4440,7 +4440,7 @@ static void __init cgroup_init_subsys(struct cgroup_subsys *ss, bool early)
 	/* At system boot, before all subsystems have been
 	 * registered, no tasks have been forked, so we don't
 	 * need to invoke fork callbacks here. */
-	BUG_ON(!list_empty(&init_task.tasks));
+	BUG_ON(!tasklist_empty());
 
 	BUG_ON(online_css(css));
 
