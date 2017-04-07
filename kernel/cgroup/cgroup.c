@@ -2296,12 +2296,11 @@ int cgroup_migrate(struct task_struct *leader, bool threadgroup,
 	 */
 	spin_lock_irq(&css_set_lock);
 	rcu_read_lock();
-	task = leader;
-	do {
+	for_each_thread(leader, task) {
 		cgroup_migrate_add_task(task, mgctx);
 		if (!threadgroup)
 			break;
-	} while_each_thread(leader, task);
+	}
 	rcu_read_unlock();
 	spin_unlock_irq(&css_set_lock);
 
@@ -2329,12 +2328,11 @@ int cgroup_attach_task(struct cgroup *dst_cgrp, struct task_struct *leader,
 	/* look up all src csets */
 	spin_lock_irq(&css_set_lock);
 	rcu_read_lock();
-	task = leader;
-	do {
+	for_each_thread(leader, task) {
 		cgroup_migrate_add_src(task_css_set(task), dst_cgrp, &mgctx);
 		if (!threadgroup)
 			break;
-	} while_each_thread(leader, task);
+	}
 	rcu_read_unlock();
 	spin_unlock_irq(&css_set_lock);
 
