@@ -1587,10 +1587,8 @@ static void k_getrusage(struct task_struct *p, int who, struct rusage *r)
 		r->ru_oublock += p->signal->oublock;
 		if (maxrss < p->signal->maxrss)
 			maxrss = p->signal->maxrss;
-		t = p;
-		do {
+		for_each_thread(p, t)
 			accumulate_thread_rusage(t, r);
-		} while_each_thread(p, t);
 		break;
 
 	default:
