@@ -570,6 +570,16 @@ bool same_thread_group(struct task_struct *p1, struct task_struct *p2)
 	return p1->signal == p2->signal;
 }
 
+static inline struct task_struct *following_thread(const struct task_struct *p)
+{
+	struct task_struct *next;
+	next = list_entry_rcu(p->thread_node.next,
+			      struct task_struct, thread_node);
+	if (&next->thread_node == &p->signal->thread_head)
+		next = NULL;
+	return next;
+}
+
 static inline struct task_struct *next_thread(const struct task_struct *p)
 {
 	return list_entry_rcu(p->thread_group.next,

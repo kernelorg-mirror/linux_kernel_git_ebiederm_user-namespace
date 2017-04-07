@@ -3440,7 +3440,7 @@ static struct task_struct *first_tid(struct pid *pid, int tid, loff_t f_pos,
 
 	/* Attempt to start with the tid of a thread */
 	if (tid && nr) {
-		pos = find_task_by_pid_ns(tid, ns);
+		pos = pid_task(find_pid_ns(tid, ns), PIDTYPE_PID);
 		if (pos && same_thread_group(pos, task))
 			goto found;
 	}
@@ -3450,13 +3450,12 @@ static struct task_struct *first_tid(struct pid *pid, int tid, loff_t f_pos,
 		goto fail;
 
 	/* If we haven't found our starting place yet start
-	 * with the leader and walk nr threads forward.
+	 * at the beginning and walk nr threads forward.
 	 */
-	pos = task = task->group_leader;
-	do {
+	for_each_thread(task, pos) {
 		if (!nr--)
 			goto found;
-	} while_each_thread(task, pos);
+	}
 fail:
 	pos = NULL;
 	goto out;
@@ -3478,10 +3477,8 @@ static struct task_struct *next_tid(struct task_struct *start)
 	struct task_struct *pos = NULL;
 	rcu_read_lock();
 	if (pid_alive(start)) {
-		pos = next_thread(start);
-		if (thread_group_leader(pos))
-			pos = NULL;
-		else
+		pos = following_thread(start);
+		if (pos)
 			get_task_struct(pos);
 	}
 	rcu_read_unlock();
