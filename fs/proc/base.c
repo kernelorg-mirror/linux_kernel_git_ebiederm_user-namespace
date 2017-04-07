@@ -2643,8 +2643,12 @@ static int do_io_accounting(struct task_struct *task, struct seq_file *m, int wh
 		spin_lock_irqsave(&task->signal->siglock, flags);
 
 		task_io_accounting_add(&acct, &task->signal->ioac);
-		while_each_thread(task, t)
+		for_each_thread(task, t) {
+			/* acct was initialized with task->ioac */
+			if (t == task)
+				continue;
 			task_io_accounting_add(&acct, &t->ioac);
+		}
 
 		spin_unlock_irqrestore(&task->signal->siglock, flags);
 	}
