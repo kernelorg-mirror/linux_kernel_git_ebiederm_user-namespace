@@ -531,9 +531,6 @@ static inline void itimers_exit(struct signal_struct *sig)
 
 extern bool current_is_single_threaded(void);
 
-#define while_each_thread(g, t) \
-	while ((t = next_thread(t)) != g)
-
 #define __for_each_thread(signal, t)	\
 	list_for_each_entry_rcu(t, &(signal)->thread_head, thread_node)
 
