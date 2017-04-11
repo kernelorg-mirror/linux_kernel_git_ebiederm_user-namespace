@@ -881,12 +881,12 @@ static void lookup_events_by_type_and_signal(struct kfd_process *p,
 		if (send_sigterm) {
 			dev_warn(kfd_device,
 				"Sending SIGTERM to HSA Process with PID %d ",
-					p->lead_thread->pid);
-			send_sig(SIGTERM, p->lead_thread, 0);
+				 pid_nr(p->tgid));
+			kill_pid(p->tgid, SIGTERM, 0);
 		} else {
 			dev_err(kfd_device,
 				"HSA Process (PID %d) got unhandled exception",
-				p->lead_thread->pid);
+				pid_nr(p->tgid));
 		}
 	}
 }

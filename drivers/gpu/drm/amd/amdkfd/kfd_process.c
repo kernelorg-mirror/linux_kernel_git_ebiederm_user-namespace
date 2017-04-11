@@ -24,6 +24,7 @@
 #include <linux/log2.h>
 #include <linux/sched.h>
 #include <linux/sched/mm.h>
+#include <linux/sched/signal.h>
 #include <linux/slab.h>
 #include <linux/amd-iommu.h>
 #include <linux/notifier.h>
@@ -84,10 +85,6 @@ struct kfd_process *kfd_create_process(const struct task_struct *thread)
 	if (thread->mm == NULL)
 		return ERR_PTR(-EINVAL);
 
-	/* Only the pthreads threading model is supported. */
-	if (thread->group_leader->mm != thread->mm)
-		return ERR_PTR(-EINVAL);
-
 	/* Take mmap_sem because we call __mmu_notifier_register inside */
 	down_write(&thread->mm->mmap_sem);
 
@@ -118,10 +115,6 @@ struct kfd_process *kfd_get_process(const struct task_struct *thread)
 	struct kfd_process *process;
 
 	if (thread->mm == NULL)
-		return ERR_PTR(-EINVAL);
-
-	/* Only the pthreads threading model is supported. */
-	if (thread->group_leader->mm != thread->mm)
 		return ERR_PTR(-EINVAL);
 
 	process = find_process(thread);
@@ -304,7 +297,7 @@ static struct kfd_process *create_process(const struct task_struct *thread)
 	hash_add_rcu(kfd_processes_table, &process->kfd_processes,
 			(uintptr_t)process->mm);
 
-	process->lead_thread = thread->group_leader;
+	process->tgid = task_tgid(thread);
 
 	process->queue_array_size = INITIAL_QUEUE_ARRAY_SIZE;
 

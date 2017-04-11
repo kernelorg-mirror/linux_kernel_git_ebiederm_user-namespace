@@ -484,12 +484,8 @@ struct kfd_process {
 
 	struct mutex mutex;
 
-	/*
-	 * In any process, the thread that started main() is the lead
-	 * thread and outlives the rest.
-	 * It is here because amd_iommu_bind_pasid wants a task_struct.
-	 */
-	struct task_struct *lead_thread;
+	/* In extraordinary cases we want to send SIGTERM to the process */
+	struct pid *tgid;
 
 	/* We want to receive a notification when the mm_struct is destroyed */
 	struct mmu_notifier mmu_notifier;
