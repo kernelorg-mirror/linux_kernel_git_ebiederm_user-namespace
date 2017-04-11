@@ -2153,7 +2153,7 @@ void walk_process_tree(struct task_struct *top, proc_visitor visitor, void *data
 	int res;
 
 	read_lock(&tasklist_lock);
-	leader = top = top->group_leader;
+	leader = top;
 down:
 	for_each_thread(leader, parent) {
 		list_for_each_entry(child, &parent->children, sibling) {
@@ -2169,10 +2169,10 @@ up:
 		}
 	}
 
-	if (leader != top) {
+	if (!same_thread_group(leader, top)) {
 		child = leader;
 		parent = child->real_parent;
-		leader = parent->group_leader;
+		leader = parent;
 		goto up;
 	}
 out:
