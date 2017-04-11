@@ -3454,7 +3454,7 @@ static int binder_open(struct inode *nodp, struct file *filp)
 	struct binder_device *binder_dev;
 
 	binder_debug(BINDER_DEBUG_OPEN_CLOSE, "binder_open: %d:%d\n",
-		     current->group_leader->pid, current->pid);
+		     current->tgid, current->pid);
 
 	proc = kzalloc(sizeof(*proc), GFP_KERNEL);
 	if (proc == NULL)
@@ -3473,7 +3473,7 @@ static int binder_open(struct inode *nodp, struct file *filp)
 
 	binder_stats_created(BINDER_STAT_PROC);
 	hlist_add_head(&proc->proc_node, &binder_procs);
-	proc->pid = current->group_leader->pid;
+	proc->pid = current->tgid;
 	INIT_LIST_HEAD(&proc->delivered_death);
 	filp->private_data = proc;
 
