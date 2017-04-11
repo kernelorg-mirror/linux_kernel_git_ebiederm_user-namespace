@@ -379,7 +379,7 @@ static int zap_threads(struct task_struct *tsk, struct mm_struct *mm,
 	 */
 	rcu_read_lock();
 	for_each_process(g) {
-		if (g == tsk->group_leader)
+		if (same_thread_group(g, tsk))
 			continue;
 		if (g->flags & PF_KTHREAD)
 			continue;
