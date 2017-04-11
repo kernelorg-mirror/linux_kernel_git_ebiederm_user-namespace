@@ -113,7 +113,7 @@ static struct net *get_proc_task_net(struct inode *dir)
 	struct net *net = NULL;
 
 	rcu_read_lock();
-	task = pid_task(proc_pid(dir), PIDTYPE_PID);
+	task = pid_task(proc_pid(dir), PIDTYPE_TGID);
 	if (task != NULL) {
 		task_lock(task);
 		ns = task->nsproxy;
