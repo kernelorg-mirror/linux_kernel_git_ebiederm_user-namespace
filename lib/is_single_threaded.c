@@ -34,7 +34,8 @@ bool current_is_single_threaded(void)
 	for_each_process(p) {
 		if (unlikely(p->flags & PF_KTHREAD))
 			continue;
-		if (unlikely(p == task->group_leader))
+		/* Zombie thread? */
+		if (unlikely(same_thread_group(p, task)))
 			continue;
 
 		for_each_thread(p, t) {
