@@ -263,12 +263,12 @@ void rcuwait_wake_up(struct rcuwait *w)
  * "I ask you, have you ever known what it is to be an orphan?"
  */
 static int will_become_orphaned_pgrp(struct pid *pgrp,
-					struct task_struct *ignored_task)
+				     struct signal_struct *ignored)
 {
 	struct task_struct *p;
 
 	do_each_pid_task(pgrp, PIDTYPE_PGID, p) {
-		if ((p == ignored_task) ||
+		if ((p->signal == ignored) ||
 		    (p->exit_state && thread_group_empty(p)) ||
 		    is_global_init(p->real_parent))
 			continue;
@@ -313,7 +313,7 @@ static void
 kill_orphaned_pgrp(struct task_struct *tsk, struct task_struct *parent)
 {
 	struct pid *pgrp = task_pgrp(tsk);
-	struct task_struct *ignored_task = tsk;
+	struct signal_struct *ignored = tsk->signal;
 
 	if (!parent)
 		/* exit: our father is in a different pgrp than
@@ -324,11 +324,11 @@ kill_orphaned_pgrp(struct task_struct *tsk, struct task_struct *parent)
 		/* reparent: our child is in a different pgrp than
 		 * we are, and it was the only connection outside.
 		 */
-		ignored_task = NULL;
+		ignored = NULL;
 
 	if (task_pgrp(parent) != pgrp &&
 	    task_session(parent) == task_session(tsk) &&
-	    will_become_orphaned_pgrp(pgrp, ignored_task) &&
+	    will_become_orphaned_pgrp(pgrp, ignored) &&
 	    has_stopped_jobs(pgrp)) {
 		__kill_pgrp_info(SIGHUP, SEND_SIG_PRIV, pgrp);
 		__kill_pgrp_info(SIGCONT, SEND_SIG_PRIV, pgrp);
@@ -641,7 +641,7 @@ static void exit_notify(struct task_struct *tsk, int group_dead)
 	forget_original_parent(tsk, &dead);
 
 	if (group_dead)
-		kill_orphaned_pgrp(tsk->group_leader, NULL);
+		kill_orphaned_pgrp(tsk, NULL);
 
 renotify:
 	state = EXIT_DEAD;
