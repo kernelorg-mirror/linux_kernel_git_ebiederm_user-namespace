@@ -430,6 +430,8 @@ static int do_task_stat(struct seq_file *m, struct pid_namespace *ns,
 	sigemptyset(&sigcatch);
 	cutime = cstime = utime = stime = 0;
 	cgtime = gtime = 0;
+	/* convert nsec -> ticks */
+	start_time = nsec_to_clock_t(task->real_start_time);
 
 	if (lock_task_sighand(task, &flags)) {
 		struct signal_struct *sig = task->signal;
@@ -464,6 +466,8 @@ static int do_task_stat(struct seq_file *m, struct pid_namespace *ns,
 			maj_flt += sig->maj_flt;
 			thread_group_cputime_adjusted(task, &utime, &stime);
 			gtime += sig->gtime;
+			/* convert nsec -> ticks */
+			start_time = nsec_to_clock_t(sig->real_start_time);
 		}
 
 		sid = task_session_nr_ns(task, ns);
@@ -486,9 +490,6 @@ static int do_task_stat(struct seq_file *m, struct pid_namespace *ns,
 	/* to make it look like a "normal" Unix priority/nice value  */
 	priority = task_prio(task);
 	nice = task_nice(task);
-
-	/* convert nsec -> ticks */
-	start_time = nsec_to_clock_t(task->real_start_time);
 
 	seq_printf(m, "%d (%s) %c", pid_nr_ns(pid, ns), tcomm, state);
 	seq_put_decimal_ll(m, " ", ppid);

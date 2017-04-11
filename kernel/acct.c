@@ -428,7 +428,7 @@ static void fill_ac(acct_t *ac)
 
 	/* calculate run_time in nsec*/
 	run_time = ktime_get_ns();
-	run_time -= current->group_leader->start_time;
+	run_time -= current->signal->monotonic_start_time;
 	/* convert nsec -> AHZ */
 	elapsed = nsec_to_AHZ(run_time);
 #if ACCT_VERSION == 3

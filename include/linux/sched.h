@@ -695,7 +695,7 @@ struct task_struct {
 	unsigned long			nivcsw;
 
 	/* Monotonic time in nsecs: */
-	u64				start_time;
+	u64				monotonic_start_time;
 
 	/* Boot based time in nsecs: */
 	u64				real_start_time;

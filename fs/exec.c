@@ -1110,19 +1110,6 @@ static int de_thread(struct task_struct *tsk)
 				goto killed;
 		}
 
-		/*
-		 * The only record we have of the real-time age of a
-		 * process, regardless of execs it's done, is start_time.
-		 * All the past CPU time is accumulated in signal_struct
-		 * from sister threads now dead.  But in this non-leader
-		 * exec, nothing survives from the original leader thread,
-		 * whose birth marks the true age of this process now.
-		 * When we take on its identity by switching to its PID, we
-		 * also take its birthdate (always earlier than our own).
-		 */
-		tsk->start_time = leader->start_time;
-		tsk->real_start_time = leader->real_start_time;
-
 		BUG_ON(!same_thread_group(leader, tsk));
 		BUG_ON(has_group_leader_pid(tsk));
 		/*

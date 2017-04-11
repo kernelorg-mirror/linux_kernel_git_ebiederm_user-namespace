@@ -243,7 +243,7 @@ static int fill_stats_for_tgid(pid_t tgid, struct taskstats *stats)
 		delayacct_add_tsk(stats, tsk);
 
 		/* calculate task elapsed time in nsec */
-		delta = start_time - tsk->start_time;
+		delta = start_time - tsk->monotonic_start_time;
 		/* Convert to micro seconds */
 		do_div(delta, NSEC_PER_USEC);
 		stats->ac_etime += delta;

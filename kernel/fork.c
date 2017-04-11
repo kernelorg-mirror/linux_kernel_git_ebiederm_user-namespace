@@ -1413,6 +1413,8 @@ static int copy_signal(unsigned long clone_flags, struct task_struct *tsk)
 	sig->oom_score_adj_min = current->signal->oom_score_adj_min;
 
 	mutex_init(&sig->cred_guard_mutex);
+	sig->monotonic_start_time = tsk->monotonic_start_time;
+	sig->real_start_time = tsk->real_start_time;
 
 	return 0;
 }
@@ -1642,7 +1644,7 @@ static __latent_entropy struct task_struct *copy_process(
 
 	posix_cpu_timers_init(p);
 
-	p->start_time = ktime_get_ns();
+	p->monotonic_start_time = ktime_get_ns();
 	p->real_start_time = ktime_get_boot_ns();
 	p->io_context = NULL;
 	p->audit_context = NULL;

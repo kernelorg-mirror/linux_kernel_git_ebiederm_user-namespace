@@ -222,6 +222,11 @@ struct signal_struct {
 	struct mutex cred_guard_mutex;	/* guard against foreign influences on
 					 * credential calculations
 					 * (notably. ptrace) */
+	/* Monotonic time in nsecs: */
+	u64				monotonic_start_time;
+
+	/* Boot based time in nsecs: */
+	u64				real_start_time;
 };
 
 /*
