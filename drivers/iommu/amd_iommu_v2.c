@@ -624,11 +624,10 @@ static struct notifier_block ppr_nb = {
 };
 
 int amd_iommu_bind_pasid(struct pci_dev *pdev, int pasid,
-			 struct task_struct *task)
+			 struct mm_struct *mm)
 {
 	struct pasid_state *pasid_state;
 	struct device_state *dev_state;
-	struct mm_struct *mm;
 	u16 devid;
 	int ret;
 
@@ -657,7 +656,7 @@ int amd_iommu_bind_pasid(struct pci_dev *pdev, int pasid,
 	init_waitqueue_head(&pasid_state->wq);
 	spin_lock_init(&pasid_state->lock);
 
-	mm                        = get_task_mm(task);
+	mmget(mm);
 	pasid_state->mm           = mm;
 	pasid_state->device_state = dev_state;
 	pasid_state->pasid        = pasid;

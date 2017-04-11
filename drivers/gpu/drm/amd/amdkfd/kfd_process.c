@@ -392,7 +392,7 @@ struct kfd_process_device *kfd_bind_process_to_device(struct kfd_dev *dev,
 	if (pdd->bound)
 		return pdd;
 
-	err = amd_iommu_bind_pasid(dev->pdev, p->pasid, p->lead_thread);
+	err = amd_iommu_bind_pasid(dev->pdev, p->pasid, p->mm);
 	if (err < 0)
 		return ERR_PTR(err);
 

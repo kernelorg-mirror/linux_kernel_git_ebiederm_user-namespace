@@ -38,7 +38,7 @@ struct amd_iommu_pi_data {
 
 #ifdef CONFIG_AMD_IOMMU
 
-struct task_struct;
+struct mm_struct;
 struct pci_dev;
 
 extern int amd_iommu_detect(void);
@@ -84,12 +84,12 @@ extern void amd_iommu_free_device(struct pci_dev *pdev);
  * amd_iommu_bind_pasid() - Bind a given task to a PASID on a device
  * @pdev: The PCI device to bind the task to
  * @pasid: The PASID on the device the task should be bound to
- * @task: the task to bind
+ * @mm: the mm to bind
  *
  * The function returns 0 on success or a negative value on error.
  */
 extern int amd_iommu_bind_pasid(struct pci_dev *pdev, int pasid,
-				struct task_struct *task);
+				struct mm_struct *mm);
 
 /**
  * amd_iommu_unbind_pasid() - Unbind a PASID from its task on
