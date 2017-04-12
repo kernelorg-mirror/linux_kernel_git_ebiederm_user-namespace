@@ -2417,7 +2417,8 @@ ssize_t __cgroup_procs_write(struct kernfs_open_file *of, char *buf,
 	percpu_down_write(&cgroup_threadgroup_rwsem);
 	rcu_read_lock();
 	if (pid) {
-		tsk = find_task_by_vpid(pid);
+		enum pid_type type = threadgroup ? PIDTYPE_TGID : PIDTYPE_PID;
+		tsk = pid_task(find_vpid(pid), type);
 		if (!tsk) {
 			ret = -ESRCH;
 			goto out_unlock_rcu;
@@ -2425,9 +2426,6 @@ ssize_t __cgroup_procs_write(struct kernfs_open_file *of, char *buf,
 	} else {
 		tsk = current;
 	}
-
-	if (threadgroup)
-		tsk = tsk->group_leader;
 
 	/*
 	 * kthreads may acquire PF_NO_SETAFFINITY during initialization.
