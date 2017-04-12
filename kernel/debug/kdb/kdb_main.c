@@ -2469,7 +2469,6 @@ static int kdb_kill(int argc, const char **argv)
 		kdb_printf("The specified process isn't found.\n");
 		return 0;
 	}
-	p = p->group_leader;
 	info.si_signo = sig;
 	info.si_errno = 0;
 	info.si_code = SI_USER;
