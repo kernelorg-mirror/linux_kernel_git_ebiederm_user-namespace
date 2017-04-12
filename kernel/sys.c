@@ -1315,9 +1315,9 @@ SYSCALL_DEFINE2(old_getrlimit, unsigned int, resource,
 	if (resource >= RLIM_NLIMITS)
 		return -EINVAL;
 
-	task_lock(current->group_leader);
+	spin_lock(&current->signal->rlim_lock);
 	x = current->signal->rlim[resource];
-	task_unlock(current->group_leader);
+	spin_unlock(&current->signal->rlim_lock);
 	if (x.rlim_cur > 0x7FFFFFFF)
 		x.rlim_cur = 0x7FFFFFFF;
 	if (x.rlim_max > 0x7FFFFFFF)
@@ -1378,7 +1378,7 @@ int do_prlimit(struct task_struct *tsk, unsigned int resource,
 	}
 
 	rlim = tsk->signal->rlim + resource;
-	task_lock(tsk->group_leader);
+	spin_lock(&tsk->signal->rlim_lock);
 	if (new_rlim) {
 		/* Keep the capable check against init_user_ns until
 		   cgroups can contain all limits */
@@ -1403,7 +1403,7 @@ int do_prlimit(struct task_struct *tsk, unsigned int resource,
 		if (new_rlim)
 			*rlim = *new_rlim;
 	}
-	task_unlock(tsk->group_leader);
+	spin_unlock(&tsk->signal->rlim_lock);
 
 	/*
 	 * RLIMIT_CPU handling.   Note that the kernel fails to return an error

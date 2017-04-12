@@ -82,6 +82,7 @@ extern struct fs_struct init_fs;
 		[PIDTYPE_PGID]	= &init_struct_pid,			\
 		[PIDTYPE_SID]	= &init_struct_pid,			\
 	},								\
+	.rlim_lock	= __SPIN_LOCK_UNLOCKED(sig.rlim_lock),		\
 	.rlim		= INIT_RLIMITS,					\
 	INIT_CPUTIMER(sig)						\
 	INIT_PREV_CPUTIME(sig)						\

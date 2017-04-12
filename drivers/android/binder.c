@@ -406,16 +406,11 @@ static int task_get_unused_fd_flags(struct binder_proc *proc, int flags)
 {
 	struct files_struct *files = proc->files;
 	unsigned long rlim_cur;
-	unsigned long irqs;
 
 	if (files == NULL)
 		return -ESRCH;
 
-	if (!lock_task_sighand(proc->tsk, &irqs))
-		return -EMFILE;
-
 	rlim_cur = task_rlimit(proc->tsk, RLIMIT_NOFILE);
-	unlock_task_sighand(proc->tsk, &irqs);
 
 	return __alloc_fd(files, 0, rlim_cur, flags);
 }

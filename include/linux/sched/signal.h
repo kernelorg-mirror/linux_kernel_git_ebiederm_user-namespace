@@ -184,10 +184,11 @@ struct signal_struct {
 	 * because there is no reader checking a limit that actually needs
 	 * to get both rlim_cur and rlim_max atomically, and either one
 	 * alone is a single word that can safely be read normally.
-	 * getrlimit/setrlimit use task_lock(current->group_leader) to
+	 * getrlimit/setrlimit use spin_lock(&current->signal->rlim_lock) to
 	 * protect this instead of the siglock, because they really
 	 * have no need to disable irqs.
 	 */
+	spinlock_t rlim_lock;
 	struct rlimit rlim[RLIM_NLIMITS];
 
 #ifdef CONFIG_BSD_PROCESS_ACCT

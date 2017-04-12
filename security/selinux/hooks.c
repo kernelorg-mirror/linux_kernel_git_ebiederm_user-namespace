@@ -2527,13 +2527,13 @@ static void selinux_bprm_committing_creds(struct linux_binprm *bprm)
 			  PROCESS__RLIMITINH, NULL);
 	if (rc) {
 		/* protect against do_prlimit() */
-		task_lock(current);
+		spin_lock(&current->signal->rlim_lock);
 		for (i = 0; i < RLIM_NLIMITS; i++) {
 			rlim = current->signal->rlim + i;
 			initrlim = init_task.signal->rlim + i;
 			rlim->rlim_cur = min(rlim->rlim_max, initrlim->rlim_cur);
 		}
-		task_unlock(current);
+		spin_unlock(&current->signal->rlim_lock);
 		if (IS_ENABLED(CONFIG_POSIX_TIMERS))
 			update_rlimit_cpu(current, rlimit(RLIMIT_CPU));
 	}

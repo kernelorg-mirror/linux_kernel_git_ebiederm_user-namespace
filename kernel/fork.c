@@ -1402,9 +1402,10 @@ static int copy_signal(unsigned long clone_flags, struct task_struct *tsk)
 	sig->real_timer.function = it_real_fn;
 #endif
 
-	task_lock(current->group_leader);
+	spin_lock_init(&sig->rlim_lock);
+	spin_lock(&current->signal->rlim_lock);
 	memcpy(sig->rlim, current->signal->rlim, sizeof sig->rlim);
-	task_unlock(current->group_leader);
+	spin_unlock(&current->signal->rlim_lock);
 
 	posix_cpu_timers_init_group(sig);
 
