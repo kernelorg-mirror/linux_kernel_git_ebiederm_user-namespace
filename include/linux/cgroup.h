@@ -18,6 +18,7 @@
 #include <linux/kernfs.h>
 #include <linux/jump_label.h>
 #include <linux/types.h>
+#include <linux/sched/signal.h>
 #include <linux/ns_common.h>
 #include <linux/nsproxy.h>
 #include <linux/user_namespace.h>
@@ -275,7 +276,7 @@ void css_task_iter_end(struct css_task_iter *it);
 	for ((leader) = cgroup_taskset_first((tset), &(dst_css));	\
 	     (leader);							\
 	     (leader) = cgroup_taskset_next((tset), &(dst_css)))	\
-		if ((leader) != (leader)->group_leader)			\
+		if (!thread_group_leader(leader))			\
 			;						\
 		else
 
