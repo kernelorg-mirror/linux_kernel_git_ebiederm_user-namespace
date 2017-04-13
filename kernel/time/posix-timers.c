@@ -501,11 +501,13 @@ static enum hrtimer_restart posix_timer_fn(struct hrtimer *timer)
 
 static struct pid *good_sigevent(sigevent_t * event)
 {
-	struct task_struct *rtn = current->group_leader;
+	struct pid *rtn = task_tgid(current);
+	struct task_struct *tsk;
 
 	if ((event->sigev_notify & SIGEV_THREAD_ID ) &&
-		(!(rtn = find_task_by_vpid(event->sigev_notify_thread_id)) ||
-		 !same_thread_group(rtn, current) ||
+		((!(rtn = find_vpid(event->sigev_notify_thread_id))) ||
+		 (!(tsk = pid_task(rtn, PIDTYPE_PID))) ||
+		 !same_thread_group(tsk, current) ||
 		 (event->sigev_notify & ~SIGEV_THREAD_ID) != SIGEV_SIGNAL))
 		return NULL;
 
@@ -513,7 +515,7 @@ static struct pid *good_sigevent(sigevent_t * event)
 	    ((event->sigev_signo <= 0) || (event->sigev_signo > SIGRTMAX)))
 		return NULL;
 
-	return task_pid(rtn);
+	return rtn;
 }
 
 void posix_timers_register_clock(const clockid_t clock_id,
