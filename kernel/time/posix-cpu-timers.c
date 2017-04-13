@@ -1043,9 +1043,21 @@ void run_posix_cpu_timers(struct task_struct *tsk)
 {
 	LIST_HEAD(firing);
 	struct k_itimer *timer, *next;
-	unsigned long flags;
 
 	WARN_ON_ONCE(!irqs_disabled());
+
+	/*
+	 * The code is currently running in interrupt context
+	 * with tsk == current.
+	 *
+	 * PF_EXITING is always set by the current process.
+	 * tsk->sighand is set to NULL only after PF_EXITING is set.
+	 *
+	 * Therefore checking PF_EXITING guarantees sighand
+	 * will not be NULL below.
+	 */
+	if (tsk->flags & PF_EXITING)
+		return;
 
 	/*
 	 * The fast path checks that there are no expired thread or thread
@@ -1054,8 +1066,7 @@ void run_posix_cpu_timers(struct task_struct *tsk)
 	if (!fastpath_timer_check(tsk))
 		return;
 
-	if (!lock_task_sighand(tsk, &flags))
-		return;
+	spin_lock(&tsk->signal->siglock);
 	/*
 	 * Here we take off tsk->signal->cpu_timers[N] and
 	 * tsk->cpu_timers[N] all the timers that are firing, and
@@ -1073,7 +1084,7 @@ void run_posix_cpu_timers(struct task_struct *tsk)
 	 * that gets the timer lock before we do will give it up and
 	 * spin until we've taken care of that timer below.
 	 */
-	unlock_task_sighand(tsk, &flags);
+	spin_unlock(&tsk->signal->siglock);
 
 	/*
 	 * Now that all the timers on our list have the firing flag,
