@@ -1396,7 +1396,7 @@ static int fill_psinfo(struct elf_prpsinfo *psinfo, struct task_struct *p,
 	rcu_read_lock();
 	psinfo->pr_ppid = task_pid_vnr(rcu_dereference(p->real_parent));
 	rcu_read_unlock();
-	psinfo->pr_pid = task_pid_vnr(p);
+	psinfo->pr_pid = task_tgid_vnr(p);
 	psinfo->pr_pgrp = task_pgrp_vnr(p);
 	psinfo->pr_sid = task_session_vnr(p);
 
@@ -1647,7 +1647,7 @@ static int elf_fdpic_core_dump(struct coredump_params *cprm)
 	 */
 
 	fill_note(notes + 0, "CORE", NT_PRSTATUS, sizeof(*prstatus), prstatus);
-	fill_psinfo(psinfo, current->group_leader, current->mm);
+	fill_psinfo(psinfo, current, current->mm);
 	fill_note(notes + 1, "CORE", NT_PRPSINFO, sizeof(*psinfo), psinfo);
 
 	numnote = 2;

@@ -1488,7 +1488,7 @@ static int fill_psinfo(struct elf_prpsinfo *psinfo, struct task_struct *p,
 	rcu_read_lock();
 	psinfo->pr_ppid = task_pid_vnr(rcu_dereference(p->real_parent));
 	rcu_read_unlock();
-	psinfo->pr_pid = task_pid_vnr(p);
+	psinfo->pr_pid = task_tgid_vnr(p);
 	psinfo->pr_pgrp = task_pgrp_vnr(p);
 	psinfo->pr_sid = task_session_vnr(p);
 
@@ -1796,7 +1796,7 @@ static int fill_note_info(struct elfhdr *elf, int phdrs,
 	/*
 	 * Fill in the two process-wide notes.
 	 */
-	fill_psinfo(psinfo, dump_task->group_leader, dump_task->mm);
+	fill_psinfo(psinfo, dump_task, dump_task->mm);
 	info->size += notesize(&info->psinfo);
 
 	fill_siginfo_note(&info->signote, &info->csigdata, siginfo);
@@ -2008,7 +2008,7 @@ static int fill_note_info(struct elfhdr *elf, int phdrs,
 
 	fill_note(info->notes + 0, "CORE", NT_PRSTATUS,
 		  sizeof(*info->prstatus), info->prstatus);
-	fill_psinfo(info->psinfo, current->group_leader, current->mm);
+	fill_psinfo(info->psinfo, current, current->mm);
 	fill_note(info->notes + 1, "CORE", NT_PRPSINFO,
 		  sizeof(*info->psinfo), info->psinfo);
 
