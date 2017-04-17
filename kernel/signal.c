@@ -2415,8 +2415,10 @@ static void retarget_shared_pending(struct task_struct *tsk, sigset_t *which)
 	}
 }
 
-void exit_signals(struct task_struct *tsk)
+bool exit_signals(struct task_struct *tsk, int exit_code)
 {
+	struct signal_struct *sig = tsk->signal;
+	bool group_dead;
 	int group_stop = 0;
 	sigset_t unblocked;
 
@@ -2426,12 +2428,6 @@ void exit_signals(struct task_struct *tsk)
 	 */
 	cgroup_threadgroup_change_begin(tsk);
 
-	if (thread_group_empty(tsk) || signal_group_exit(tsk->signal)) {
-		tsk->flags |= PF_EXITING;
-		cgroup_threadgroup_change_end(tsk);
-		return;
-	}
-
 	spin_lock_irq(&tsk->sighand->siglock);
 	/*
 	 * From now this task is not visible for group-wide signals,
@@ -2439,9 +2435,20 @@ void exit_signals(struct task_struct *tsk)
 	 */
 	tsk->flags |= PF_EXITING;
 
+	group_dead = atomic_dec_and_test(&sig->live);
+
+	/*
+	 * Ensure that SIGNAL_GROUP_EXIT will be set after
+	 * every task in a thread group has died.
+	 */
+	if (unlikely(group_dead && !(sig->flags & SIGNAL_GROUP_EXIT))) {
+		sig->group_exit_code = exit_code;
+		signal_set_exit_flags(sig, SIGNAL_GROUP_EXIT);
+	}
+
 	cgroup_threadgroup_change_end(tsk);
 
-	if (!signal_pending(tsk))
+	if (!signal_pending(tsk) || (sig->flags & SIGNAL_GROUP_EXIT))
 		goto out;
 
 	unblocked = tsk->blocked;
@@ -2463,6 +2470,7 @@ out:
 		do_notify_parent_cldstop(tsk, false, group_stop);
 		read_unlock(&tasklist_lock);
 	}
+	return group_dead;
 }
 
 EXPORT_SYMBOL(recalc_sigpending);

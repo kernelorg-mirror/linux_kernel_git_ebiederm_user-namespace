@@ -757,7 +757,7 @@ void __noreturn do_exit(long code)
 		schedule();
 	}
 
-	exit_signals(tsk);  /* sets PF_EXITING */
+	group_dead = exit_signals(tsk, code);  /* sets PF_EXITING */
 	/*
 	 * Ensure that all new tsk->pi_lock acquisitions must observe
 	 * PF_EXITING. Serializes against futex.c:attach_to_pi_owner().
@@ -780,7 +780,6 @@ void __noreturn do_exit(long code)
 	if (tsk->mm)
 		sync_mm_rss(tsk->mm);
 	acct_update_integrals(tsk);
-	group_dead = atomic_dec_and_test(&tsk->signal->live);
 	if (group_dead) {
 		itimers_exit(tsk->signal);
 		exit_posix_timers(tsk->signal);

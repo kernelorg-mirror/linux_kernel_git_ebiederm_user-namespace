@@ -254,7 +254,7 @@ extern int show_unhandled_signals;
 
 extern int get_signal(struct ksignal *ksig);
 extern void signal_setup_done(int failed, struct ksignal *ksig, int stepping);
-extern void exit_signals(struct task_struct *tsk);
+extern bool exit_signals(struct task_struct *tsk, int exit_code);
 extern void kernel_sigaction(int, __sighandler_t);
 
 static inline void allow_signal(int sig)
