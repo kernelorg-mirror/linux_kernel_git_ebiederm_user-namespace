@@ -12,6 +12,7 @@
 #include <trace/events/timer.h>
 #include <linux/tick.h>
 #include <linux/workqueue.h>
+#include <linux/ptrace.h> /* For ptrace_may_access */
 
 /*
  * Called after updating RLIMIT_CPU to run cpu timer and update
@@ -50,6 +51,9 @@ static struct task_struct *cpu_clock_task_rcu(const clockid_t which_clock)
 	}
 	if (!p)
 		p = ERR_PTR(-ESRCH);
+
+	if (!IS_ERR(p) && !ptrace_may_access(p, PTRACE_MODE_READ_FSCREDS))
+		p = ERR_PTR(-EPERM);
 
 	return p;
 }
