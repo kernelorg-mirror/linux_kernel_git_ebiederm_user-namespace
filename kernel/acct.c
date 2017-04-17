@@ -550,8 +550,9 @@ void acct_collect(long exitcode, int group_dead)
 	spin_lock_irq(&current->sighand->siglock);
 	if (group_dead)
 		pacct->ac_mem = vsize / 1024;
+	if (current->signal->flags & SIGNAL_GROUP_EXIT)
+		pacct->ac_exitcode = current->signal->group_exit_code;
 	if (thread_group_leader(current)) {
-		pacct->ac_exitcode = exitcode;
 		if (current->flags & PF_FORKNOEXEC)
 			pacct->ac_flag |= AFORK;
 	}

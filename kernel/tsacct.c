@@ -46,8 +46,9 @@ void bacct_add_tsk(struct user_namespace *user_ns,
 	/* Convert to seconds for btime */
 	do_div(delta, USEC_PER_SEC);
 	stats->ac_btime = get_seconds() - delta;
+	if (tsk->signal->flags & SIGNAL_GROUP_EXIT)
+		stats->ac_exitcode = current->signal->group_exit_code;
 	if (thread_group_leader(tsk)) {
-		stats->ac_exitcode = tsk->exit_code;
 		if (tsk->flags & PF_FORKNOEXEC)
 			stats->ac_flag |= AFORK;
 	}
