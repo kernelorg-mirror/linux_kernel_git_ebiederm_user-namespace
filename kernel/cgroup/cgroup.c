@@ -1575,7 +1575,7 @@ static void cgroup_enable_task_cg_lists(void)
 	 * tasklist if we walk through it with RCU.
 	 */
 	read_lock(&tasklist_lock);
-	do_each_thread(g, p) {
+	for_each_process_thread(g, p) {
 		WARN_ON_ONCE(!list_empty(&p->cg_list) ||
 			     task_css_set(p) != &init_css_set);
 
@@ -1600,7 +1600,7 @@ static void cgroup_enable_task_cg_lists(void)
 			get_css_set(cset);
 		}
 		spin_unlock(&p->signal->siglock);
-	} while_each_thread(g, p);
+	}
 	read_unlock(&tasklist_lock);
 out_unlock:
 	spin_unlock_irq(&css_set_lock);

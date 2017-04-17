@@ -4143,12 +4143,12 @@ pfm_check_task_exist(pfm_context_t *ctx)
 
 	read_lock(&tasklist_lock);
 
-	do_each_thread (g, t) {
+	for_each_process_thread(g, t) {
 		if (t->thread.pfm_context == ctx) {
 			ret = 0;
 			goto out;
 		}
-	} while_each_thread (g, t);
+	}
 out:
 	read_unlock(&tasklist_lock);
 

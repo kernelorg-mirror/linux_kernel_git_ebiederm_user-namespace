@@ -2569,7 +2569,7 @@ void __do_SAK(struct tty_struct *tty)
 	} while_each_pid_task(session, PIDTYPE_SID, p);
 
 	/* Now kill any processes that happen to have the tty open */
-	do_each_thread(g, p) {
+	for_each_process_thread(g, p) {
 		if (p->signal->tty == tty) {
 			tty_notice(tty, "SAK: killed process %d (%s): by controlling tty\n",
 				   task_pid_nr(p), p->comm);
@@ -2584,7 +2584,7 @@ void __do_SAK(struct tty_struct *tty)
 			force_sig(SIGKILL, p);
 		}
 		task_unlock(p);
-	} while_each_thread(g, p);
+	}
 	read_unlock(&tasklist_lock);
 #endif
 }

@@ -527,13 +527,6 @@ static inline void itimers_exit(struct signal_struct *sig)
 
 extern bool current_is_single_threaded(void);
 
-/*
- * Careful: do_each_thread/while_each_thread is a double loop so
- *          'break' will not work as expected - use goto instead.
- */
-#define do_each_thread(g, t) \
-	for (g = t = &init_task ; (g = t = next_task(g)) != &init_task ; ) do
-
 #define while_each_thread(g, t) \
 	while ((t = next_thread(t)) != g)
 
