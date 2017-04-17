@@ -361,23 +361,26 @@ static int posix_cpu_timer_del(struct k_itimer *timer)
 {
 	int ret = 0;
 	unsigned long flags;
-	struct sighand_struct *sighand;
 	struct task_struct *p = timer->it.cpu.task;
 
 	WARN_ON_ONCE(p == NULL);
 
 	/*
-	 * Protect against sighand release/switch in exit/exec and process/
-	 * thread timer list entry concurrent read/writes.
+	 * Protect against process/thread timer list entry concurrent
+	 * read/writes.
 	 */
-	sighand = lock_task_sighand(p, &flags);
-	if (unlikely(sighand == NULL)) {
+	if (lock_task_sighand(p, &flags)) {
 		/*
-		 * We raced with the reaping of the task.
-		 * The deletion should have cleared us off the list.
+		 * A successfull lock_task_sighand indicates
+		 * the timer is still connected to a process
+		 * and has not passed through posix_cpu_timers_exit
+		 * or posix_cpu_timers_group_exit.
+		 *
+		 * As such it is necessary to obtain the timer lock
+		 * and the connected processes siglock before
+		 * testing firing (which is set under siglock and cleared
+		 * under the timer lock).
 		 */
-		WARN_ON_ONCE(!list_empty(&timer->it.cpu.entry));
-	} else {
 		if (timer->it.cpu.firing)
 			ret = TIMER_RETRY;
 		else
