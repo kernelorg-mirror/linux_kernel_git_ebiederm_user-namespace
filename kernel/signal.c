@@ -805,18 +805,19 @@ static void wake_up_stopped_thread(struct task_struct *t)
  * Returns true if the signal should be actually delivered, otherwise
  * it should be dropped.
  */
-static bool prepare_signal(int sig, struct task_struct *p, bool force)
+static bool prepare_signal(int sig, struct task_struct *p, bool group, bool force)
 {
 	struct signal_struct *signal = p->signal;
 	struct task_struct *t;
 	sigset_t flush;
 
-	if (signal->flags & (SIGNAL_GROUP_EXIT | SIGNAL_GROUP_COREDUMP)) {
-		if (!(signal->flags & SIGNAL_GROUP_EXIT))
-			return sig == SIGKILL;
-		/*
-		 * The process is in the middle of dying, nothing to do.
-		 */
+	/* Dead tasks or processes don't need signals */
+	if ((signal->flags & SIGNAL_GROUP_EXIT) ||
+	    (!group && (p->flags & PF_EXITING)))
+		return false;
+
+	if (signal->flags & SIGNAL_GROUP_COREDUMP) {
+		return sig == SIGKILL;
 	} else if (sig_kernel_stop(sig)) {
 		/*
 		 * This is a stop signal.  Remove SIGCONT from all queues.
@@ -996,7 +997,7 @@ static int __send_signal(int sig, struct siginfo *info, struct task_struct *t,
 	assert_spin_locked(&t->sighand->siglock);
 
 	result = TRACE_SIGNAL_IGNORED;
-	if (!prepare_signal(sig, t,
+	if (!prepare_signal(sig, t, group,
 			from_ancestor_ns || (info == SEND_SIG_FORCED)))
 		goto ret;
 
@@ -1550,7 +1551,7 @@ int send_sigqueue(struct sigqueue *q, struct task_struct *t, int group)
 
 	ret = 1; /* the signal is ignored */
 	result = TRACE_SIGNAL_IGNORED;
-	if (!prepare_signal(sig, t, false))
+	if (!prepare_signal(sig, t, group, false))
 		goto out;
 
 	ret = 0;
