@@ -16,7 +16,6 @@ struct sighand_struct {
 	atomic_t		count;
 	struct k_sigaction	action[_NSIG];
 	spinlock_t		siglock;
-	wait_queue_head_t	signalfd_wqh;
 };
 
 /*
@@ -88,6 +87,7 @@ struct signal_struct {
 
 	/* shared signal handling: */
 	struct sigpending	shared_pending;
+	wait_queue_head_t	signalfd_wqh;
 
 	/* thread group exit support */
 	int			group_exit_code;

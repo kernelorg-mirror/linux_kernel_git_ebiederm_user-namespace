@@ -32,9 +32,9 @@
 #include <linux/proc_fs.h>
 #include <linux/compat.h>
 
-void signalfd_cleanup(struct sighand_struct *sighand)
+void signalfd_cleanup(struct signal_struct *sig)
 {
-	wait_queue_head_t *wqh = &sighand->signalfd_wqh;
+	wait_queue_head_t *wqh = &sig->signalfd_wqh;
 	/*
 	 * The lockless check can race with remove_wait_queue() in progress,
 	 * but in this case its caller should run under rcu_read_lock() and
@@ -62,7 +62,7 @@ static unsigned int signalfd_poll(struct file *file, poll_table *wait)
 	struct signalfd_ctx *ctx = file->private_data;
 	unsigned int events = 0;
 
-	poll_wait(file, &current->sighand->signalfd_wqh, wait);
+	poll_wait(file, &current->signal->signalfd_wqh, wait);
 
 	spin_lock_irq(&current->sighand->siglock);
 	if (next_signal(&current->pending, &ctx->sigmask) ||
@@ -174,7 +174,7 @@ static ssize_t signalfd_dequeue(struct signalfd_ctx *ctx, siginfo_t *info,
 		return ret;
 	}
 
-	add_wait_queue(&current->sighand->signalfd_wqh, &wait);
+	add_wait_queue(&current->signal->signalfd_wqh, &wait);
 	for (;;) {
 		set_current_state(TASK_INTERRUPTIBLE);
 		ret = dequeue_signal(current, &ctx->sigmask, info);
@@ -190,7 +190,7 @@ static ssize_t signalfd_dequeue(struct signalfd_ctx *ctx, siginfo_t *info,
 	}
 	spin_unlock_irq(&current->sighand->siglock);
 
-	remove_wait_queue(&current->sighand->signalfd_wqh, &wait);
+	remove_wait_queue(&current->signal->signalfd_wqh, &wait);
 	__set_current_state(TASK_RUNNING);
 
 	return ret;
@@ -299,7 +299,7 @@ SYSCALL_DEFINE4(signalfd4, int, ufd, sigset_t __user *, user_mask,
 		ctx->sigmask = sigmask;
 		spin_unlock_irq(&current->sighand->siglock);
 
-		wake_up(&current->sighand->signalfd_wqh);
+		wake_up(&current->signal->signalfd_wqh);
 		fdput(f);
 	}
 

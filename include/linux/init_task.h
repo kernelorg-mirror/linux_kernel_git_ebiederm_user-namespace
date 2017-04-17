@@ -73,6 +73,7 @@ extern struct fs_struct init_fs;
 	.shared_pending	= { 						\
 		.list = LIST_HEAD_INIT(sig.shared_pending.list),	\
 		.signal =  {{0}}},					\
+	.signalfd_wqh	= __WAIT_QUEUE_HEAD_INITIALIZER(sig.signalfd_wqh),	\
 	INIT_POSIX_TIMERS(sig)						\
 	INIT_CPU_TIMERS(sig)						\
 	.rlim		= INIT_RLIMITS,					\
@@ -88,7 +89,6 @@ extern struct nsproxy init_nsproxy;
 	.count		= ATOMIC_INIT(1), 				\
 	.action		= { { { .sa_handler = SIG_DFL, } }, },		\
 	.siglock	= __SPIN_LOCK_UNLOCKED(sighand.siglock),	\
-	.signalfd_wqh	= __WAIT_QUEUE_HEAD_INITIALIZER(sighand.signalfd_wqh),	\
 }
 
 extern struct group_info init_groups;

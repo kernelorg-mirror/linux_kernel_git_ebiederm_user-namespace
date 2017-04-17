@@ -17,17 +17,17 @@
  */
 static inline void signalfd_notify(struct task_struct *tsk, int sig)
 {
-	if (unlikely(waitqueue_active(&tsk->sighand->signalfd_wqh)))
-		wake_up(&tsk->sighand->signalfd_wqh);
+	if (unlikely(waitqueue_active(&tsk->signal->signalfd_wqh)))
+		wake_up(&tsk->signal->signalfd_wqh);
 }
 
-extern void signalfd_cleanup(struct sighand_struct *sighand);
+extern void signalfd_cleanup(struct signal_struct *sig);
 
 #else /* CONFIG_SIGNALFD */
 
 static inline void signalfd_notify(struct task_struct *tsk, int sig) { }
 
-static inline void signalfd_cleanup(struct sighand_struct *sighand) { }
+static inline void signalfd_cleanup(struct signal_struct *sig) { }
 
 #endif /* CONFIG_SIGNALFD */
 

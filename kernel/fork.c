@@ -392,6 +392,7 @@ EXPORT_SYMBOL(free_task);
 
 static inline void free_signal_struct(struct signal_struct *sig)
 {
+	signalfd_cleanup(sig);
 	taskstats_tgid_free(sig);
 	sched_autogroup_exit(sig);
 	/*
@@ -1336,7 +1337,6 @@ static int copy_sighand(unsigned long clone_flags, struct task_struct *tsk)
 void __cleanup_sighand(struct sighand_struct *sighand)
 {
 	if (atomic_dec_and_test(&sighand->count)) {
-		signalfd_cleanup(sighand);
 		/*
 		 * sighand_cachep is SLAB_TYPESAFE_BY_RCU so we can free it
 		 * without an RCU grace period, see __lock_task_sighand().
@@ -1391,6 +1391,7 @@ static int copy_signal(unsigned long clone_flags, struct task_struct *tsk)
 	init_waitqueue_head(&sig->wait_chldexit);
 	sig->curr_target = tsk;
 	init_sigpending(&sig->shared_pending);
+	init_waitqueue_head(&sig->signalfd_wqh);
 	seqlock_init(&sig->stats_lock);
 	prev_cputime_init(&sig->prev_cputime);
 
@@ -2184,7 +2185,6 @@ static void sighand_ctor(void *data)
 	struct sighand_struct *sighand = data;
 
 	spin_lock_init(&sighand->siglock);
-	init_waitqueue_head(&sighand->signalfd_wqh);
 }
 
 void __init proc_caches_init(void)
