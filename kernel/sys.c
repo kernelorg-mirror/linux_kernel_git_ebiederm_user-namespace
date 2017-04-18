@@ -1558,9 +1558,7 @@ static void k_getrusage(struct task_struct *p, int who, struct rusage *r)
 		goto out;
 	}
 
-	if (!lock_task_sighand(p, &flags))
-		return;
-
+	spin_lock_irqsave(&p->signal->siglock, flags);
 	switch (who) {
 	case RUSAGE_BOTH:
 	case RUSAGE_CHILDREN:
@@ -1598,7 +1596,7 @@ static void k_getrusage(struct task_struct *p, int who, struct rusage *r)
 	default:
 		BUG();
 	}
-	unlock_task_sighand(p, &flags);
+	spin_unlock_irqrestore(&p->signal->siglock, flags);
 
 out:
 	r->ru_utime = ns_to_timeval(utime);
