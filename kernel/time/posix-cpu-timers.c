@@ -29,6 +29,13 @@ void update_rlimit_cpu(struct task_struct *task, unsigned long rlim_new)
 	spin_unlock_irq(&task->signal->siglock);
 }
 
+static bool cpu_clock_alive(clockid_t which_clock, struct task_struct *p)
+{
+	return !(CPUCLOCK_PERTHREAD(which_clock) ?
+		 p->flags & PF_EXITING :
+		 p->signal->flags & SIGNAL_GROUP_EXIT);
+}
+
 static struct task_struct *cpu_clock_task_rcu(const clockid_t which_clock)
 {
 	const pid_t which_pid = CPUCLOCK_PID(which_clock);
@@ -345,25 +352,12 @@ static int posix_cpu_timer_del(struct k_itimer *timer)
 	 * Protect against process/thread timer list entry concurrent
 	 * read/writes.
 	 */
-	if (lock_task_sighand(p, &flags)) {
-		/*
-		 * A successfull lock_task_sighand indicates
-		 * the timer is still connected to a process
-		 * and has not passed through posix_cpu_timers_exit
-		 * or posix_cpu_timers_group_exit.
-		 *
-		 * As such it is necessary to obtain the timer lock
-		 * and the connected processes siglock before
-		 * testing firing (which is set under siglock and cleared
-		 * under the timer lock).
-		 */
-		if (timer->it.cpu.firing)
-			ret = TIMER_RETRY;
-		else
-			list_del(&timer->it.cpu.entry);
-
-		unlock_task_sighand(p, &flags);
-	}
+	spin_lock_irqsave(&p->signal->siglock, flags);
+	if (timer->it.cpu.firing)
+		ret = TIMER_RETRY;
+	else
+		list_del(&timer->it.cpu.entry);
+	spin_unlock_irqrestore(&p->signal->siglock, flags);
 
 	if (!ret)
 		put_task_struct(p);
@@ -540,7 +534,6 @@ static int posix_cpu_timer_set(struct k_itimer *timer, int timer_flags,
 			       struct itimerspec64 *new, struct itimerspec64 *old)
 {
 	unsigned long flags;
-	struct sighand_struct *sighand;
 	struct task_struct *p = timer->it.cpu.task;
 	u64 old_expires, new_expires, old_incr, val;
 	int ret;
@@ -550,15 +543,13 @@ static int posix_cpu_timer_set(struct k_itimer *timer, int timer_flags,
 	new_expires = timespec64_to_ns(&new->it_value);
 
 	/*
-	 * Protect against sighand release/switch in exit/exec and p->cpu_timers
-	 * and p->signal->cpu_timers read/write in arm_timer()
+	 * Protect against p->cpu_timers and p->signal->cpu_timers
+	 * read/write in arm_timer()
 	 */
-	sighand = lock_task_sighand(p, &flags);
-	/*
-	 * If p has just been reaped, we can no
-	 * longer get any information about it at all.
-	 */
-	if (unlikely(sighand == NULL)) {
+
+	spin_lock_irqsave(&p->signal->siglock, flags);
+	if (unlikely(!cpu_clock_alive(timer->it_clock, p))) {
+		spin_unlock_irqrestore(&p->signal->siglock, flags);
 		return -ESRCH;
 	}
 
@@ -623,7 +614,7 @@ static int posix_cpu_timer_set(struct k_itimer *timer, int timer_flags,
 		 * disable this firing since we are already reporting
 		 * it as an overrun (thanks to bump_cpu_timer above).
 		 */
-		unlock_task_sighand(p, &flags);
+		spin_unlock_irqrestore(&p->signal->siglock, flags);
 		goto out;
 	}
 
@@ -641,7 +632,7 @@ static int posix_cpu_timer_set(struct k_itimer *timer, int timer_flags,
 		arm_timer(timer);
 	}
 
-	unlock_task_sighand(p, &flags);
+	spin_unlock_irqrestore(&p->signal->siglock, flags);
 	/*
 	 * Install the new reload setting, and
 	 * set up the signal and overrun bookkeeping.
@@ -944,7 +935,8 @@ void posix_cpu_timer_schedule(struct k_itimer *timer)
 	bump_cpu_timer(timer, now);
 
 	/* Protect timer list r/w in arm_timer() */
-	if (!lock_task_sighand(p, &flags))
+	spin_lock_irqsave(&p->signal->siglock, flags);
+	if (!cpu_clock_alive(timer->it_clock, p))
 		goto out;
 
 	/*
@@ -952,9 +944,8 @@ void posix_cpu_timer_schedule(struct k_itimer *timer)
 	 */
 	WARN_ON_ONCE(!irqs_disabled());
 	arm_timer(timer);
-	unlock_task_sighand(p, &flags);
-
 out:
+	spin_unlock_irqrestore(&p->signal->siglock, flags);
 	timer->it_overrun_last = timer->it_overrun;
 	timer->it_overrun = -1;
 	++timer->it_requeue_pending;
