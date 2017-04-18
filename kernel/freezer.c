@@ -96,12 +96,9 @@ EXPORT_SYMBOL(__refrigerator);
 
 static void fake_signal_wake_up(struct task_struct *p)
 {
-	unsigned long flags;
-
-	if (lock_task_sighand(p, &flags)) {
-		signal_wake_up(p, 0);
-		unlock_task_sighand(p, &flags);
-	}
+	spin_lock(&p->signal->siglock);
+	signal_wake_up(p, 0);
+	spin_unlock(&p->signal->siglock);
 }
 
 /**
