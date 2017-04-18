@@ -53,11 +53,9 @@ static inline struct autogroup *autogroup_task_get(struct task_struct *p)
 	struct autogroup *ag;
 	unsigned long flags;
 
-	if (!lock_task_sighand(p, &flags))
-		return autogroup_kref_get(&autogroup_default);
-
+	spin_lock_irqsave(&p->signal->siglock, flags);
 	ag = autogroup_kref_get(p->signal->autogroup);
-	unlock_task_sighand(p, &flags);
+	spin_unlock_irqrestore(&p->signal->siglock, flags);
 
 	return ag;
 }
@@ -142,11 +140,11 @@ autogroup_move_group(struct task_struct *p, struct autogroup *ag)
 	struct task_struct *t;
 	unsigned long flags;
 
-	BUG_ON(!lock_task_sighand(p, &flags));
+	spin_lock_irqsave(&p->signal->siglock, flags);
 
 	prev = p->signal->autogroup;
 	if (prev == ag) {
-		unlock_task_sighand(p, &flags);
+		spin_unlock_irqrestore(&p->signal->siglock, flags);
 		return;
 	}
 
@@ -165,7 +163,7 @@ autogroup_move_group(struct task_struct *p, struct autogroup *ag)
 	for_each_thread(p, t)
 		sched_move_task(t);
 
-	unlock_task_sighand(p, &flags);
+	spin_unlock_irqrestore(&p->signal->siglock, flags);
 	autogroup_kref_put(prev);
 }
 
