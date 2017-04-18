@@ -630,32 +630,28 @@ static int ptrace_setoptions(struct task_struct *child, unsigned long data)
 static int ptrace_getsiginfo(struct task_struct *child, siginfo_t *info)
 {
 	unsigned long flags;
-	int error = -ESRCH;
+	int error = -EINVAL;
 
-	if (lock_task_sighand(child, &flags)) {
-		error = -EINVAL;
-		if (likely(child->last_siginfo != NULL)) {
-			*info = *child->last_siginfo;
-			error = 0;
-		}
-		unlock_task_sighand(child, &flags);
+	spin_lock_irqsave(&child->signal->siglock, flags);
+	if (likely(child->last_siginfo != NULL)) {
+		*info = *child->last_siginfo;
+		error = 0;
 	}
+	spin_unlock_irqrestore(&child->signal->siglock, flags);
 	return error;
 }
 
 static int ptrace_setsiginfo(struct task_struct *child, const siginfo_t *info)
 {
 	unsigned long flags;
-	int error = -ESRCH;
+	int error = -EINVAL;
 
-	if (lock_task_sighand(child, &flags)) {
-		error = -EINVAL;
-		if (likely(child->last_siginfo != NULL)) {
-			*child->last_siginfo = *info;
-			error = 0;
-		}
-		unlock_task_sighand(child, &flags);
+	spin_lock_irqsave(&child->signal->siglock, flags);
+	if (likely(child->last_siginfo != NULL)) {
+		*child->last_siginfo = *info;
+		error = 0;
 	}
+	spin_unlock_irqrestore(&child->signal->siglock, flags);
 	return error;
 }
 
@@ -955,7 +951,7 @@ int ptrace_request(struct task_struct *child, long request,
 		 * The actual trap might not be PTRACE_EVENT_STOP trap but
 		 * the pending condition is cleared regardless.
 		 */
-		if (unlikely(!seized || !lock_task_sighand(child, &flags)))
+		if (unlikely(!seized))
 			break;
 
 		/*
@@ -964,10 +960,11 @@ int ptrace_request(struct task_struct *child, long request,
 		 * STOP, this INTERRUPT should clear LISTEN and re-trap
 		 * tracee into STOP.
 		 */
+		spin_lock_irqsave(&child->signal->siglock, flags);
 		if (likely(task_set_jobctl_pending(child, JOBCTL_TRAP_STOP)))
 			ptrace_signal_wake_up(child, child->jobctl & JOBCTL_LISTENING);
 
-		unlock_task_sighand(child, &flags);
+		spin_unlock_irqrestore(&child->signal->siglock, flags);
 		ret = 0;
 		break;
 
@@ -980,9 +977,10 @@ int ptrace_request(struct task_struct *child, long request,
 		 * again.  Alternatively, ptracer can issue INTERRUPT to
 		 * finish listening and re-trap tracee into STOP.
 		 */
-		if (unlikely(!seized || !lock_task_sighand(child, &flags)))
+		if (unlikely(!seized))
 			break;
 
+		spin_lock_irqsave(&child->signal->siglock, flags);
 		si = child->last_siginfo;
 		if (likely(si && (si->si_code >> 8) == PTRACE_EVENT_STOP)) {
 			child->jobctl |= JOBCTL_LISTENING;
@@ -994,7 +992,7 @@ int ptrace_request(struct task_struct *child, long request,
 				ptrace_signal_wake_up(child, true);
 			ret = 0;
 		}
-		unlock_task_sighand(child, &flags);
+		spin_unlock_irqrestore(&child->signal->siglock, flags);
 		break;
 
 	case PTRACE_DETACH:	 /* detach a process that was attached. */
