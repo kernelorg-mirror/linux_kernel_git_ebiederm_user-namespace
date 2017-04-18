@@ -582,13 +582,17 @@ static inline struct task_struct *following_thread(const struct task_struct *p)
 
 static inline struct task_struct *next_thread(const struct task_struct *p)
 {
-	return list_entry_rcu(p->thread_group.next,
-			      struct task_struct, thread_group);
+	struct task_struct *next = following_thread(p);
+	if (!next)
+		next = list_entry_rcu(p->signal->thread_head.next,
+				      struct task_struct, thread_node);
+	return next;
 }
 
 static inline int thread_group_empty(struct task_struct *p)
 {
-	return list_empty(&p->thread_group);
+	/* At most thread_head is in the list */
+	return (p->thread_node.next == p->thread_node.prev);
 }
 
 static inline struct sighand_struct *lock_task_sighand(struct task_struct *tsk,
