@@ -3382,7 +3382,7 @@ static struct dentry *proc_task_lookup(struct inode *dir, struct dentry * dentry
 
 	ns = dentry->d_sb->s_fs_info;
 	rcu_read_lock();
-	task = find_task_by_pid_ns(tid, ns);
+	task = pid_task(find_pid_ns(tid, ns), PIDTYPE_PID);
 	if (task)
 		get_task_struct(task);
 	rcu_read_unlock();
