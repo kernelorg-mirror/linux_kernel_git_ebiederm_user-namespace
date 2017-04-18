@@ -2171,7 +2171,6 @@ static const struct file_operations proc_map_files_operations = {
 struct timers_private {
 	struct inode *inode;
 	struct task_struct *task;
-	struct sighand_struct *sighand;
 	struct pid_namespace *ns;
 	unsigned long flags;
 };
@@ -2184,10 +2183,7 @@ static void *timers_start(struct seq_file *m, loff_t *pos)
 	if (!tp->task)
 		return ERR_PTR(-ESRCH);
 
-	tp->sighand = lock_task_sighand(tp->task, &tp->flags);
-	if (!tp->sighand)
-		return ERR_PTR(-ESRCH);
-
+	spin_lock_irqsave(&tp->task->signal->siglock, tp->flags);
 	return seq_list_start(&tp->task->signal->posix_timers, *pos);
 }
 
@@ -2201,11 +2197,7 @@ static void timers_stop(struct seq_file *m, void *v)
 {
 	struct timers_private *tp = m->private;
 
-	if (tp->sighand) {
-		unlock_task_sighand(tp->task, &tp->flags);
-		tp->sighand = NULL;
-	}
-
+	spin_unlock_irqrestore(&tp->task->signal->siglock, tp->flags);
 	if (tp->task) {
 		put_task_struct(tp->task);
 		tp->task = NULL;
@@ -2647,14 +2639,16 @@ static int do_io_accounting(struct task_struct *task, struct seq_file *m, int wh
 		goto out_unlock;
 	}
 
-	if (whole && lock_task_sighand(task, &flags)) {
+	if (whole) {
 		struct task_struct *t = task;
+
+		spin_lock_irqsave(&task->signal->siglock, flags);
 
 		task_io_accounting_add(&acct, &task->signal->ioac);
 		while_each_thread(task, t)
 			task_io_accounting_add(&acct, &t->ioac);
 
-		unlock_task_sighand(task, &flags);
+		spin_unlock_irqrestore(&task->signal->siglock, flags);
 	}
 	seq_printf(m,
 		   "rchar: %llu\n"

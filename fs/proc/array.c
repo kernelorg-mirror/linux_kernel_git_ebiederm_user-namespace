@@ -262,6 +262,9 @@ static void collect_sigign_sigcatch(struct task_struct *p, sigset_t *ign,
 	int i;
 
 	/* p->sighand is protected by siglock */
+	if (!p->sighand)
+		return;
+
 	spin_lock(&p->sighand->lock);
 	k = p->sighand->action;
 	for (i = 1; i <= _NSIG; ++i, ++k) {
@@ -287,18 +290,17 @@ static inline void task_sig(struct seq_file *m, struct task_struct *p)
 	sigemptyset(&ignored);
 	sigemptyset(&caught);
 
-	if (lock_task_sighand(p, &flags)) {
-		pending = p->pending.signal;
-		shpending = p->signal->shared_pending.signal;
-		blocked = p->blocked;
-		collect_sigign_sigcatch(p, &ignored, &caught);
-		num_threads = get_nr_threads(p);
-		rcu_read_lock();  /* FIXME: is this correct? */
-		qsize = atomic_read(&__task_cred(p)->user->sigpending);
-		rcu_read_unlock();
-		qlim = task_rlimit(p, RLIMIT_SIGPENDING);
-		unlock_task_sighand(p, &flags);
-	}
+	spin_lock_irqsave(&p->signal->siglock, flags);
+	pending = p->pending.signal;
+	shpending = p->signal->shared_pending.signal;
+	blocked = p->blocked;
+	collect_sigign_sigcatch(p, &ignored, &caught);
+	num_threads = get_nr_threads(p);
+	rcu_read_lock();  /* FIXME: is this correct? */
+	qsize = atomic_read(&__task_cred(p)->user->sigpending);
+	rcu_read_unlock();
+	qlim = task_rlimit(p, RLIMIT_SIGPENDING);
+	spin_unlock_irqrestore(&p->signal->siglock, flags);
 
 	seq_put_decimal_ull(m, "Threads:\t", num_threads);
 	seq_put_decimal_ull(m, "\nSigQ:\t", qsize);
@@ -396,6 +398,7 @@ int proc_pid_status(struct seq_file *m, struct pid_namespace *ns,
 static int do_task_stat(struct seq_file *m, struct pid_namespace *ns,
 			struct pid *pid, struct task_struct *task, int whole)
 {
+	struct signal_struct *sig = task->signal;
 	unsigned long vsize, eip, esp, wchan = 0;
 	int priority, nice;
 	int tty_pgrp = -1, tty_nr = 0;
@@ -436,49 +439,45 @@ static int do_task_stat(struct seq_file *m, struct pid_namespace *ns,
 	/* convert nsec -> ticks */
 	start_time = nsec_to_clock_t(task->real_start_time);
 
-	if (lock_task_sighand(task, &flags)) {
-		struct signal_struct *sig = task->signal;
-
-		if (sig->tty) {
-			struct pid *pgrp = tty_get_pgrp(sig->tty);
-			tty_pgrp = pid_nr_ns(pgrp, ns);
-			put_pid(pgrp);
-			tty_nr = new_encode_dev(tty_devnum(sig->tty));
-		}
-
-		num_threads = get_nr_threads(task);
-		collect_sigign_sigcatch(task, &sigign, &sigcatch);
-
-		cmin_flt = sig->cmin_flt;
-		cmaj_flt = sig->cmaj_flt;
-		cutime = sig->cutime;
-		cstime = sig->cstime;
-		cgtime = sig->cgtime;
-		rsslim = ACCESS_ONCE(sig->rlim[RLIMIT_RSS].rlim_cur);
-
-		/* add up live thread stats at the group level */
-		if (whole) {
-			struct task_struct *t = task;
-			do {
-				min_flt += t->min_flt;
-				maj_flt += t->maj_flt;
-				gtime += task_gtime(t);
-			} while_each_thread(task, t);
-
-			min_flt += sig->min_flt;
-			maj_flt += sig->maj_flt;
-			thread_group_cputime_adjusted(task, &utime, &stime);
-			gtime += sig->gtime;
-			/* convert nsec -> ticks */
-			start_time = nsec_to_clock_t(sig->real_start_time);
-		}
-
-		sid = task_session_nr_ns(task, ns);
-		ppid = task_tgid_nr_ns(task->real_parent, ns);
-		pgid = task_pgrp_nr_ns(task, ns);
-
-		unlock_task_sighand(task, &flags);
+	spin_lock_irqsave(&sig->siglock, flags);
+	if (sig->tty) {
+		struct pid *pgrp = tty_get_pgrp(sig->tty);
+		tty_pgrp = pid_nr_ns(pgrp, ns);
+		put_pid(pgrp);
+		tty_nr = new_encode_dev(tty_devnum(sig->tty));
 	}
+
+	num_threads = get_nr_threads(task);
+	collect_sigign_sigcatch(task, &sigign, &sigcatch);
+
+	cmin_flt = sig->cmin_flt;
+	cmaj_flt = sig->cmaj_flt;
+	cutime = sig->cutime;
+	cstime = sig->cstime;
+	cgtime = sig->cgtime;
+	rsslim = ACCESS_ONCE(sig->rlim[RLIMIT_RSS].rlim_cur);
+
+	/* add up live thread stats at the group level */
+	if (whole) {
+		struct task_struct *t = task;
+		do {
+			min_flt += t->min_flt;
+			maj_flt += t->maj_flt;
+			gtime += task_gtime(t);
+		} while_each_thread(task, t);
+
+		min_flt += sig->min_flt;
+		maj_flt += sig->maj_flt;
+		thread_group_cputime_adjusted(task, &utime, &stime);
+		gtime += sig->gtime;
+		/* convert nsec -> ticks */
+		start_time = nsec_to_clock_t(sig->real_start_time);
+	}
+
+	sid = task_session_nr_ns(task, ns);
+	ppid = task_tgid_nr_ns(task->real_parent, ns);
+	pgid = task_pgrp_nr_ns(task, ns);
+	spin_unlock_irqrestore(&sig->siglock, flags);
 
 	if (permitted && (!whole || num_threads < 2))
 		wchan = get_wchan(task);
