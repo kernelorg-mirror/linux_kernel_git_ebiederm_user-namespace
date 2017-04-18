@@ -334,7 +334,6 @@ static int zap_threads(struct task_struct *tsk, struct mm_struct *mm,
 			struct core_state *core_state, int exit_code)
 {
 	struct task_struct *g, *p;
-	unsigned long flags;
 	int nr = -EAGAIN;
 
 	spin_lock_irq(&tsk->signal->siglock);
@@ -370,9 +369,7 @@ static int zap_threads(struct task_struct *tsk, struct mm_struct *mm,
 	 * de_thread:
 	 *	It does list_replace_rcu(&leader->tasks, &current->tasks),
 	 *	we must see either old or new leader, this does not matter.
-	 *	However, it can change p->sighand, so lock_task_sighand(p)
-	 *	must be used. Since p->mm != NULL and we hold ->mmap_sem
-	 *	it can't fail.
+	 *	Since p->mm != NULL and we hold ->mmap_sem it can't fail.
 	 *
 	 *	Note also that "g" can be the old leader with ->mm == NULL
 	 *	and already unhashed and thus removed from ->thread_group.
@@ -391,10 +388,10 @@ static int zap_threads(struct task_struct *tsk, struct mm_struct *mm,
 			if (unlikely(!p->mm))
 				continue;
 			if (unlikely(p->mm == mm)) {
-				lock_task_sighand(p, &flags);
+				spin_lock_irq(&p->signal->siglock);
 				nr += zap_process(p, exit_code,
 							SIGNAL_GROUP_EXIT);
-				unlock_task_sighand(p, &flags);
+				spin_unlock_irq(&p->signal->siglock);
 			}
 			break;
 		}
