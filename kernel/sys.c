@@ -2073,7 +2073,7 @@ static int propagate_has_child_subreaper(struct task_struct *p, void *data)
 	 * it's subtree as they will never get out pidns.
 	 */
 	if (p->signal->has_child_subreaper ||
-	    is_child_reaper(task_pid(p)))
+	    is_child_reaper(task_tgid(p)))
 		return 0;
 
 	p->signal->has_child_subreaper = 1;
