@@ -221,9 +221,10 @@ static int fill_stats_for_tgid(pid_t tgid, struct taskstats *stats)
 	rcu_read_lock();
 	first = find_task_by_vpid(tgid);
 
-	if (!first || !lock_task_sighand(first, &flags))
+	if (!first)
 		goto out;
 
+	spin_lock_irqsave(&first->signal->siglock, flags);
 	if (first->signal->stats)
 		memcpy(stats, first->signal->stats, sizeof(*stats));
 	else
@@ -256,7 +257,7 @@ static int fill_stats_for_tgid(pid_t tgid, struct taskstats *stats)
 		stats->nivcsw += tsk->nivcsw;
 	} while_each_thread(first, tsk);
 
-	unlock_task_sighand(first, &flags);
+	spin_unlock_irqrestore(&first->signal->siglock, flags);
 	rc = 0;
 out:
 	rcu_read_unlock();
