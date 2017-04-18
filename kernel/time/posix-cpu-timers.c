@@ -429,17 +429,16 @@ static void cleanup_timers(struct list_head *head)
 }
 
 /*
- * These are both called with the siglock held, when the current thread
- * is being reaped.  When the final (leader) thread in the group is reaped,
- * posix_cpu_timers_exit_group will be called after posix_cpu_timers_exit.
+ * Call any time after PF_EXITING is set to disconnect timers
+ * timing the processes cpu consumption from the process.
  */
-void posix_cpu_timers_exit(struct task_struct *tsk)
+void posix_cpu_timers_exit(struct task_struct *tsk, bool group_dead)
 {
+	spin_lock_irq(&tsk->signal->siglock);
 	cleanup_timers(tsk->cpu_timers);
-}
-void posix_cpu_timers_exit_group(struct task_struct *tsk)
-{
-	cleanup_timers(tsk->signal->cpu_timers);
+	if (group_dead)
+		cleanup_timers(tsk->signal->cpu_timers);
+	spin_unlock_irq(&tsk->signal->siglock);
 }
 
 static inline int expires_gt(u64 expires, u64 new_exp)

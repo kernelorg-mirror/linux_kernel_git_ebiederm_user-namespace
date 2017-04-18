@@ -116,8 +116,13 @@ int posix_timer_event(struct k_itimer *timr, int si_private);
 void posix_cpu_timer_schedule(struct k_itimer *timer);
 
 void run_posix_cpu_timers(struct task_struct *task);
-void posix_cpu_timers_exit(struct task_struct *task);
-void posix_cpu_timers_exit_group(struct task_struct *task);
+#ifdef CONFIG_POSIX_TIMERS
+void posix_cpu_timers_exit(struct task_struct *task, bool group_dead);
+#else
+static inline void posix_cpu_timers_exit(struct task_struct *task, bool group_dead)
+{
+}
+#endif
 void set_process_cpu_timer(struct task_struct *task, unsigned int clock_idx,
 			   u64 *newval, u64 *oldval);
 

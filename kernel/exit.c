@@ -98,21 +98,6 @@ static void __exit_signal(struct task_struct *tsk)
 	spin_lock(&sig->siglock);
 	group_dead = list_is_singular(&sig->thread_head);
 
-#ifdef CONFIG_POSIX_TIMERS
-	posix_cpu_timers_exit(tsk);
-	if (group_dead) {
-		posix_cpu_timers_exit_group(tsk);
-	} else {
-		/*
-		 * This can only happen if the caller is de_thread().
-		 * FIXME: this is the temporary hack, we should teach
-		 * posix-cpu-timers to handle this case correctly.
-		 */
-		if (unlikely(has_group_leader_pid(tsk)))
-			posix_cpu_timers_exit_group(tsk);
-	}
-#endif
-
 	if (!group_dead) {
 		/*
 		 * If there is any task waiting for the group exit
@@ -771,6 +756,7 @@ void __noreturn do_exit(long code)
 	if (tsk->mm)
 		sync_mm_rss(tsk->mm);
 	acct_update_integrals(tsk);
+	posix_cpu_timers_exit(tsk, group_dead);
 	if (group_dead) {
 		itimers_exit(tsk->signal);
 		exit_posix_timers(tsk->signal);
