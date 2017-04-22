@@ -946,20 +946,11 @@ static inline int timer_delete_hook(struct k_itimer *timer)
 	return kc->timer_del(timer);
 }
 
-/* Delete a POSIX.1b interval timer. */
-SYSCALL_DEFINE1(timer_delete, timer_t, timer_id)
+static int do_timer_delete(struct k_itimer *timer, unsigned long flags)
 {
-	struct k_itimer *timer;
-	unsigned long flags;
-
-retry_delete:
-	timer = lock_timer(timer_id, &flags);
-	if (!timer)
-		return -EINVAL;
-
 	if (timer_delete_hook(timer) == TIMER_RETRY) {
 		unlock_timer(timer, flags);
-		goto retry_delete;
+		return TIMER_RETRY;
 	}
 
 	spin_lock(&current->sighand->siglock);
@@ -976,42 +967,36 @@ retry_delete:
 	return 0;
 }
 
-/*
- * return timer owned by the process, used by exit_itimers
- */
-static void itimer_delete(struct k_itimer *timer)
+/* Delete a POSIX.1b interval timer. */
+SYSCALL_DEFINE1(timer_delete, timer_t, timer_id)
 {
+	struct k_itimer *timer;
 	unsigned long flags;
 
-retry_delete:
-	spin_lock_irqsave(&timer->it_lock, flags);
+	do {
+		timer = lock_timer(timer_id, &flags);
+		if (!timer)
+			return -EINVAL;
+	} while (do_timer_delete(timer, flags) == TIMER_RETRY);
 
-	if (timer_delete_hook(timer) == TIMER_RETRY) {
-		unlock_timer(timer, flags);
-		goto retry_delete;
-	}
-	list_del(&timer->list);
-	/*
-	 * This keeps any tasks waiting on the spin lock from thinking
-	 * they got something (see the lock code above).
-	 */
-	timer->it_signal = NULL;
-
-	unlock_timer(timer, flags);
-	release_posix_timer(timer, IT_ID_SET);
+	return 0;
 }
 
 /*
- * This is called by do_exit or de_thread, only when there are no more
- * references to the shared signal_struct.
+ * This is called by do_exit or de_thread, only when there are no other
+ * living threads referencing signal_struct.  There still may be
+ * readers of /proc/<pid>/timers.
  */
 void exit_itimers(struct signal_struct *sig)
 {
 	struct k_itimer *tmr;
+	unsigned long flags;
 
 	while (!list_empty(&sig->posix_timers)) {
 		tmr = list_entry(sig->posix_timers.next, struct k_itimer, list);
-		itimer_delete(tmr);
+
+		spin_lock_irqsave(&tmr->it_lock, flags);
+		do_timer_delete(tmr, flags);
 	}
 }
 
