@@ -987,7 +987,7 @@ SYSCALL_DEFINE1(timer_delete, timer_t, timer_id)
  * living threads referencing signal_struct.  There still may be
  * readers of /proc/<pid>/timers.
  */
-void exit_itimers(struct signal_struct *sig)
+void exit_posix_timers(struct signal_struct *sig)
 {
 	struct k_itimer *tmr;
 	unsigned long flags;

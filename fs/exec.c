@@ -1158,8 +1158,8 @@ no_thread_group:
 	/* we have changed execution domain */
 	sig->exit_signal = SIGCHLD;
 
+	exit_posix_timers(sig);
 #ifdef CONFIG_POSIX_TIMERS
-	exit_itimers(sig);
 	flush_itimer_signals();
 #endif
 

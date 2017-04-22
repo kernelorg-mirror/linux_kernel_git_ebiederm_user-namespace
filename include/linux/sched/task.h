@@ -69,7 +69,13 @@ static inline void exit_thread(struct task_struct *tsk)
 extern void do_group_exit(int);
 
 extern void exit_files(struct task_struct *);
-extern void exit_itimers(struct signal_struct *);
+#ifdef CONFIG_POSIX_TIMERS
+extern void exit_posix_timers(struct signal_struct *);
+#else
+static inline void exit_posix_timers(struct signal_struct *sig)
+{
+}
+#endif
 
 extern long _do_fork(unsigned long, unsigned long, unsigned long, int __user *, int __user *, unsigned long);
 extern long do_fork(unsigned long, unsigned long, unsigned long, int __user *, int __user *);

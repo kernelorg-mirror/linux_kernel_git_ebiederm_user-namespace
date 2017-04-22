@@ -784,8 +784,8 @@ void __noreturn do_exit(long code)
 	if (group_dead) {
 #ifdef CONFIG_POSIX_TIMERS
 		hrtimer_cancel(&tsk->signal->real_timer);
-		exit_itimers(tsk->signal);
 #endif
+		exit_posix_timers(tsk->signal);
 		if (tsk->mm)
 			setmax_mm_hiwater_rss(&tsk->signal->maxrss, tsk->mm);
 	}
