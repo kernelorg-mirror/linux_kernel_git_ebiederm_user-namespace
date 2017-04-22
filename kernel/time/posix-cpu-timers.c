@@ -231,8 +231,6 @@ void thread_group_cputimer(struct task_struct *tsk, struct task_cputime *times)
 
 /*
  * Sample a process (thread group) clock for the given group_leader task.
- * Must be called with task sighand lock held for safe while_each_thread()
- * traversal.
  */
 static int cpu_clock_sample_group(const clockid_t which_clock,
 				  struct task_struct *p,
