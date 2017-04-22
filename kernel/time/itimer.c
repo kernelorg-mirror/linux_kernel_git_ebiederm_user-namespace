@@ -220,6 +220,12 @@ again:
 	return 0;
 }
 
+void itimers_exit(struct signal_struct *sig)
+{
+	/* Perform all of the itimer cleanup needed when a process exits. */
+	hrtimer_cancel(&sig->real_timer);
+}
+
 #ifdef __ARCH_WANT_SYS_ALARM
 
 /**

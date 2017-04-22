@@ -507,6 +507,14 @@ static inline void flush_posix_timer_signals(void)
 }
 #endif
 
+#ifdef CONFIG_POSIX_TIMERS
+extern void itimers_exit(struct signal_struct *sig);
+#else
+static inline void itimers_exit(struct signal_struct *sig)
+{
+}
+#endif
+
 #define tasklist_empty() \
 	list_empty(&init_task.tasks)
 
