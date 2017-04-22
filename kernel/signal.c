@@ -438,7 +438,7 @@ void flush_signals(struct task_struct *t)
 }
 
 #ifdef CONFIG_POSIX_TIMERS
-static void __flush_itimer_signals(struct sigpending *pending)
+static void __flush_posix_timer_signals(struct sigpending *pending)
 {
 	sigset_t signal, retain;
 	struct sigqueue *q, *n;
@@ -461,14 +461,14 @@ static void __flush_itimer_signals(struct sigpending *pending)
 	sigorsets(&pending->signal, &signal, &retain);
 }
 
-void flush_itimer_signals(void)
+void flush_posix_timer_signals(void)
 {
 	struct task_struct *tsk = current;
 	unsigned long flags;
 
 	spin_lock_irqsave(&tsk->sighand->siglock, flags);
-	__flush_itimer_signals(&tsk->pending);
-	__flush_itimer_signals(&tsk->signal->shared_pending);
+	__flush_posix_timer_signals(&tsk->pending);
+	__flush_posix_timer_signals(&tsk->signal->shared_pending);
 	spin_unlock_irqrestore(&tsk->sighand->siglock, flags);
 }
 #endif

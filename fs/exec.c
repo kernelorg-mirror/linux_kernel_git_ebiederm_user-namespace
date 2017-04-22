@@ -1159,9 +1159,7 @@ no_thread_group:
 	sig->exit_signal = SIGCHLD;
 
 	exit_posix_timers(sig);
-#ifdef CONFIG_POSIX_TIMERS
-	flush_itimer_signals();
-#endif
+	flush_posix_timer_signals();
 
 	if (atomic_read(&oldsighand->count) != 1) {
 		struct sighand_struct *newsighand;

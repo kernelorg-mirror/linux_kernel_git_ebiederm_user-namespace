@@ -499,7 +499,13 @@ static inline unsigned long sigsp(unsigned long sp, struct ksignal *ksig)
 }
 
 extern void __cleanup_sighand(struct sighand_struct *);
-extern void flush_itimer_signals(void);
+#ifdef CONFIG_POSIX_TIMERS
+extern void flush_posix_timer_signals(void);
+#else
+static inline void flush_posix_timer_signals(void)
+{
+}
+#endif
 
 #define tasklist_empty() \
 	list_empty(&init_task.tasks)
