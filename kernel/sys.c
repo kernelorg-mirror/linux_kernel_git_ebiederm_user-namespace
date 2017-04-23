@@ -975,7 +975,8 @@ SYSCALL_DEFINE2(setpgid, pid_t, pid, pid_t, pgid)
 
 		pgrp = find_vpid(pgid);
 		g = pid_task(pgrp, PIDTYPE_PGID);
-		if (!g || task_session(g) != task_session(group_leader))
+		if (!g || task_session(g) != task_session(group_leader) ||
+		    is_child_reaper(task_tgid(p)))
 			goto out;
 	}
 
