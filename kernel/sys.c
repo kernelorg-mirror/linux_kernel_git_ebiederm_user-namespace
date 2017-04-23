@@ -926,12 +926,12 @@ SYSCALL_DEFINE1(times, struct tms __user *, tbuf)
 SYSCALL_DEFINE2(setpgid, pid_t, pid, pid_t, pgid)
 {
 	struct task_struct *p;
-	struct task_struct *group_leader = current->group_leader;
+	struct task_struct *tsk = current;
 	struct pid *pgrp;
 	int err;
 
 	if (!pid)
-		pid = task_pid_vnr(group_leader);
+		pid = task_tgid_vnr(tsk);
 	if (!pgid)
 		pgid = pid;
 	if (pgid < 0)
@@ -948,16 +948,16 @@ SYSCALL_DEFINE2(setpgid, pid_t, pid, pid_t, pgid)
 	if (!p)
 		goto out;
 
-	if (same_thread_group(p->real_parent, group_leader)) {
+	if (same_thread_group(p->real_parent, tsk)) {
 		err = -EPERM;
-		if (task_session(p) != task_session(group_leader))
+		if (task_session(p) != task_session(tsk))
 			goto out;
 		err = -EACCES;
 		if (p->signal->flags & SIGNAL_EXECED)
 			goto out;
 	} else {
 		err = -ESRCH;
-		if (p != group_leader)
+		if (!same_thread_group(p, tsk))
 			goto out;
 	}
 
@@ -965,13 +965,13 @@ SYSCALL_DEFINE2(setpgid, pid_t, pid, pid_t, pgid)
 	if (p->signal->leader)
 		goto out;
 
-	pgrp = task_pid(p);
+	pgrp = task_tgid(p);
 	if (pgid != pid) {
 		struct task_struct *g;
 
 		pgrp = find_vpid(pgid);
 		g = pid_task(pgrp, PIDTYPE_PGID);
-		if (!g || task_session(g) != task_session(group_leader) ||
+		if (!g || task_session(g) != task_session(tsk) ||
 		    is_child_reaper(task_tgid(p)))
 			goto out;
 	}
