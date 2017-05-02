@@ -1205,11 +1205,15 @@ force_sig_info(int sig, struct siginfo *info, struct task_struct *t)
 int zap_other_threads(struct task_struct *p)
 {
 	struct task_struct *t = p;
+	bool consume;
 	int count = 0;
 
-	p->signal->group_stop_count = 0;
+	consume = (p->signal->group_stop_count) &&
+		(p->jobctl & JOBCTL_STOP_CONSUME);
 
 	while_each_thread(p, t) {
+		if (consume && (t->jobctl & JOBCTL_STOP_PENDING))
+			WARN_ON_ONCE(task_participate_group_stop(t));
 		task_clear_jobctl_pending(t, JOBCTL_PENDING_MASK);
 		count++;
 
