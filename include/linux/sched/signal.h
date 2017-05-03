@@ -236,6 +236,7 @@ struct signal_struct {
 
 #define SIGNAL_UNKILLABLE	0x00000040 /* for init: ignore fatal signals */
 #define SIGNAL_EXECED		0x00000080 /* This thread group has called exec */
+#define SIGNAL_DUMPED_DEAD_TIMES 0x00000100 /* This group has dumped dead times */
 
 #define SIGNAL_STOP_MASK (SIGNAL_CLD_CONTINUED | SIGNAL_STOP_STOPPED | \
 			  SIGNAL_STOP_CONTINUED | SIGNAL_WAKEUP_PENDING)

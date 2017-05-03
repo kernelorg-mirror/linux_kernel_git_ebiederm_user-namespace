@@ -1429,6 +1429,7 @@ static void fill_note(struct memelfnote *note, const char *name, int type,
 static void fill_prstatus(struct elf_prstatus *prstatus,
 		struct task_struct *p, long signr)
 {
+	u64 utime, stime;
 	prstatus->pr_info.si_signo = prstatus->pr_cursig = signr;
 	prstatus->pr_sigpend = p->pending.signal.sig[0];
 	prstatus->pr_sighold = p->blocked.sig[0];
@@ -1438,23 +1439,27 @@ static void fill_prstatus(struct elf_prstatus *prstatus,
 	prstatus->pr_pid = task_pid_vnr(p);
 	prstatus->pr_pgrp = task_pgrp_vnr(p);
 	prstatus->pr_sid = task_session_vnr(p);
-	if (thread_group_leader(p)) {
-		struct task_cputime cputime;
 
+	task_cputime(p, &utime, &stime);
+	spin_lock_irq(&p->signal->siglock);
+	if (!(p->signal->flags & SIGNAL_DUMPED_DEAD_TIMES)) {
 		/*
-		 * This is the record for the group leader.  It shows the
-		 * group-wide total, not its individual thread total.
+		 * This is the first record for this group. Add in the
+		 * cumulative times of previous dead threads.  This total
+		 * won't include the time of each live thread whose state
+		 * is included in the core dump.  The final total reported
+		 * to our parent process when it calls wait4 will include
+		 * those sums as well as the little bit more time it takes
+		 * this and each other thread to finish dying after the
+		 * core dump synchronization phase.
 		 */
-		thread_group_cputime(p, &cputime);
-		prstatus->pr_utime = ns_to_timeval(cputime.utime);
-		prstatus->pr_stime = ns_to_timeval(cputime.stime);
-	} else {
-		u64 utime, stime;
-
-		task_cputime(p, &utime, &stime);
-		prstatus->pr_utime = ns_to_timeval(utime);
-		prstatus->pr_stime = ns_to_timeval(stime);
+		p->signal->flags |= SIGNAL_DUMPED_DEAD_TIMES;
+		utime += p->signal->utime;
+		stime += p->signal->stime;
 	}
+	spin_unlock_irq(&p->signal->siglock);
+	prstatus->pr_utime = ns_to_timeval(utime);
+	prstatus->pr_stime = ns_to_timeval(stime);
 
 	prstatus->pr_cutime = ns_to_timeval(p->signal->cutime);
 	prstatus->pr_cstime = ns_to_timeval(p->signal->cstime);
