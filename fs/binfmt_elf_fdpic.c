@@ -1395,9 +1395,8 @@ static int fill_psinfo(struct elf_prpsinfo *psinfo, struct task_struct *p,
 	psinfo->pr_pgrp = task_pgrp_vnr(p);
 	psinfo->pr_sid = task_session_vnr(p);
 
-	i = p->state ? ffz(~p->state) + 1 : 0;
-	psinfo->pr_state = i;
-	psinfo->pr_sname = (i > 5) ? '.' : "RSDTZW"[i];
+	psinfo->pr_state = 0;	/* Running */
+	psinfo->pr_sname = 'R';	/* Running */
 	psinfo->pr_zomb = psinfo->pr_sname == 'Z';
 	psinfo->pr_nice = task_nice(p);
 	psinfo->pr_flag = p->flags;
