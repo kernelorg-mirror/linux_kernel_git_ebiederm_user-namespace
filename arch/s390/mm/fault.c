@@ -707,7 +707,7 @@ static void pfault_interrupt(struct ext_code ext_code,
 	/* Get the token (= pid of the affected task). */
 	pid = param64 & LPP_PFAULT_PID_MASK;
 	rcu_read_lock();
-	tsk = find_task_by_pid_ns(pid, &init_pid_ns);
+	tsk = pid_task(find_pid_ns(pid, &init_pid_ns), PIDTYPE_PID);
 	if (tsk)
 		get_task_struct(tsk);
 	rcu_read_unlock();
