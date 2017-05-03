@@ -624,7 +624,7 @@ get_children_pid(struct inode *inode, struct pid *pid_prev, loff_t pos)
 
 	read_lock(&tasklist_lock);
 
-	start = pid_task(proc_pid(inode), PIDTYPE_PID);
+	start = pid_task(proc_pid(inode), PIDTYPE_TGID);
 	if (!start)
 		goto out;
 
@@ -633,14 +633,14 @@ get_children_pid(struct inode *inode, struct pid *pid_prev, loff_t pos)
 	 * us significant speedup on children-rich processes.
 	 */
 	if (pid_prev) {
-		task = pid_task(pid_prev, PIDTYPE_PID);
+		task = pid_task(pid_prev, PIDTYPE_TGID);
 		if (task && task->real_parent == start &&
 		    !(list_empty(&task->sibling))) {
 			if (list_is_last(&task->sibling, &start->children))
 				goto out;
 			task = list_first_entry(&task->sibling,
 						struct task_struct, sibling);
-			pid = get_pid(task_pid(task));
+			pid = get_pid(task_tgid(task));
 			goto out;
 		}
 	}
@@ -662,7 +662,7 @@ get_children_pid(struct inode *inode, struct pid *pid_prev, loff_t pos)
 	 */
 	list_for_each_entry(task, &start->children, sibling) {
 		if (pos-- == 0) {
-			pid = get_pid(task_pid(task));
+			pid = get_pid(task_tgid(task));
 			break;
 		}
 	}
