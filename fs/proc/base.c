@@ -2169,7 +2169,7 @@ static const struct file_operations proc_map_files_operations = {
 
 #if defined(CONFIG_CHECKPOINT_RESTORE) && defined(CONFIG_POSIX_TIMERS)
 struct timers_private {
-	struct pid *pid;
+	struct inode *inode;
 	struct task_struct *task;
 	struct sighand_struct *sighand;
 	struct pid_namespace *ns;
@@ -2180,7 +2180,7 @@ static void *timers_start(struct seq_file *m, loff_t *pos)
 {
 	struct timers_private *tp = m->private;
 
-	tp->task = get_pid_task(tp->pid, PIDTYPE_PID);
+	tp->task = get_proc_task(tp->inode);
 	if (!tp->task)
 		return ERR_PTR(-ESRCH);
 
@@ -2255,7 +2255,7 @@ static int proc_timers_open(struct inode *inode, struct file *file)
 	if (!tp)
 		return -ENOMEM;
 
-	tp->pid = proc_pid(inode);
+	tp->inode = inode;
 	tp->ns = inode->i_sb->s_fs_info;
 	return 0;
 }
