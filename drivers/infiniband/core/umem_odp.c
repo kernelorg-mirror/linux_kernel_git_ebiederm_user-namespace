@@ -467,7 +467,7 @@ void ib_umem_odp_release(struct ib_umem *umem)
 		struct mm_struct *owning_mm        = NULL;
 
 		owning_process = get_pid_task(context->tgid,
-					      PIDTYPE_PID);
+					      PIDTYPE_TGID);
 		if (owning_process == NULL)
 			/*
 			 * The process is already dead, notifier were removed
@@ -632,7 +632,7 @@ int ib_umem_odp_map_dma_pages(struct ib_umem *umem, u64 user_virt, u64 bcnt,
 	user_virt = user_virt & page_mask;
 	bcnt += off; /* Charge for the first page offset as well. */
 
-	owning_process = get_pid_task(umem->context->tgid, PIDTYPE_PID);
+	owning_process = get_pid_task(umem->context->tgid, PIDTYPE_TGID);
 	if (owning_process == NULL) {
 		ret = -EINVAL;
 		goto out_no_task;

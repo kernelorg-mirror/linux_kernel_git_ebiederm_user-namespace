@@ -1143,7 +1143,7 @@ static void mlx4_ib_disassociate_ucontext(struct ib_ucontext *ibcontext)
 	struct task_struct *owning_process  = NULL;
 	struct mm_struct   *owning_mm       = NULL;
 
-	owning_process = get_pid_task(ibcontext->tgid, PIDTYPE_PID);
+	owning_process = get_pid_task(ibcontext->tgid, PIDTYPE_TGID);
 	if (!owning_process)
 		return;
 
@@ -1158,7 +1158,7 @@ static void mlx4_ib_disassociate_ucontext(struct ib_ucontext *ibcontext)
 			put_task_struct(owning_process);
 			msleep(1);
 			owning_process = get_pid_task(ibcontext->tgid,
-						      PIDTYPE_PID);
+						      PIDTYPE_TGID);
 			if (!owning_process ||
 			    owning_process->state == TASK_DEAD) {
 				pr_info("disassociate ucontext done, task was terminated\n");
