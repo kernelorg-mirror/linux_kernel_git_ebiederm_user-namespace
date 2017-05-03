@@ -62,6 +62,7 @@ union proc_op {
 
 struct proc_inode {
 	struct pid *pid;
+	enum pid_type type;
 	unsigned int fd;
 	union proc_op op;
 	struct proc_dir_entry *pde;
@@ -95,9 +96,16 @@ static inline struct pid *proc_pid(struct inode *inode)
 	return PROC_I(inode)->pid;
 }
 
+static inline struct task_struct *proc_task_rcu(struct inode *inode)
+{
+	struct proc_inode *ei = PROC_I(inode);
+	return pid_task(ei->pid, ei->type);
+}
+
 static inline struct task_struct *get_proc_task(struct inode *inode)
 {
-	return get_pid_task(proc_pid(inode), PIDTYPE_PID);
+	struct proc_inode *ei = PROC_I(inode);
+	return get_pid_task(ei->pid, ei->type);
 }
 
 void task_dump_owner(struct task_struct *task, mode_t mode,
@@ -153,7 +161,7 @@ extern int proc_pid_statm(struct seq_file *, struct pid_namespace *,
 extern const struct dentry_operations pid_dentry_operations;
 extern int pid_getattr(const struct path *, struct kstat *, u32, unsigned int);
 extern int proc_setattr(struct dentry *, struct iattr *);
-extern struct inode *proc_pid_make_inode(struct super_block *, struct task_struct *, umode_t);
+extern struct inode *proc_pid_make_inode(struct super_block *, enum pid_type, struct task_struct *, umode_t);
 extern int pid_revalidate(struct dentry *, unsigned int);
 extern int pid_delete_dentry(const struct dentry *);
 extern int proc_pid_readdir(struct file *, struct dir_context *);

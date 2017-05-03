@@ -737,7 +737,7 @@ static int proc_single_show(struct seq_file *m, void *v)
 
 	ns = inode->i_sb->s_fs_info;
 	pid = proc_pid(inode);
-	task = get_pid_task(pid, PIDTYPE_PID);
+	task = get_proc_task(inode);
 	if (!task)
 		return -ESRCH;
 
@@ -1243,7 +1243,7 @@ static ssize_t proc_loginuid_write(struct file * file, const char __user * buf,
 	int rv;
 
 	rcu_read_lock();
-	if (current != pid_task(proc_pid(inode), PIDTYPE_PID)) {
+	if (current != proc_task_rcu(inode)) {
 		rcu_read_unlock();
 		return -EPERM;
 	}
@@ -1689,7 +1689,7 @@ void task_dump_owner(struct task_struct *task, mode_t mode,
 	*rgid = gid;
 }
 
-struct inode *proc_pid_make_inode(struct super_block * sb,
+struct inode *proc_pid_make_inode(struct super_block * sb, enum pid_type type,
 				  struct task_struct *task, umode_t mode)
 {
 	struct inode * inode;
@@ -1711,7 +1711,8 @@ struct inode *proc_pid_make_inode(struct super_block * sb,
 	/*
 	 * grab the reference to task.
 	 */
-	ei->pid = get_task_pid(task, PIDTYPE_PID);
+	ei->type = type;
+	ei->pid = get_task_pid(task, type);
 	if (!ei->pid)
 		goto out_unlock;
 
@@ -1738,7 +1739,7 @@ int pid_getattr(const struct path *path, struct kstat *stat,
 	rcu_read_lock();
 	stat->uid = GLOBAL_ROOT_UID;
 	stat->gid = GLOBAL_ROOT_GID;
-	task = pid_task(proc_pid(inode), PIDTYPE_PID);
+	task = proc_task_rcu(inode);
 	if (task) {
 		if (!has_pid_permissions(pid, task, HIDEPID_INVISIBLE)) {
 			rcu_read_unlock();
@@ -1789,7 +1790,8 @@ int pid_revalidate(struct dentry *dentry, unsigned int flags)
 
 static inline bool proc_inode_is_dead(struct inode *inode)
 {
-	return !proc_pid(inode)->tasks[PIDTYPE_PID].first;
+	struct proc_inode *ei = PROC_I(inode);
+	return hlist_empty(&ei->pid->tasks[ei->type]);
 }
 
 int pid_delete_dentry(const struct dentry *dentry)
@@ -1994,7 +1996,8 @@ proc_map_files_instantiate(struct inode *dir, struct dentry *dentry,
 	struct proc_inode *ei;
 	struct inode *inode;
 
-	inode = proc_pid_make_inode(dir->i_sb, task, S_IFLNK |
+	inode = proc_pid_make_inode(dir->i_sb, PROC_I(dir)->type, task,
+				    S_IFLNK |
 				    ((mode & FMODE_READ ) ? S_IRUSR : 0) |
 				    ((mode & FMODE_WRITE) ? S_IWUSR : 0));
 	if (!inode)
@@ -2358,7 +2361,7 @@ static int proc_pident_instantiate(struct inode *dir,
 	struct inode *inode;
 	struct proc_inode *ei;
 
-	inode = proc_pid_make_inode(dir->i_sb, task, p->mode);
+	inode = proc_pid_make_inode(dir->i_sb, PROC_I(dir)->type, task, p->mode);
 	if (!inode)
 		goto out;
 
@@ -3059,9 +3062,11 @@ static int proc_pid_instantiate(struct inode *dir,
 				   struct dentry * dentry,
 				   struct task_struct *task, const void *ptr)
 {
+	const enum pid_type *type = ptr;
 	struct inode *inode;
 
-	inode = proc_pid_make_inode(dir->i_sb, task, S_IFDIR | S_IRUGO | S_IXUGO);
+	inode = proc_pid_make_inode(dir->i_sb, *type, task,
+				    S_IFDIR | S_IRUGO | S_IXUGO);
 	if (!inode)
 		goto out;
 
@@ -3087,6 +3092,8 @@ struct dentry *proc_pid_lookup(struct inode *dir, struct dentry * dentry, unsign
 	struct task_struct *task;
 	unsigned tgid;
 	struct pid_namespace *ns;
+	enum pid_type type;
+	struct pid *pid;
 
 	tgid = name_to_int(&dentry->d_name);
 	if (tgid == ~0U)
@@ -3094,14 +3101,21 @@ struct dentry *proc_pid_lookup(struct inode *dir, struct dentry * dentry, unsign
 
 	ns = dentry->d_sb->s_fs_info;
 	rcu_read_lock();
-	task = find_task_by_pid_ns(tgid, ns);
+	pid = find_pid_ns(tgid, ns);
+	type = PIDTYPE_TGID;
+	task = pid_task(pid, type);
+	if (!task) {
+		/* Support /proc/<pid>/ not just /proc/<tgid>/ */
+		type = PIDTYPE_PID;
+		task = pid_task(pid, type);
+	}
 	if (task)
 		get_task_struct(task);
 	rcu_read_unlock();
 	if (!task)
 		goto out;
 
-	result = proc_pid_instantiate(dir, dentry, task, NULL);
+	result = proc_pid_instantiate(dir, dentry, task, &type);
 	put_task_struct(task);
 out:
 	return ERR_PTR(result);
@@ -3143,6 +3157,7 @@ retry:
 /* for the /proc/ directory itself, after non-process stuff has been done */
 int proc_pid_readdir(struct file *file, struct dir_context *ctx)
 {
+	static const enum pid_type type = PIDTYPE_TGID;
 	struct tgid_iter iter;
 	struct pid_namespace *ns = file_inode(file)->i_sb->s_fs_info;
 	loff_t pos = ctx->pos;
@@ -3177,7 +3192,7 @@ int proc_pid_readdir(struct file *file, struct dir_context *ctx)
 		len = snprintf(name, sizeof(name), "%d", iter.tgid);
 		ctx->pos = iter.tgid + TGID_OFFSET;
 		if (!proc_fill_cache(file, ctx, name, len,
-				     proc_pid_instantiate, iter.task, NULL)) {
+				     proc_pid_instantiate, iter.task, &type)) {
 			put_task_struct(iter.task);
 			return 0;
 		}
@@ -3345,7 +3360,8 @@ static int proc_task_instantiate(struct inode *dir,
 	struct dentry *dentry, struct task_struct *task, const void *ptr)
 {
 	struct inode *inode;
-	inode = proc_pid_make_inode(dir->i_sb, task, S_IFDIR | S_IRUGO | S_IXUGO);
+	inode = proc_pid_make_inode(dir->i_sb, PIDTYPE_PID, task,
+				    S_IFDIR | S_IRUGO | S_IXUGO);
 
 	if (!inode)
 		goto out;
@@ -3412,7 +3428,7 @@ out_no_task:
  * In the case of a seek we start with the leader and walk nr
  * threads past it.
  */
-static struct task_struct *first_tid(struct pid *pid, int tid, loff_t f_pos,
+static struct task_struct *first_tid(struct inode *inode, int tid, loff_t f_pos,
 					struct pid_namespace *ns)
 {
 	struct task_struct *pos, *task;
@@ -3422,7 +3438,7 @@ static struct task_struct *first_tid(struct pid *pid, int tid, loff_t f_pos,
 		return NULL;
 
 	rcu_read_lock();
-	task = pid_task(pid, PIDTYPE_PID);
+	task = proc_task_rcu(inode);
 	if (!task)
 		goto fail;
 
@@ -3494,7 +3510,7 @@ static int proc_task_readdir(struct file *file, struct dir_context *ctx)
 	ns = inode->i_sb->s_fs_info;
 	tid = (int)file->f_version;
 	file->f_version = 0;
-	for (task = first_tid(proc_pid(inode), tid, ctx->pos - 2, ns);
+	for (task = first_tid(inode, tid, ctx->pos - 2, ns);
 	     task;
 	     task = next_tid(task), ctx->pos++) {
 		char name[PROC_NUMBUF];

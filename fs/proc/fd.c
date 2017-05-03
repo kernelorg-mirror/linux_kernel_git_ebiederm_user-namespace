@@ -173,7 +173,7 @@ proc_fd_instantiate(struct inode *dir, struct dentry *dentry,
 	struct proc_inode *ei;
 	struct inode *inode;
 
-	inode = proc_pid_make_inode(dir->i_sb, task, S_IFLNK);
+	inode = proc_pid_make_inode(dir->i_sb, PROC_I(dir)->type, task, S_IFLNK);
 	if (!inode)
 		goto out;
 
@@ -289,7 +289,7 @@ int proc_fd_permission(struct inode *inode, int mask)
 		return rv;
 
 	rcu_read_lock();
-	p = pid_task(proc_pid(inode), PIDTYPE_PID);
+	p = proc_task_rcu(inode);
 	if (p && same_thread_group(p, current))
 		rv = 0;
 	rcu_read_unlock();
@@ -311,7 +311,7 @@ proc_fdinfo_instantiate(struct inode *dir, struct dentry *dentry,
 	struct proc_inode *ei;
 	struct inode *inode;
 
-	inode = proc_pid_make_inode(dir->i_sb, task, S_IFREG | S_IRUSR);
+	inode = proc_pid_make_inode(dir->i_sb, PROC_I(dir)->type, task, S_IFREG | S_IRUSR);
 	if (!inode)
 		goto out;
 
