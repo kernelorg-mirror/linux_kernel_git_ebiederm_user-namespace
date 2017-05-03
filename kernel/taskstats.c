@@ -195,7 +195,7 @@ static int fill_stats_for_pid(pid_t pid, struct taskstats *stats)
 	struct task_struct *tsk;
 
 	rcu_read_lock();
-	tsk = find_task_by_vpid(pid);
+	tsk = pid_task(find_vpid(pid), PIDTYPE_PID);
 	if (tsk)
 		get_task_struct(tsk);
 	rcu_read_unlock();
@@ -219,7 +219,7 @@ static int fill_stats_for_tgid(pid_t tgid, struct taskstats *stats)
 	 * leaders who are already counted with the dead tasks
 	 */
 	rcu_read_lock();
-	first = find_task_by_vpid(tgid);
+	first = pid_task(find_vpid(tgid), PIDTYPE_TGID);
 
 	if (!first)
 		goto out;
