@@ -191,6 +191,8 @@ int next_signal(struct sigpending *pending, sigset_t *mask)
 	 */
 	x = *s &~ *m;
 	if (x) {
+		if (x & sigmask(SIGKILL))
+			x = sigmask(SIGKILL);
 		if (x & SYNCHRONOUS_MASK)
 			x &= SYNCHRONOUS_MASK;
 		sig = ffz(~x) + 1;
@@ -2004,8 +2006,7 @@ static bool do_signal_stop(int signr)
 		/* signr will be recorded in task->jobctl for retries */
 		WARN_ON_ONCE(signr & ~JOBCTL_STOP_SIGMASK);
 
-		if (!likely(current->jobctl & JOBCTL_STOP_DEQUEUED) ||
-		    unlikely(signal_group_exit(sig)))
+		if (!likely(current->jobctl & JOBCTL_STOP_DEQUEUED))
 			return false;
 		/*
 		 * There is no group stop already in progress.  We must
