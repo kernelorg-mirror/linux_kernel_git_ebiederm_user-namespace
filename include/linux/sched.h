@@ -1070,11 +1070,6 @@ static inline struct pid *task_pid(struct task_struct *task)
 	return task->pids[PIDTYPE_PID].pid;
 }
 
-static inline struct pid *task_tgid(struct task_struct *task)
-{
-	return task->group_leader->pids[PIDTYPE_PID].pid;
-}
-
 /*
  * Without tasklist or RCU lock it is not safe to dereference
  * the result of task_pgrp/task_session even if task == current,
@@ -1127,11 +1122,6 @@ static inline pid_t task_tgid_nr(struct task_struct *tsk)
 }
 
 extern pid_t task_tgid_nr_ns(struct task_struct *tsk, struct pid_namespace *ns);
-
-static inline pid_t task_tgid_vnr(struct task_struct *tsk)
-{
-	return pid_vnr(task_tgid(tsk));
-}
 
 /**
  * pid_alive - check that a task structure is not stale
