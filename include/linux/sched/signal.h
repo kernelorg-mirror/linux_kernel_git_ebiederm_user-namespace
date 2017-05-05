@@ -546,7 +546,7 @@ typedef int (*proc_visitor)(struct task_struct *p, void *data);
 void walk_process_tree(struct task_struct *top, proc_visitor, void *);
 
 static inline
-struct pid *task_pid_type(struct task_struct *task, enum pid_type type)
+struct pid *task_pid_type(const struct task_struct *task, enum pid_type type)
 {
 	struct pid *pid;
 	if (type == PIDTYPE_PID)
@@ -556,7 +556,7 @@ struct pid *task_pid_type(struct task_struct *task, enum pid_type type)
 	return pid;
 }
 
-static inline struct pid *task_tgid(struct task_struct *task)
+static inline struct pid *task_tgid(const struct task_struct *task)
 {
 	return task->signal->pids[PIDTYPE_TGID];
 }
@@ -566,12 +566,12 @@ static inline struct pid *task_tgid(struct task_struct *task)
  * the result of task_pgrp/task_session even if task == current,
  * we can race with another thread doing sys_setsid/sys_setpgid.
  */
-static inline struct pid *task_pgrp(struct task_struct *task)
+static inline struct pid *task_pgrp(const struct task_struct *task)
 {
 	return task->signal->pids[PIDTYPE_PGID];
 }
 
-static inline struct pid *task_session(struct task_struct *task)
+static inline struct pid *task_session(const struct task_struct *task)
 {
 	return task->signal->pids[PIDTYPE_SID];
 }

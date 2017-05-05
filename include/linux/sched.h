@@ -1066,7 +1066,7 @@ struct task_struct {
 	 */
 };
 
-static inline struct pid *task_pid(struct task_struct *task)
+static inline struct pid *task_pid(const struct task_struct *task)
 {
 	return task->thread_pid;
 }
