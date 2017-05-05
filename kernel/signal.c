@@ -98,8 +98,12 @@ static int sig_ignored(struct task_struct *t, int sig, bool force)
 
 	/*
 	 * Tracers may want to know about even ignored signals.
+	 * We can never safely allow SIGKILL or SIGSTOP to
+	 * be sent to init from it's children.
 	 */
-	return !t->ptrace;
+	return !t->ptrace ||
+		((t->signal->flags & SIGNAL_UNKILLABLE) &&
+		 sig_kernel_only(sig) && !force);
 }
 
 /*
