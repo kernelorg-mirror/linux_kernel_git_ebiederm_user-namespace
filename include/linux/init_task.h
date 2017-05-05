@@ -76,6 +76,7 @@ extern struct fs_struct init_fs;
 	.signalfd_wqh	= __WAIT_QUEUE_HEAD_INITIALIZER(sig.signalfd_wqh),	\
 	INIT_POSIX_TIMERS(sig)						\
 	INIT_CPU_TIMERS(sig)						\
+	.leader_pid	= &init_struct_pid,				\
 	.rlim		= INIT_RLIMITS,					\
 	INIT_CPUTIMER(sig)						\
 	INIT_PREV_CPUTIME(sig)						\
