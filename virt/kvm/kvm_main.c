@@ -2555,7 +2555,7 @@ static long kvm_vcpu_ioctl(struct file *filp,
 		r = -EINVAL;
 		if (arg)
 			goto out;
-		if (unlikely(vcpu->pid != current->pids[PIDTYPE_PID].pid)) {
+		if (unlikely(vcpu->pid != task_pid(current))) {
 			/* The thread running this VCPU changed. */
 			struct pid *oldpid = vcpu->pid;
 			struct pid *newpid = get_task_pid(current, PIDTYPE_PID);
