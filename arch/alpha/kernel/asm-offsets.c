@@ -21,7 +21,6 @@ void foo(void)
         DEFINE(TASK_BLOCKED, offsetof(struct task_struct, blocked));
         DEFINE(TASK_CRED, offsetof(struct task_struct, cred));
         DEFINE(TASK_REAL_PARENT, offsetof(struct task_struct, real_parent));
-        DEFINE(TASK_GROUP_LEADER, offsetof(struct task_struct, group_leader));
         DEFINE(TASK_TGID, offsetof(struct task_struct, tgid));
         BLANK();
 
