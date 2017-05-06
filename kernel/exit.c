@@ -1342,6 +1342,24 @@ static int wait_consider_task(struct wait_opts *wo, int ptrace,
 	if (!ret)
 		return ret;
 
+	/* zombie child process? */
+	if ((exit_state == EXIT_ZOMBIE) &&
+	    !ptrace_reparented(p) &&
+	    thread_group_leader(p) &&
+	    thread_group_empty(p))
+		return wait_task_zombie(wo, p);
+
+	/*
+	 * A zombie ptracee that is not a child of it's ptracer's
+	 * thread group is only visible to its ptracer.  Notification
+	 * and reaping will be cascaded to the real parent when the
+	 * ptracer detaches.
+	 */
+	if ((exit_state == EXIT_ZOMBIE) && ptrace &&
+	    (!thread_group_leader(p) ||
+	     (ptrace_reparented(p) && thread_group_empty(p))))
+		return wait_task_zombie(wo, p);
+
 	if (unlikely(exit_state == EXIT_TRACE)) {
 		/*
 		 * ptrace == 0 means we are the natural parent. In this case
@@ -1354,33 +1372,17 @@ static int wait_consider_task(struct wait_opts *wo, int ptrace,
 
 	if (likely(!ptrace) && unlikely(p->ptrace)) {
 		/*
-		 * If it is traced by its real parent's group, just pretend
-		 * the caller is ptrace_do_wait() and reap this child if it
-		 * is zombie.
-		 *
-		 * This also hides group stop state from real parent; otherwise
-		 * a single stop can be reported twice as group and ptrace stop.
-		 * If a ptracer wants to distinguish these two events for its
-		 * own children it should create a separate process which takes
-		 * the role of real parent.
+		 * Hide group stop state from real parent; otherwise a single
+		 * stop can be reported twice as group and ptrace stop.  If a
+		 * ptracer wants to distinguish these two events for its own
+		 * children it should create a separate process which takes the
+		 * role of real parent.
 		 */
 		if (!ptrace_reparented(p))
 			ptrace = 1;
 	}
 
-	/* slay zombie? */
 	if (exit_state == EXIT_ZOMBIE) {
-		/* we don't reap group leaders with subthreads */
-		if (!delay_group_leader(p)) {
-			/*
-			 * A zombie ptracee is only visible to its ptracer.
-			 * Notification and reaping will be cascaded to the
-			 * real parent when the ptracer detaches.
-			 */
-			if (unlikely(ptrace) || likely(!p->ptrace))
-				return wait_task_zombie(wo, p);
-		}
-
 		/*
 		 * Allow access to stopped/continued state via zombie by
 		 * falling through.  Clearing of notask_error is complex.
