@@ -495,7 +495,7 @@ static int ignoring_children(struct sighand_struct *sigh)
  * reap it now, in that case we must also wake up sub-threads sleeping in
  * do_wait().
  */
-static bool __ptrace_detach(struct task_struct *tracer, struct task_struct *p)
+static bool __exit_ptrace(struct task_struct *tracer, struct task_struct *p)
 {
 	bool dead;
 
@@ -539,7 +539,7 @@ static int ptrace_detach(struct task_struct *child, unsigned int data)
 	 * the comment in ptrace_resume().
 	 */
 	child->exit_code = data;
-	__ptrace_detach(current, child);
+	__ptrace_unlink(child);
 	write_unlock_irq(&tasklist_lock);
 
 	proc_ptrace_connector(child, PTRACE_DETACH);
@@ -559,7 +559,7 @@ void exit_ptrace(struct task_struct *tracer, struct list_head *dead)
 		if (unlikely(p->ptrace & PT_EXITKILL))
 			send_sig_info(SIGKILL, SEND_SIG_FORCED, p);
 
-		if (__ptrace_detach(tracer, p))
+		if (__exit_ptrace(tracer, p))
 			list_add(&p->ptrace_entry, dead);
 	}
 }
