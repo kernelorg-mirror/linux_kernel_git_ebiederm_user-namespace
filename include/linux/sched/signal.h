@@ -633,24 +633,6 @@ static inline int thread_group_empty(struct task_struct *p)
 	return (p->thread_node.next == p->thread_node.prev);
 }
 
-static inline struct sighand_struct *lock_task_sighand(struct task_struct *tsk,
-						       unsigned long *flags)
-{
-	spin_lock_irqsave(&tsk->signal->siglock, *flags);
-	/* Fail if the task has already been reaped */
-	if (unlikely(!tsk->sighand)) {
-		spin_unlock_irqrestore(&tsk->signal->siglock, *flags);
-		return NULL;
-	}
-	return tsk->sighand;
-}
-
-static inline void unlock_task_sighand(struct task_struct *tsk,
-						unsigned long *flags)
-{
-	spin_unlock_irqrestore(&tsk->signal->siglock, *flags);
-}
-
 static inline unsigned long task_rlimit(const struct task_struct *tsk,
 		unsigned int limit)
 {
