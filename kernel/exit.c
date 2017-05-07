@@ -1194,6 +1194,16 @@ static int wait_task_stopped(struct wait_opts *wo,
 	pid_t pid;
 
 	/*
+	 * Hide group stop state from real parent; otherwise a single
+	 * stop can be reported twice as group and ptrace stop.  If a
+	 * ptracer wants to distinguish these two events for its own
+	 * children it should create a separate process which takes the
+	 * role of real parent.
+	 */
+	if (!ptrace && p->ptrace && !ptrace_reparented(p))
+		ptrace = 1;
+
+	/*
 	 * Traditionally we see ptrace'd stopped tasks regardless of options.
 	 */
 	if (!ptrace && !(wo->wo_flags & WUNTRACED))
@@ -1370,18 +1380,6 @@ static int wait_consider_task(struct wait_opts *wo, int ptrace,
 		return 0;
 	}
 
-	if (likely(!ptrace) && unlikely(p->ptrace)) {
-		/*
-		 * Hide group stop state from real parent; otherwise a single
-		 * stop can be reported twice as group and ptrace stop.  If a
-		 * ptracer wants to distinguish these two events for its own
-		 * children it should create a separate process which takes the
-		 * role of real parent.
-		 */
-		if (!ptrace_reparented(p))
-			ptrace = 1;
-	}
-
 	if (exit_state == EXIT_ZOMBIE) {
 		/*
 		 * Allow access to stopped/continued state via zombie by
@@ -1403,7 +1401,8 @@ static int wait_consider_task(struct wait_opts *wo, int ptrace,
 		 * target task dies.  Only continued and exited can happen.
 		 * Clear notask_error if WCONTINUED | WEXITED.
 		 */
-		if (likely(!ptrace) || (wo->wo_flags & (WCONTINUED | WEXITED)))
+		if ((!ptrace && (!p->ptrace || ptrace_reparented(p))) ||
+		    (wo->wo_flags & (WCONTINUED | WEXITED)))
 			wo->notask_error = 0;
 	} else {
 		/*
