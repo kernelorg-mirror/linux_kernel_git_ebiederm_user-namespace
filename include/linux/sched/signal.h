@@ -565,9 +565,6 @@ static inline int thread_group_empty(struct task_struct *p)
 	return list_empty(&p->thread_group);
 }
 
-#define delay_group_leader(p) \
-		(thread_group_leader(p) && !thread_group_empty(p))
-
 extern struct sighand_struct *__lock_task_sighand(struct task_struct *tsk,
 							unsigned long *flags);
 
