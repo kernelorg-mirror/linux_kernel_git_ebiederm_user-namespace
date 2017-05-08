@@ -1144,7 +1144,8 @@ static int wait_task_zombie(struct wait_opts *wo, struct task_struct *p)
 
 		/* If parent wants a zombie, don't release it now */
 		state = EXIT_ZOMBIE;
-		if (do_notify_parent(p, p->exit_signal))
+		if (thread_group_empty(p) &&
+		    do_notify_parent(p, p->exit_signal))
 			state = EXIT_DEAD;
 		p->exit_state = state;
 		write_unlock_irq(&tasklist_lock);
@@ -1366,8 +1367,7 @@ static int wait_consider_task(struct wait_opts *wo, int ptrace,
 	 * ptracer detaches.
 	 */
 	if ((exit_state == EXIT_ZOMBIE) && ptrace &&
-	    (!thread_group_leader(p) ||
-	     (ptrace_reparented(p) && thread_group_empty(p))))
+	    (!thread_group_leader(p) || ptrace_reparented(p)))
 		return wait_task_zombie(wo, p);
 
 	if (unlikely(exit_state == EXIT_TRACE)) {
