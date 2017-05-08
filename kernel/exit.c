@@ -1359,47 +1359,31 @@ static int wait_consider_task(struct wait_opts *wo, int ptrace,
 	if ((exit_state == EXIT_TRACEE) && ptrace)
 		return wait_task_zombie(wo, exit_state, p);
 
-	if (unlikely(exit_state == EXIT_TRACED)) {
-		/*
-		 * ptrace == 0 means we are the natural parent. In this case
-		 * we should clear notask_error, debugger will notify us.
-		 */
-		if (likely(!ptrace))
-			wo->notask_error = 0;
+	/* Is this task past the point where ptrace cares? */
+	if (unlikely((exit_state == EXIT_TRACED) && ptrace))
 		return 0;
-	}
 
-	if (exit_state == EXIT_ZOMBIE) {
-		/*
-		 * Allow access to stopped/continued state via zombie by
-		 * falling through.  Clearing of notask_error is complex.
-		 *
-		 * When !@ptrace:
-		 *
-		 * If WEXITED is set, notask_error should naturally be
-		 * cleared.  If not, subset of WSTOPPED|WCONTINUED is set,
-		 * so, if there are live subthreads, there are events to
-		 * wait for.  If all subthreads are dead, it's still safe
-		 * to clear - this function will be called again in finite
-		 * amount time once all the subthreads are released and
-		 * will then return without clearing.
-		 *
-		 * When @ptrace:
-		 *
-		 * Stopped state is per-task and thus can't change once the
-		 * target task dies.  Only continued and exited can happen.
-		 * Clear notask_error if WCONTINUED | WEXITED.
-		 */
-		if ((!ptrace && (!p->ptrace || ptrace_reparented(p))) ||
-		    (wo->wo_flags & (WCONTINUED | WEXITED)))
-			wo->notask_error = 0;
-	} else {
-		/*
-		 * @p is alive and it's gonna stop, continue or exit, so
-		 * there always is something to wait for.
-		 */
-		wo->notask_error = 0;
-	}
+	/*
+	 * A this point @p is alive or the zombie of a delayed
+	 * child thread group leader that has not been reaped yet.
+	 *
+	 * Allow access to stopped/continued state via zombie by
+	 * falling through.  Clearing of notask_error is logically complex.
+	 *
+	 * When @p is alive and it's gonna stop, continue or exit,
+	 * so there always is something to wait for.
+	 *
+	 * When @p is a zombie
+	 *
+	 * If WEXITED is set, notask_error should naturally be
+	 * cleared.  If not, subset of WSTOPPED|WCONTINUED is set,
+	 * so, if there are live subthreads, there are events to
+	 * wait for.  If all subthreads are dead, it's still safe
+	 * to clear - this function will be called again in finite
+	 * amount time once all the subthreads are released and
+	 * will then return without clearing.
+	 */
+	wo->notask_error = 0;
 
 	/*
 	 * Wait for stopped.
