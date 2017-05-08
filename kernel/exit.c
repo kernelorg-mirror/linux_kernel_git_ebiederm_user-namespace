@@ -1151,22 +1151,23 @@ static int wait_task_zombie(struct wait_opts *wo, int old_state, struct task_str
 	return retval;
 }
 
-static int *task_stopped_code(struct task_struct *p, bool ptrace)
+static int *task_trace_stopped_code(struct task_struct *p)
 {
-	if (ptrace) {
-		if (task_is_traced(p) && !(p->jobctl & JOBCTL_LISTENING))
-			return &p->exit_code;
-	} else {
-		if (p->signal->flags & SIGNAL_STOP_STOPPED)
-			return &p->signal->group_exit_code;
-	}
+	if (task_is_traced(p) && !(p->jobctl & JOBCTL_LISTENING))
+		return &p->exit_code;
+	return NULL;
+}
+
+static int *task_group_stopped_code(struct task_struct *p)
+{
+	if (p->signal->flags & SIGNAL_STOP_STOPPED)
+		return &p->signal->group_exit_code;
 	return NULL;
 }
 
 /**
  * wait_task_stopped - Wait for %TASK_STOPPED or %TASK_TRACED
  * @wo: wait options
- * @ptrace: is the wait for ptrace
  * @p: task to wait for
  *
  * Handle sys_wait4() work for %p in state %TASK_STOPPED or %TASK_TRACED.
@@ -1181,49 +1182,47 @@ static int *task_stopped_code(struct task_struct *p, bool ptrace)
  * success, implies that tasklist_lock is released and wait condition
  * search should terminate.
  */
-static int wait_task_stopped(struct wait_opts *wo,
-				int ptrace, struct task_struct *p)
+static int wait_task_stopped(struct wait_opts *wo, struct task_struct *p)
 {
 	struct siginfo __user *infop;
-	int retval, exit_code, *p_code, why;
-	uid_t uid = 0; /* unneeded, required by compiler */
+	int retval, exit_code, *p_code, *g_code, why;
+	bool group, gstop, pstop;
+	uid_t uid;
 	pid_t pid;
-
-	/*
-	 * Hide group stop state from real parent; otherwise a single
-	 * stop can be reported twice as group and ptrace stop.  If a
-	 * ptracer wants to distinguish these two events for its own
-	 * children it should create a separate process which takes the
-	 * role of real parent.
-	 */
-	if (!ptrace && p->ptrace && !ptrace_reparented(p))
-		ptrace = 1;
 
 	/*
 	 * Traditionally we see ptrace'd stopped tasks regardless of options.
 	 */
-	if (!ptrace && !(wo->wo_flags & WUNTRACED))
+	group = thread_group_leader(p) && !ptrace_reparented(p);
+	pstop = same_thread_group(current, p->parent);
+	gstop = group && (wo->wo_flags & WUNTRACED);
+	if (!pstop && !gstop)
 		return 0;
 
-	if (!task_stopped_code(p, ptrace))
+	if ((!pstop || !task_trace_stopped_code(p)) &&
+	    (!gstop || !task_group_stopped_code(p)))
 		return 0;
 
 	exit_code = 0;
 	spin_lock_irq(&p->sighand->siglock);
 
-	p_code = task_stopped_code(p, ptrace);
-	if (unlikely(!p_code))
-		goto unlock_sig;
-
-	exit_code = *p_code;
-	if (!exit_code)
-		goto unlock_sig;
-
-	if (!unlikely(wo->wo_flags & WNOWAIT))
-		*p_code = 0;
-
-	uid = from_kuid_munged(current_user_ns(), task_uid(p));
-unlock_sig:
+	p_code = g_code = NULL;
+	if (pstop)
+		p_code = task_trace_stopped_code(p);
+	if (gstop)
+		g_code = task_group_stopped_code(p);
+	if (p_code) {
+		exit_code = *p_code;
+		why = CLD_TRAPPED;
+		if (!(wo->wo_flags & WNOWAIT))
+			*p_code = 0;
+	}
+	if (g_code && (!exit_code || (*g_code == exit_code))) {
+		exit_code = *g_code;
+		why = CLD_STOPPED;
+		if (!(wo->wo_flags & WNOWAIT))
+			*g_code = 0;
+	}
 	spin_unlock_irq(&p->sighand->siglock);
 	if (!exit_code)
 		return 0;
@@ -1236,8 +1235,8 @@ unlock_sig:
 	 * possibly take page faults for user memory.
 	 */
 	get_task_struct(p);
+	uid = from_kuid_munged(current_user_ns(), task_uid(p));
 	pid = task_pid_vnr(p);
-	why = ptrace ? CLD_TRAPPED : CLD_STOPPED;
 	read_unlock(&tasklist_lock);
 	sched_annotate_sleep();
 
@@ -1403,10 +1402,9 @@ static int wait_consider_task(struct wait_opts *wo, int ptrace,
 	}
 
 	/*
-	 * Wait for stopped.  Depending on @ptrace, different stopped state
-	 * is used and the two don't interact with each other.
+	 * Wait for stopped.
 	 */
-	ret = wait_task_stopped(wo, ptrace, p);
+	ret = wait_task_stopped(wo, p);
 	if (ret)
 		return ret;
 
