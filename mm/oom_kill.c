@@ -318,11 +318,7 @@ static int oom_evaluate_task(struct task_struct *task, void *arg)
 	}
 
 	points = oom_badness(task, NULL, oc->nodemask, oc->totalpages);
-	if (!points || points < oc->chosen_points)
-		goto next;
-
-	/* Prefer thread group leaders for display purposes */
-	if (points == oc->chosen_points && thread_group_leader(oc->chosen))
+	if (!points || points <= oc->chosen_points)
 		goto next;
 select:
 	if (oc->chosen)
@@ -532,7 +528,7 @@ static bool __oom_reap_task_mm(struct task_struct *tsk, struct mm_struct *mm)
 	}
 	tlb_finish_mmu(&tlb, 0, -1);
 	pr_info("oom_reaper: reaped process %d (%s), now anon-rss:%lukB, file-rss:%lukB, shmem-rss:%lukB\n",
-			task_pid_nr(tsk), tsk->comm,
+			task_tgid_nr(tsk), tsk->comm,
 			K(get_mm_counter(mm, MM_ANONPAGES)),
 			K(get_mm_counter(mm, MM_FILEPAGES)),
 			K(get_mm_counter(mm, MM_SHMEMPAGES)));
@@ -564,7 +560,7 @@ static void oom_reap_task(struct task_struct *tsk)
 
 
 	pr_info("oom_reaper: unable to reap pid:%d (%s)\n",
-		task_pid_nr(tsk), tsk->comm);
+		task_tgid_nr(tsk), tsk->comm);
 	debug_show_all_locks();
 
 done:
@@ -833,7 +829,7 @@ static void oom_kill_process(struct oom_control *oc, const char *message)
 		dump_header(oc, p);
 
 	pr_err("%s: Kill process %d (%s) score %u or sacrifice child\n",
-		message, task_pid_nr(p), p->comm, points);
+		message, task_tgid_nr(p), p->comm, points);
 
 	/*
 	 * If any of p's children has a different mm and is eligible for kill,
@@ -884,7 +880,7 @@ static void oom_kill_process(struct oom_control *oc, const char *message)
 	do_send_sig_info(SIGKILL, SEND_SIG_FORCED, victim, true);
 	mark_oom_victim(victim);
 	pr_err("Killed process %d (%s) total-vm:%lukB, anon-rss:%lukB, file-rss:%lukB, shmem-rss:%lukB\n",
-		task_pid_nr(victim), victim->comm, K(victim->mm->total_vm),
+		task_tgid_nr(victim), victim->comm, K(victim->mm->total_vm),
 		K(get_mm_counter(victim->mm, MM_ANONPAGES)),
 		K(get_mm_counter(victim->mm, MM_FILEPAGES)),
 		K(get_mm_counter(victim->mm, MM_SHMEMPAGES)));
@@ -909,8 +905,8 @@ static void oom_kill_process(struct oom_control *oc, const char *message)
 			can_oom_reap = false;
 			set_bit(MMF_OOM_SKIP, &mm->flags);
 			pr_info("oom killer %d (%s) has mm pinned by %d (%s)\n",
-					task_pid_nr(victim), victim->comm,
-					task_pid_nr(p), p->comm);
+					task_tgid_nr(victim), victim->comm,
+					task_tgid_nr(p), p->comm);
 			continue;
 		}
 		/*
