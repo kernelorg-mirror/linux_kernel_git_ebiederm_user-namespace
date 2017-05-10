@@ -1058,9 +1058,9 @@ static inline int fastpath_timer_check(struct task_struct *tsk)
 	 * Check if thread group timers expired when the cputimer is
 	 * running and no other thread in the group is already checking
 	 * for thread group cputimers. These fields are read without the
-	 * sighand lock. However, this is fine because this is meant to
+	 * siglock. However, this is fine because this is meant to
 	 * be a fastpath heuristic to determine whether we should try to
-	 * acquire the sighand lock to check/handle timers.
+	 * acquire the siglock to check/handle timers.
 	 *
 	 * In the worst case scenario, if 'running' or 'checking_timer' gets
 	 * set but the current thread doesn't see the change yet, we'll wait
