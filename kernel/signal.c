@@ -1314,7 +1314,7 @@ int kill_pid_info(int sig, struct siginfo *info, struct pid *pid)
 	struct task_struct *p;
 	unsigned long flags;
 
-	p = pid_task_siglock_irqsave(pid, PIDTYPE_PID, &flags);
+	p = pid_task_siglock_irqsave(pid, PIDTYPE_TGID, &flags);
 	if (p) {
 		error = group_send_sig_info(sig, info, p);
 		spin_unlock_irqrestore(&p->signal->siglock, flags);
@@ -1353,7 +1353,7 @@ int kill_pid_info_as_cred(int sig, struct siginfo *info, struct pid *pid,
 		return ret;
 
 	rcu_read_lock();
-	p = pid_task_siglock_irqsave(pid, PIDTYPE_PID, &flags);
+	p = pid_task_siglock_irqsave(pid, PIDTYPE_TGID, &flags);
 	if (!p) {
 		ret = -ESRCH;
 		goto out;
@@ -1534,13 +1534,15 @@ int send_sigqueue(struct sigqueue *q, struct pid *pid, int group)
 	int sig = q->info.si_signo;
 	struct task_struct *t;
 	struct sigpending *pending;
+	enum pid_type type;
 	unsigned long flags;
 	int ret, result;
 
 	BUG_ON(!(q->flags & SIGQUEUE_PREALLOC));
 
 	ret = -1;
-	t = pid_task_siglock_irqsave(pid, PIDTYPE_PID, &flags);
+	type = group ? PIDTYPE_TGID : PIDTYPE_PID;
+	t = pid_task_siglock_irqsave(pid, type, &flags);
 	if (!t)
 		goto ret;
 
