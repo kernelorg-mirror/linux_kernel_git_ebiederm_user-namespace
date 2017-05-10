@@ -1262,6 +1262,7 @@ struct sighand_struct *__lock_task_sighand(struct task_struct *tsk,
 /*
  * send signal info to all the members of a group
  */
+static
 int group_send_sig_info(int sig, struct siginfo *info, struct task_struct *p)
 {
 	int ret;
