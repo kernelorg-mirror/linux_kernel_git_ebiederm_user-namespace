@@ -886,7 +886,7 @@ do_group_exit(int exit_code)
 
 	BUG_ON(exit_code & 0x80); /* core dumps don't get here */
 
-	if (signal_group_exit(sig))
+	if (signal_group_exit(sig) || sig->group_exec_task)
 		exit_code = sig->group_exit_code;
 	else if (!thread_group_empty(current)) {
 		struct sighand_struct *const sighand = current->sighand;

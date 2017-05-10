@@ -1060,11 +1060,7 @@ static int de_thread(struct task_struct *tsk)
 	 * Kill all other threads in the thread group.
 	 */
 	spin_lock_irq(lock);
-	if (signal_group_exit(sig)) {
-		/*
-		 * Another group action in progress, just
-		 * return so that the signal is processed.
-		 */
+	if (__fatal_signal_pending(tsk)) {
 		spin_unlock_irq(lock);
 		return -EAGAIN;
 	}

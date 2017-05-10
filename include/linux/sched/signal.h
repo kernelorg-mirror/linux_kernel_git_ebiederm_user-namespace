@@ -263,11 +263,10 @@ static inline void signal_set_exit_flags(struct signal_struct *sig,
 	sig->flags = (sig->flags & ~SIGNAL_STOP_MASK) | flags;
 }
 
-/* If true, all threads except ->group_exec_task have pending SIGKILL */
+/* If true, all threads have pending SIGKILL */
 static inline int signal_group_exit(const struct signal_struct *sig)
 {
-	return	(sig->flags & (SIGNAL_GROUP_EXIT | SIGNAL_GROUP_COREDUMP)) ||
-		(sig->group_exec_task != NULL);
+	return	(sig->flags & (SIGNAL_GROUP_EXIT | SIGNAL_GROUP_COREDUMP));
 }
 
 extern void flush_signals(struct task_struct *);
