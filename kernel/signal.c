@@ -1529,9 +1529,10 @@ void sigqueue_free(struct sigqueue *q)
 		__sigqueue_free(q);
 }
 
-int send_sigqueue(struct sigqueue *q, struct task_struct *t, int group)
+int send_sigqueue(struct sigqueue *q, struct pid *pid, int group)
 {
 	int sig = q->info.si_signo;
+	struct task_struct *t;
 	struct sigpending *pending;
 	unsigned long flags;
 	int ret, result;
@@ -1539,7 +1540,8 @@ int send_sigqueue(struct sigqueue *q, struct task_struct *t, int group)
 	BUG_ON(!(q->flags & SIGQUEUE_PREALLOC));
 
 	ret = -1;
-	if (!likely(lock_task_sighand(t, &flags)))
+	t = pid_task_siglock_irqsave(pid, PIDTYPE_PID, &flags);
+	if (!t)
 		goto ret;
 
 	ret = 1; /* the signal is ignored */
@@ -1568,7 +1570,7 @@ int send_sigqueue(struct sigqueue *q, struct task_struct *t, int group)
 	result = TRACE_SIGNAL_DELIVERED;
 out:
 	trace_signal_generate(sig, &q->info, t, group, result);
-	unlock_task_sighand(t, &flags);
+	spin_unlock_irqrestore(&t->signal->siglock, flags);
 ret:
 	return ret;
 }
