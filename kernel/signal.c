@@ -831,7 +831,7 @@ static bool prepare_signal(int sig, struct task_struct *p, bool group, bool forc
 
 	/* Dead tasks or processes don't need signals */
 	if ((signal->flags & SIGNAL_GROUP_EXIT) ||
-	    (!group && (p->flags & PF_EXITING)))
+	    (p->flags & PF_EXITING))
 		return false;
 
 	if (signal->flags & SIGNAL_GROUP_COREDUMP) {
@@ -1301,6 +1301,9 @@ static struct task_struct *pid_task_siglock_irqsave(
 		 * will not change.
 		 */
 		p = pid_task(pid, type);
+		/* Don't return threads that have died */
+		if (p && (p->flags & PF_EXITING))
+			p = NULL;
 		if (!p)
 			spin_unlock_irqrestore(&sig->siglock, *flags);
 	}
@@ -1600,6 +1603,10 @@ bool do_notify_parent(struct task_struct *tsk, enum pid_type type)
 	BUG_ON(!tsk->ptrace &&
 	       (!child_for_wait(tsk) || !thread_group_empty(tsk)));
 
+	/* Should we autoreap because our parent is a dead child reaper? */
+	if (parent->flags & PF_EXITING)
+		return true;
+
 	sig = (type == PIDTYPE_TGID) ? tsk->signal->exit_signal : SIGCHLD;
 	if (sig != SIGCHLD) {
 		/*
@@ -1704,6 +1711,8 @@ static void do_notify_parent_cldstop(struct task_struct *tsk, bool for_ptracer,
 	bool notify = false;
 
 	parent = (for_ptracer) ? tsk->parent : tsk->real_parent;
+	if (parent->flags & PF_EXITING)
+		return;
 
 	info.si_signo = SIGCHLD;
 	info.si_errno = 0;
