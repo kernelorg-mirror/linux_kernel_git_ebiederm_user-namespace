@@ -1869,7 +1869,7 @@ static __latent_entropy struct task_struct *copy_process(
 		ptrace_init_task(p, (clone_flags & CLONE_PTRACE) || trace);
 
 		init_task_pid(p, PIDTYPE_PID, pid);
-		if (thread_group_leader(p)) {
+		if (!(clone_flags & CLONE_THREAD)) {
 			init_task_pid(p, PIDTYPE_PGID, task_pgrp(current));
 			init_task_pid(p, PIDTYPE_SID, task_session(current));
 
