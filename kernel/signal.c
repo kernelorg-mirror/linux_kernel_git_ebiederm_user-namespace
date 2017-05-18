@@ -355,7 +355,8 @@ static bool task_participate_group_stop(struct task_struct *task)
 	 * fresh group stop.  Read comment in do_signal_stop() for details.
 	 */
 	if (!sig->group_stop_count && !(sig->flags & SIGNAL_STOP_STOPPED)) {
-		signal_set_stop_flags(sig, SIGNAL_STOP_STOPPED);
+		int old_flags = (sig->flags & SIGNAL_WAKEUP_PENDING);
+		signal_set_stop_flags(sig, SIGNAL_STOP_STOPPED | old_flags);
 		return true;
 	}
 	return false;
@@ -786,6 +787,14 @@ static void ptrace_trap_notify(struct task_struct *t)
 	ptrace_signal_wake_up(t, t->jobctl & JOBCTL_LISTENING);
 }
 
+static void wake_up_stopped_thread(struct task_struct *t)
+{
+	if (likely(!(t->ptrace & PT_SEIZED)))
+		wake_up_state(t, __TASK_STOPPED);
+	else
+		ptrace_trap_notify(t);
+}
+
 /*
  * Handle magic process-wide effects of stop/continue signals. Unlike
  * the signal actions, these happen immediately at signal-generation
@@ -817,7 +826,13 @@ static bool prepare_signal(int sig, struct task_struct *p, bool force)
 		for_each_thread(p, t)
 			flush_sigqueue_mask(&flush, &t->pending);
 	} else if (sig == SIGCONT) {
-		unsigned int why;
+		if (signal->group_stop_count) {
+			/* Let the stop complete before continuing.  This
+			 * ensures there are well definined interactions with
+			 * ptrace.
+			 */
+			signal->flags |= SIGNAL_WAKEUP_PENDING;
+		}
 		/*
 		 * Remove all stop signals from all queues, wake all threads.
 		 */
@@ -825,35 +840,21 @@ static bool prepare_signal(int sig, struct task_struct *p, bool force)
 		flush_sigqueue_mask(&flush, &signal->shared_pending);
 		for_each_thread(p, t) {
 			flush_sigqueue_mask(&flush, &t->pending);
+			if (signal->flags & SIGNAL_WAKEUP_PENDING)
+				continue;
 			task_clear_jobctl_pending(t, JOBCTL_STOP_PENDING);
-			if (likely(!(t->ptrace & PT_SEIZED)))
-				wake_up_state(t, __TASK_STOPPED);
-			else
-				ptrace_trap_notify(t);
+			wake_up_stopped_thread(t);
 		}
 
-		/*
-		 * Notify the parent with CLD_CONTINUED if we were stopped.
-		 *
-		 * If we were in the middle of a group stop, we pretend it
-		 * was already finished, and then continued. Since SIGCHLD
-		 * doesn't queue we report only CLD_STOPPED, as if the next
-		 * CLD_CONTINUED was dropped.
-		 */
-		why = 0;
-		if (signal->flags & SIGNAL_STOP_STOPPED)
-			why |= SIGNAL_CLD_CONTINUED;
-		else if (signal->group_stop_count)
-			why |= SIGNAL_CLD_STOPPED;
-
-		if (why) {
+		/* Notify the parent with CLD_CONTINUED if we were stopped. */
+		if (signal->flags & SIGNAL_STOP_STOPPED) {
 			/*
 			 * The first thread which returns from do_signal_stop()
-			 * will take ->siglock, notice SIGNAL_CLD_MASK, and
-			 * notify its parent. See get_signal_to_deliver().
+			 * will take ->siglock, notice SIGNAL_CLD_CONTINUED, and
+			 * notify its parent. See get_signal().
 			 */
-			signal_set_stop_flags(signal, why | SIGNAL_STOP_CONTINUED);
-			signal->group_stop_count = 0;
+			signal_set_stop_flags(signal,
+				SIGNAL_STOP_CONTINUED | SIGNAL_CLD_CONTINUED);
 			signal->group_exit_code = 0;
 		}
 	}
@@ -1691,6 +1692,7 @@ bool do_notify_parent(struct task_struct *tsk, int sig)
 static void do_notify_parent_cldstop(struct task_struct *tsk,
 				     bool for_ptracer, int why)
 {
+	struct signal_struct *sig = tsk->signal;
 	struct siginfo info;
 	unsigned long flags;
 	struct task_struct *parent;
@@ -1724,7 +1726,7 @@ static void do_notify_parent_cldstop(struct task_struct *tsk,
  		info.si_status = SIGCONT;
  		break;
  	case CLD_STOPPED:
- 		info.si_status = tsk->signal->group_exit_code & 0x7f;
+		info.si_status = sig->group_exit_code & 0x7f;
  		break;
  	case CLD_TRAPPED:
  		info.si_status = tsk->exit_code & 0x7f;
@@ -1743,6 +1745,22 @@ static void do_notify_parent_cldstop(struct task_struct *tsk,
 	 */
 	__wake_up_parent(tsk, parent);
 	spin_unlock_irqrestore(&sighand->siglock, flags);
+
+	/*
+	 * If there was a delayed SIGCONT process it now.
+	 */
+	spin_lock_irqsave(&tsk->sighand->siglock, flags);
+	if ((why == CLD_STOPPED) && signal_delayed_wakeup(sig)) {
+		struct task_struct *t;
+
+		for_each_thread(tsk, t)
+			wake_up_stopped_thread(t);
+
+		signal_set_stop_flags(sig,
+			SIGNAL_CLD_CONTINUED | SIGNAL_STOP_CONTINUED);
+		sig->group_exit_code = 0;
+	}
+	spin_unlock_irqrestore(&tsk->sighand->siglock, flags);
 }
 
 static inline int may_ptrace_stop(void)
@@ -2166,19 +2184,10 @@ relock:
 	spin_lock_irq(&sighand->siglock);
 	/*
 	 * Every stopped thread goes here after wakeup. Check to see if
-	 * we should notify the parent, prepare_signal(SIGCONT) encodes
-	 * the CLD_ si_code into SIGNAL_CLD_MASK bits.
+	 * we should notify the parent.
 	 */
-	if (unlikely(signal->flags & SIGNAL_CLD_MASK)) {
-		int why;
-
-		if (signal->flags & SIGNAL_CLD_CONTINUED)
-			why = CLD_CONTINUED;
-		else
-			why = CLD_STOPPED;
-
-		signal->flags &= ~SIGNAL_CLD_MASK;
-
+	if (unlikely(signal->flags & SIGNAL_CLD_CONTINUED)) {
+		signal->flags &= ~SIGNAL_CLD_CONTINUED;
 		spin_unlock_irq(&sighand->siglock);
 
 		/*
@@ -2190,11 +2199,11 @@ relock:
 		 * a duplicate.
 		 */
 		read_lock(&tasklist_lock);
-		do_notify_parent_cldstop(current, false, why);
+		do_notify_parent_cldstop(current, false, CLD_CONTINUED);
 
 		if (ptrace_reparented(current->group_leader))
 			do_notify_parent_cldstop(current->group_leader,
-						true, why);
+						 true, CLD_CONTINUED);
 		read_unlock(&tasklist_lock);
 
 		goto relock;
