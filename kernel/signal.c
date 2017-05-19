@@ -1886,9 +1886,9 @@ static void ptrace_stop(int exit_code, int why, int clear_code, siginfo_t *info)
 		 * separately unless they are going to be identical.
 		 */
 		if (!identical)
-			do_notify_parent_cldstop(current, true, why);
+			do_notify_parent_cldstop(current, true, CLD_TRAPPED);
 		if (gstop_done)
-			do_notify_parent_cldstop(current, false, why);
+			do_notify_parent_cldstop(current, false, CLD_STOPPED);
 
 		/*
 		 * Don't want to allow preemption here, because
@@ -1912,7 +1912,7 @@ static void ptrace_stop(int exit_code, int why, int clear_code, siginfo_t *info)
 		 * the real parent of the group stop completion is enough.
 		 */
 		if (gstop_done)
-			do_notify_parent_cldstop(current, false, why);
+			do_notify_parent_cldstop(current, false, CLD_STOPPED);
 
 		/* tasklist protects us from ptrace_freeze_traced() */
 		__set_current_state(TASK_RUNNING);
