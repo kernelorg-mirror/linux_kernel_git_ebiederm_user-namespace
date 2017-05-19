@@ -1683,6 +1683,7 @@ bool do_notify_parent(struct task_struct *tsk, enum pid_type type)
  * do_notify_parent_cldstop - notify parent of stopped/continued state change
  * @tsk: task reporting the state change
  * @for_ptracer: the notification is for ptracer
+ * @type: nofication about a thread or a thread group
  * @why: CLD_{CONTINUED|STOPPED|TRAPPED} to report
  *
  * Notify @tsk's parent that the stopped/continued state has changed.  If
@@ -1692,8 +1693,8 @@ bool do_notify_parent(struct task_struct *tsk, enum pid_type type)
  * CONTEXT:
  * Must be called with tasklist_lock at least read locked.
  */
-static void do_notify_parent_cldstop(struct task_struct *tsk,
-				     bool for_ptracer, int why)
+static void do_notify_parent_cldstop(struct task_struct *tsk, bool for_ptracer,
+				     enum pid_type type, int why)
 {
 	struct signal_struct *sig = tsk->signal;
 	struct siginfo info;
@@ -1703,12 +1704,7 @@ static void do_notify_parent_cldstop(struct task_struct *tsk,
 	u64 utime, stime;
 	bool notify = false;
 
-	if (for_ptracer) {
-		parent = tsk->parent;
-	} else {
-		tsk = tsk->group_leader;
-		parent = tsk->real_parent;
-	}
+	parent = (for_ptracer) ? tsk->parent : tsk->real_parent;
 
 	info.si_signo = SIGCHLD;
 	info.si_errno = 0;
@@ -1716,7 +1712,8 @@ static void do_notify_parent_cldstop(struct task_struct *tsk,
 	 * see comment in do_notify_parent() about the following 4 lines
 	 */
 	rcu_read_lock();
-	info.si_pid = task_pid_nr_ns(tsk, task_active_pid_ns(parent));
+	info.si_pid = pid_nr_ns(task_pid_type(tsk, type),
+				task_active_pid_ns(parent));
 	info.si_uid = from_kuid_munged(task_cred_xxx(parent, user_ns), task_uid(tsk));
 	rcu_read_unlock();
 
@@ -1893,9 +1890,9 @@ static void ptrace_stop(int exit_code, int why, int clear_code, siginfo_t *info)
 		 * separately unless they are going to be identical.
 		 */
 		if (!identical)
-			do_notify_parent_cldstop(current, true, CLD_TRAPPED);
+			do_notify_parent_cldstop(current, true, PIDTYPE_PID, CLD_TRAPPED);
 		if (gstop_done)
-			do_notify_parent_cldstop(current, false, CLD_STOPPED);
+			do_notify_parent_cldstop(current, false, PIDTYPE_TGID, CLD_STOPPED);
 
 		/*
 		 * Don't want to allow preemption here, because
@@ -1919,7 +1916,7 @@ static void ptrace_stop(int exit_code, int why, int clear_code, siginfo_t *info)
 		 * the real parent of the group stop completion is enough.
 		 */
 		if (gstop_done)
-			do_notify_parent_cldstop(current, false, CLD_STOPPED);
+			do_notify_parent_cldstop(current, false, PIDTYPE_TGID, CLD_STOPPED);
 
 		/* tasklist protects us from ptrace_freeze_traced() */
 		__set_current_state(TASK_RUNNING);
@@ -2078,7 +2075,7 @@ static bool do_signal_stop(int signr)
 		 */
 		if (notify) {
 			read_lock(&tasklist_lock);
-			do_notify_parent_cldstop(current, false, notify);
+			do_notify_parent_cldstop(current, false, PIDTYPE_TGID, notify);
 			read_unlock(&tasklist_lock);
 		}
 
@@ -2215,11 +2212,11 @@ relock:
 		 * a duplicate.
 		 */
 		read_lock(&tasklist_lock);
-		do_notify_parent_cldstop(current, false, CLD_CONTINUED);
+		do_notify_parent_cldstop(current, false, PIDTYPE_TGID, CLD_CONTINUED);
 
-		if (ptrace_reparented(current->group_leader))
-			do_notify_parent_cldstop(current->group_leader,
-						 true, CLD_CONTINUED);
+		if (ptrace_reparented(current))
+			do_notify_parent_cldstop(current, true,
+						 PIDTYPE_TGID, CLD_CONTINUED);
 		read_unlock(&tasklist_lock);
 
 		goto relock;
@@ -2481,7 +2478,7 @@ out:
 	 */
 	if (unlikely(group_stop)) {
 		read_lock(&tasklist_lock);
-		do_notify_parent_cldstop(tsk, false, group_stop);
+		do_notify_parent_cldstop(tsk, false, PIDTYPE_TGID, group_stop);
 		read_unlock(&tasklist_lock);
 	}
 	return group_dead;
