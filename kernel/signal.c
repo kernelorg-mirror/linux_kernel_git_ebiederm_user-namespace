@@ -1813,6 +1813,7 @@ static void ptrace_stop(int exit_code, int why, int clear_code, siginfo_t *info)
 	__acquires(&current->sighand->siglock)
 {
 	bool gstop_done = false;
+	bool identical = false;
 
 	if (arch_ptrace_stop_needed(exit_code, info)) {
 		/*
@@ -1852,8 +1853,16 @@ static void ptrace_stop(int exit_code, int why, int clear_code, siginfo_t *info)
 	 * could be clear now.  We act as if SIGCONT is received after
 	 * TASK_TRACED is entered - ignore it.
 	 */
-	if (why == CLD_STOPPED && (current->jobctl & JOBCTL_STOP_PENDING))
-		gstop_done = task_participate_group_stop(current);
+	if (why == CLD_STOPPED) {
+		if (current->jobctl & JOBCTL_STOP_PENDING)
+			gstop_done = task_participate_group_stop(current);
+
+		/* Will the two generated signals be identical? */
+		identical = gstop_done &&
+			!(current->jobctl & JOBCTL_TRAP_NOTIFY) &&
+			!ptrace_reparented(current) &&
+			(task_pid(current) == task_tgid(current));
+	}
 
 	/* any trap clears pending STOP trap, STOP trap clears NOTIFY */
 	task_clear_jobctl_pending(current, JOBCTL_TRAP_STOP);
@@ -1874,10 +1883,11 @@ static void ptrace_stop(int exit_code, int why, int clear_code, siginfo_t *info)
 		 * know about every stop while the real parent is only
 		 * interested in the completion of group stop.  The states
 		 * for the two don't interact with each other.  Notify
-		 * separately unless they're gonna be duplicates.
+		 * separately unless they are going to be identical.
 		 */
-		do_notify_parent_cldstop(current, true, why);
-		if (gstop_done && ptrace_reparented(current))
+		if (!identical)
+			do_notify_parent_cldstop(current, true, why);
+		if (gstop_done)
 			do_notify_parent_cldstop(current, false, why);
 
 		/*
