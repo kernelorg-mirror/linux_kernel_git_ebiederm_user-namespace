@@ -938,7 +938,7 @@ static void complete_signal(int sig, struct task_struct *p, int group)
 			 * running and doing things after a slower
 			 * thread has the fatal signal pending.
 			 */
-			signal->flags = SIGNAL_GROUP_EXIT;
+			signal_set_exit_flags(signal, SIGNAL_GROUP_EXIT);
 			signal->group_exit_code = sig;
 			signal->group_stop_count = 0;
 			t = p;

@@ -258,6 +258,13 @@ static inline bool signal_delayed_wakeup(struct signal_struct *sig)
 		(SIGNAL_STOP_STOPPED | SIGNAL_WAKEUP_PENDING);
 }
 
+static inline void signal_set_exit_flags(struct signal_struct *sig,
+					 unsigned int flags)
+{
+	/* Preserve flags like SIGNAL_UNKILLABLE */
+	sig->flags = (sig->flags & ~SIGNAL_STOP_MASK) | flags;
+}
+
 /* If true, all threads except ->group_exit_task have pending SIGKILL */
 static inline int signal_group_exit(const struct signal_struct *sig)
 {

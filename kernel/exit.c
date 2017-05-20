@@ -906,7 +906,7 @@ do_group_exit(int exit_code)
 			exit_code = sig->group_exit_code;
 		else {
 			sig->group_exit_code = exit_code;
-			sig->flags = SIGNAL_GROUP_EXIT;
+			signal_set_exit_flags(sig, SIGNAL_GROUP_EXIT);
 			zap_other_threads(current);
 		}
 		spin_unlock_irq(&sighand->siglock);
