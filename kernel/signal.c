@@ -1480,9 +1480,9 @@ force_sigsegv(int sig, struct task_struct *p)
 {
 	if (sig == SIGSEGV) {
 		unsigned long flags;
-		spin_lock_irqsave(&p->sighand->siglock, flags);
+		spin_lock_irqsave(&p->sighand->lock, flags);
 		p->sighand->action[sig - 1].sa.sa_handler = SIG_DFL;
-		spin_unlock_irqrestore(&p->sighand->siglock, flags);
+		spin_unlock_irqrestore(&p->sighand->lock, flags);
 	}
 	force_sig(SIGSEGV, p);
 	return 0;
@@ -1606,6 +1606,7 @@ bool do_notify_parent(struct task_struct *tsk, int sig)
 	struct siginfo info;
 	unsigned long flags;
 	struct sighand_struct *psig;
+	struct task_struct *parent;
 	bool autoreap = false;
 	u64 utime, stime;
 
@@ -1659,8 +1660,10 @@ bool do_notify_parent(struct task_struct *tsk, int sig)
 		info.si_status = tsk->exit_code >> 8;
 	}
 
-	psig = tsk->parent->sighand;
-	spin_lock_irqsave(&psig->siglock, flags);
+	parent = tsk->parent;
+	spin_lock_irqsave(&parent->sighand->siglock, flags);
+	psig = parent->sighand;
+	spin_lock(&psig->lock);
 	if (sig == SIGCHLD &&
 	    (psig->action[SIGCHLD-1].sa.sa_handler == SIG_IGN ||
 	     (psig->action[SIGCHLD-1].sa.sa_flags & SA_NOCLDWAIT))) {
@@ -1683,9 +1686,10 @@ bool do_notify_parent(struct task_struct *tsk, int sig)
 		if (psig->action[SIGCHLD-1].sa.sa_handler == SIG_IGN)
 			sig = 0;
 	}
+	spin_unlock(&psig->lock);
 	if (valid_signal(sig) && sig)
-		__group_send_sig_info(sig, &info, tsk->parent);
-	__wake_up_parent(tsk, tsk->parent);
+		__group_send_sig_info(sig, &info, parent);
+	__wake_up_parent(tsk, parent);
 	spin_unlock_irqrestore(&psig->siglock, flags);
 
 	return autoreap;
@@ -1713,6 +1717,7 @@ static void do_notify_parent_cldstop(struct task_struct *tsk,
 	struct task_struct *parent;
 	struct sighand_struct *sighand;
 	u64 utime, stime;
+	bool notify = false;
 
 	if (for_ptracer) {
 		parent = tsk->parent;
@@ -1750,16 +1755,19 @@ static void do_notify_parent_cldstop(struct task_struct *tsk,
  		BUG();
  	}
 
+	spin_lock_irqsave(&parent->sighand->siglock, flags);
 	sighand = parent->sighand;
-	spin_lock_irqsave(&sighand->siglock, flags);
-	if (sighand->action[SIGCHLD-1].sa.sa_handler != SIG_IGN &&
-	    !(sighand->action[SIGCHLD-1].sa.sa_flags & SA_NOCLDSTOP))
+	spin_lock(&sighand->lock);
+	notify = (sighand->action[SIGCHLD-1].sa.sa_handler != SIG_IGN) &&
+		!(sighand->action[SIGCHLD-1].sa.sa_flags & SA_NOCLDSTOP);
+	spin_unlock(&sighand->lock);
+	if (notify)
 		__group_send_sig_info(SIGCHLD, &info, parent);
 	/*
 	 * Even if SIGCHLD is not generated, we must wake up wait4 calls.
 	 */
 	__wake_up_parent(tsk, parent);
-	spin_unlock_irqrestore(&sighand->siglock, flags);
+	spin_unlock_irqrestore(&parent->sighand->siglock, flags);
 
 	/*
 	 * If there was a delayed SIGCONT process it now.
@@ -2257,22 +2265,23 @@ relock:
 				continue;
 		}
 
+		spin_lock(&sighand->lock);
 		ka = &sighand->action[signr-1];
+		ksig->ka = *ka;
+		if ((ka->sa.sa_flags & SA_ONESHOT) &&
+		    (ka->sa.sa_handler != SIG_IGN) &&
+		    (ka->sa.sa_handler != SIG_DFL)) {
+			ka->sa.sa_handler = SIG_DFL;
+		}
+		spin_unlock(&sighand->lock);
 
 		/* Trace actually delivered signals. */
-		trace_signal_deliver(signr, &ksig->info, ka);
+		trace_signal_deliver(signr, &ksig->info, &ksig->ka);
 
-		if (ka->sa.sa_handler == SIG_IGN) /* Do nothing.  */
+		if (ksig->ka.sa.sa_handler == SIG_IGN) /* Do nothing.  */
 			continue;
-		if (ka->sa.sa_handler != SIG_DFL) {
-			/* Run the handler.  */
-			ksig->ka = *ka;
-
-			if (ka->sa.sa_flags & SA_ONESHOT)
-				ka->sa.sa_handler = SIG_DFL;
-
+		if (ksig->ka.sa.sa_handler != SIG_DFL) /* Run the handler.  */
 			break; /* will return non-zero "signr" value */
-		}
 
 		/*
 		 * Now we are doing the default action for this signal.
@@ -3100,7 +3109,11 @@ COMPAT_SYSCALL_DEFINE4(rt_tgsigqueueinfo,
 void kernel_sigaction(int sig, __sighandler_t action)
 {
 	spin_lock_irq(&current->sighand->siglock);
+
+	spin_lock(&current->sighand->lock);
 	current->sighand->action[sig - 1].sa.sa_handler = action;
+	spin_unlock(&current->sighand->lock);
+
 	if (action == SIG_IGN) {
 		sigset_t mask;
 
@@ -3132,6 +3145,7 @@ int do_sigaction(int sig, struct k_sigaction *act, struct k_sigaction *oact)
 	k = &p->sighand->action[sig-1];
 
 	spin_lock_irq(&p->sighand->siglock);
+	spin_lock(&p->sighand->lock);
 	if (oact)
 		*oact = *k;
 
@@ -3161,6 +3175,7 @@ int do_sigaction(int sig, struct k_sigaction *act, struct k_sigaction *oact)
 		}
 	}
 
+	spin_unlock(&p->sighand->lock);
 	spin_unlock_irq(&p->sighand->siglock);
 	return 0;
 }

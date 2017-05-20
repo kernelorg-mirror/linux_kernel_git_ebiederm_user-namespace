@@ -496,7 +496,7 @@ EXPORT_SYMBOL_GPL(tty_wakeup);
  *		  tty_ldiscs_lock from called functions
  *		  termios_rwsem resetting termios data
  *		  tasklist_lock to walk task list for hangup event
- *		    ->siglock to protect ->signal/->sighand
+ *		    ->siglock to protect ->signal
  */
 static void __tty_hangup(struct tty_struct *tty, int exit_session)
 {
@@ -1812,7 +1812,7 @@ out:
  *
  *	Locking: tty_mutex protects tty, tty_lookup_driver and tty_init_dev.
  *		 tty->count should protect the rest.
- *		 ->siglock protects ->signal/->sighand
+ *		 ->siglock protects ->signal
  *
  *	Note: the tty_unlock/lock cases without a ref are only safe due to
  *	tty_mutex

@@ -737,10 +737,12 @@ static int ncp_do_request(struct ncp_server *server, int size,
 			   What if we've blocked it ourselves?  What about
 			   alarms?  Why, in fact, are we mucking with the
 			   sigmask at all? -- r~ */
+			spin_lock(&current->sighand->lock);
 			if (current->sighand->action[SIGINT - 1].sa.sa_handler == SIG_DFL)
 				mask |= sigmask(SIGINT);
 			if (current->sighand->action[SIGQUIT - 1].sa.sa_handler == SIG_DFL)
 				mask |= sigmask(SIGQUIT);
+			spin_unlock(&current->sighand->lock);
 		}
 		siginitsetinv(&current->blocked, mask);
 		recalc_sigpending();

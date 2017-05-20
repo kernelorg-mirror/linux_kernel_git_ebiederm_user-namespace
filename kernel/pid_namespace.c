@@ -217,9 +217,9 @@ void zap_pid_ns_processes(struct pid_namespace *pid_ns, struct list_head *dead)
 	 * This speeds up the namespace shutdown, plus see the comment
 	 * below.
 	 */
-	spin_lock(&me->sighand->siglock);
+	spin_lock(&me->sighand->lock);
 	me->sighand->action[SIGCHLD - 1].sa.sa_handler = SIG_IGN;
-	spin_unlock(&me->sighand->siglock);
+	spin_unlock(&me->sighand->lock);
 
 	/*
 	 * The last thread in the cgroup-init thread group is terminating.

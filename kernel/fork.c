@@ -1424,7 +1424,7 @@ static void copy_seccomp(struct task_struct *p)
 {
 #ifdef CONFIG_SECCOMP
 	/*
-	 * Must be called with sighand->lock held, which is common to
+	 * Must be called with siglock held, which is common to
 	 * all threads in the group. Holding cred_guard_mutex is not
 	 * needed because this new task is not yet running and cannot
 	 * be racing exec.
@@ -1438,14 +1438,14 @@ static void copy_seccomp(struct task_struct *p)
 	/*
 	 * Explicitly enable no_new_privs here in case it got set
 	 * between the task_struct being duplicated and holding the
-	 * sighand lock. The seccomp state and nnp must be in sync.
+	 * siglock. The seccomp state and nnp must be in sync.
 	 */
 	if (task_no_new_privs(current))
 		task_set_no_new_privs(p);
 
 	/*
 	 * If the parent gained a seccomp mode after copying thread
-	 * flags and between before we held the sighand lock, we have
+	 * flags and between before we held the siglock, we have
 	 * to manually enable the seccomp thread flag here.
 	 */
 	if (p->seccomp.mode != SECCOMP_MODE_DISABLED)
@@ -2184,6 +2184,7 @@ static void sighand_ctor(void *data)
 {
 	struct sighand_struct *sighand = data;
 
+	spin_lock_init(&sighand->lock);
 	spin_lock_init(&sighand->siglock);
 }
 

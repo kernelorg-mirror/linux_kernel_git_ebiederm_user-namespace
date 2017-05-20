@@ -88,6 +88,7 @@ extern struct nsproxy init_nsproxy;
 #define INIT_SIGHAND(sighand) {						\
 	.count		= ATOMIC_INIT(1), 				\
 	.action		= { { { .sa_handler = SIG_DFL, } }, },		\
+	.lock		= __SPIN_LOCK_UNLOCKED(sighand.lock),		\
 	.siglock	= __SPIN_LOCK_UNLOCKED(sighand.siglock),	\
 }
 

@@ -290,7 +290,7 @@ force_sigsegv_info (int sig, void __user *addr)
 
 	if (sig == SIGSEGV) {
 		/*
-		 * Acquiring siglock around the sa_handler-update is almost
+		 * Acquiring sighand->lock around the sa_handler-update is almost
 		 * certainly overkill, but this isn't a
 		 * performance-critical path and I'd rather play it safe
 		 * here than having to debug a nasty race if and when
@@ -298,9 +298,9 @@ force_sigsegv_info (int sig, void __user *addr)
 		 * no longer safe to modify sa_handler without holding the
 		 * lock.
 		 */
-		spin_lock_irqsave(&current->sighand->siglock, flags);
+		spin_lock_irqsave(&current->sighand->lock, flags);
 		current->sighand->action[sig - 1].sa.sa_handler = SIG_DFL;
-		spin_unlock_irqrestore(&current->sighand->siglock, flags);
+		spin_unlock_irqrestore(&current->sighand->lock, flags);
 	}
 	si.si_signo = SIGSEGV;
 	si.si_errno = 0;

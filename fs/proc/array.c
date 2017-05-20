@@ -261,6 +261,8 @@ static void collect_sigign_sigcatch(struct task_struct *p, sigset_t *ign,
 	struct k_sigaction *k;
 	int i;
 
+	/* p->sighand is protected by siglock */
+	spin_lock(&p->sighand->lock);
 	k = p->sighand->action;
 	for (i = 1; i <= _NSIG; ++i, ++k) {
 		if (k->sa.sa_handler == SIG_IGN)
@@ -268,6 +270,7 @@ static void collect_sigign_sigcatch(struct task_struct *p, sigset_t *ign,
 		else if (k->sa.sa_handler != SIG_DFL)
 			sigaddset(catch, i);
 	}
+	spin_unlock(&p->sighand->lock);
 }
 
 static inline void task_sig(struct seq_file *m, struct task_struct *p)

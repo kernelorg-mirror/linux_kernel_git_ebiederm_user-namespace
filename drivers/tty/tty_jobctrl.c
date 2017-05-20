@@ -249,9 +249,9 @@ int tty_signal_session_leader(struct tty_struct *tty, int exit_session)
  *		BTM is taken for hysterical raisons, and held when
  *		  called from no_tty().
  *		  tty_mutex is taken to protect tty
- *		  ->siglock is taken to protect ->signal/->sighand
+ *		  ->siglock is taken to protect ->signal
  *		  tasklist_lock is taken to walk process list for sessions
- *		    ->siglock is taken to protect ->signal/->sighand
+ *		    ->siglock is taken to protect ->signal
  */
 void disassociate_ctty(int on_exit)
 {

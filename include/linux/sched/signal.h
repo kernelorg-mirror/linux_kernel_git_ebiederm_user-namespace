@@ -15,6 +15,7 @@
 struct sighand_struct {
 	atomic_t		count;
 	struct k_sigaction	action[_NSIG];
+	spinlock_t		lock;	/* Only protects sighand_struct */
 	spinlock_t		siglock;
 };
 
