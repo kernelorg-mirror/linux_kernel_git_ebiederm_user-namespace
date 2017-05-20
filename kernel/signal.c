@@ -797,6 +797,28 @@ static void wake_up_stopped_thread(struct task_struct *t)
 		ptrace_trap_notify(t);
 }
 
+void start_group_exit(struct task_struct *start, int exit_code)
+{
+	struct signal_struct *sig = start->signal;
+	struct task_struct *t;
+	/*
+	 * Start a group exit and wake everybody up.
+	 * This way we don't have other threads
+	 * running and doing things after a slower
+	 * thread has the fatal signal pending.
+	 */
+	signal_set_exit_flags(sig, SIGNAL_GROUP_EXIT);
+	sig->group_exit_code = exit_code;
+	sig->group_stop_count = 0;
+	for_each_thread(start, t) {
+		if (t->flags & PF_EXITING)
+			continue;
+		task_clear_jobctl_pending(t, JOBCTL_PENDING_MASK);
+		sigaddset(&t->pending.signal, SIGKILL);
+		signal_wake_up(t, 1);
+	}
+}
+
 /*
  * Handle magic process-wide effects of stop/continue signals. Unlike
  * the signal actions, these happen immediately at signal-generation
@@ -935,21 +957,7 @@ static void complete_signal(int sig, struct task_struct *p, int group)
 		 * This signal will be fatal to the whole group.
 		 */
 		if (!sig_kernel_coredump(sig)) {
-			/*
-			 * Start a group exit and wake everybody up.
-			 * This way we don't have other threads
-			 * running and doing things after a slower
-			 * thread has the fatal signal pending.
-			 */
-			signal_set_exit_flags(signal, SIGNAL_GROUP_EXIT);
-			signal->group_exit_code = sig;
-			signal->group_stop_count = 0;
-			t = p;
-			do {
-				task_clear_jobctl_pending(t, JOBCTL_PENDING_MASK);
-				sigaddset(&t->pending.signal, SIGKILL);
-				signal_wake_up(t, 1);
-			} while_each_thread(p, t);
+			start_group_exit(t, sig);
 			return;
 		}
 	}

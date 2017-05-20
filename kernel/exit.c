@@ -895,13 +895,8 @@ do_group_exit(int exit_code)
 		if (signal_group_exit(sig))
 			/* Another thread got here before we took the lock.  */
 			exit_code = sig->group_exit_code;
-		else {
-			signal_set_exit_flags(sig, SIGNAL_GROUP_EXIT);
-			sig->group_exit_code = exit_code;
-			sig->group_stop_count = 0;
-			task_clear_jobctl_pending(current, JOBCTL_PENDING_MASK);
-			zap_other_threads(current);
-		}
+		else
+			start_group_exit(current, exit_code);
 		spin_unlock_irq(&sighand->siglock);
 	}
 

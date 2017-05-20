@@ -269,6 +269,8 @@ static inline int signal_group_exit(const struct signal_struct *sig)
 	return	(sig->flags & (SIGNAL_GROUP_EXIT | SIGNAL_GROUP_COREDUMP));
 }
 
+extern void start_group_exit(struct task_struct *start, int exit_code);
+
 extern void flush_signals(struct task_struct *);
 extern void ignore_signals(struct task_struct *);
 extern void flush_signal_handlers(struct task_struct *, int force_default);
