@@ -536,9 +536,7 @@ static struct task_struct *find_new_reaper(struct task_struct *father,
 				break;
 			if (!reaper->signal->is_child_subreaper)
 				continue;
-			thread = find_alive_thread(reaper);
-			if (thread)
-				return thread;
+			return reaper;
 		}
 	}
 
