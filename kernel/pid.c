@@ -398,7 +398,7 @@ static void __change_pid(struct task_struct *task, enum pid_type type,
 	link = &task->pids[type];
 	pid = link->pid;
 
-	hlist_del_rcu(&link->node);
+	hlist_del_init_rcu(&link->node);
 	link->pid = new;
 
 	for (tmp = PIDTYPE_MAX; --tmp >= 0; )
@@ -425,7 +425,7 @@ void transfer_pid(struct task_struct *old, struct task_struct *new,
 			   enum pid_type type)
 {
 	new->pids[type].pid = old->pids[type].pid;
-	hlist_replace_rcu(&old->pids[type].node, &new->pids[type].node);
+	hlist_replace_init_rcu(&old->pids[type].node, &new->pids[type].node);
 }
 
 struct task_struct *pid_task(struct pid *pid, enum pid_type type)

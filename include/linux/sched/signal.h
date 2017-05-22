@@ -541,7 +541,7 @@ static inline int get_nr_threads(struct task_struct *tsk)
 
 static inline bool thread_group_leader(struct task_struct *p)
 {
-	return p->exit_signal >= 0;
+	return !hlist_unhashed(&p->pids[PIDTYPE_PGID].node);
 }
 
 /* Do to the insanities of de_thread it is possible for a process
