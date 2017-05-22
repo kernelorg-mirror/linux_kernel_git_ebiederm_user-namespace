@@ -262,7 +262,6 @@ extern struct cred init_cred;
 	.parent		= &tsk,						\
 	.children	= LIST_HEAD_INIT(tsk.children),			\
 	.sibling	= LIST_HEAD_INIT(tsk.sibling),			\
-	.group_leader	= &tsk,						\
 	RCU_POINTER_INITIALIZER(real_cred, &init_cred),			\
 	RCU_POINTER_INITIALIZER(cred, &init_cred),			\
 	.comm		= INIT_TASK_COMM,				\

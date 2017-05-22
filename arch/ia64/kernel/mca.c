@@ -1826,7 +1826,7 @@ format_mca_init_stack(void *mca_data, unsigned long offset,
 	p->state = TASK_UNINTERRUPTIBLE;
 	cpumask_set_cpu(cpu, &p->cpus_allowed);
 	INIT_LIST_HEAD(&p->tasks);
-	p->parent = p->real_parent = p->group_leader = p;
+	p->parent = p->real_parent = p;
 	INIT_LIST_HEAD(&p->children);
 	INIT_LIST_HEAD(&p->sibling);
 	strncpy(p->comm, type, sizeof(p->comm)-1);

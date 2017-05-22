@@ -1130,9 +1130,6 @@ static int de_thread(struct task_struct *tsk)
 		list_replace_rcu(&old->tasks, &tsk->tasks);
 		list_replace_init(&old->sibling, &tsk->sibling);
 
-		tsk->group_leader = tsk;
-		old->group_leader = tsk;
-
 		BUG_ON(old->exit_state != EXIT_ZOMBIE);
 		old->exit_state = EXIT_DEAD;
 

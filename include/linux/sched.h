@@ -641,7 +641,6 @@ struct task_struct {
 	 */
 	struct list_head		children;
 	struct list_head		sibling;
-	struct task_struct		*group_leader;
 
 	/*
 	 * 'ptraced' is the list of tasks this task is using ptrace() on.
