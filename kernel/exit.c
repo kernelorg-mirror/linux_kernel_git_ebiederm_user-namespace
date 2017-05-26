@@ -93,7 +93,6 @@ static void __exit_signal(struct task_struct *tsk)
 	struct signal_struct *sig = tsk->signal;
 	bool group_dead;
 	struct sighand_struct *sighand;
-	struct tty_struct *uninitialized_var(tty);
 	u64 utime, stime;
 
 	sighand = rcu_dereference_check(tsk->sighand,
@@ -116,10 +115,7 @@ static void __exit_signal(struct task_struct *tsk)
 	}
 #endif
 
-	if (group_dead) {
-		tty = sig->tty;
-		sig->tty = NULL;
-	} else {
+	if (!group_dead) {
 		/*
 		 * If there is any task waiting for the group exit
 		 * then notify it:
@@ -168,7 +164,6 @@ static void __exit_signal(struct task_struct *tsk)
 	__cleanup_sighand(sighand);
 	if (group_dead) {
 		flush_sigqueue(&sig->shared_pending);
-		tty_kref_put(tty);
 	}
 }
 
