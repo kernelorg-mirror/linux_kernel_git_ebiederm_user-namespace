@@ -187,8 +187,8 @@ void rcu_put_task_struct(struct task_struct *tsk)
 
 void release_task(struct task_struct *p)
 {
-	struct task_struct *leader;
-	int zap_leader;
+	struct task_struct *last;
+	bool autoreap;
 repeat:
 	/* don't need to get the RCU readlock here - the process is dead and
 	 * can't be modifying its own credentials. But shut RCU-lockdep up */
@@ -202,31 +202,30 @@ repeat:
 	ptrace_release_task(p);
 	__exit_signal(p);
 
+	autoreap = false;
+	last = NULL;
+	/* One last thread in the thread group? */
+	if (list_is_singular(&p->signal->thread_head))
+		last = list_first_entry(&p->signal->thread_head,
+				       struct task_struct, thread_node);
 	/*
-	 * If we are the last non-leader member of the thread
-	 * group, and the leader is zombie, then notify the
-	 * group leader's parent process. (if it wants notification.)
+	 * If there is only one unreaped thread left and it is a
+	 * zombie notify it's parent process.
 	 */
-	zap_leader = 0;
-	leader = p->group_leader;
-	if (leader != p && thread_group_empty(leader)
-			&& leader->exit_state == EXIT_ZOMBIE) {
-		/*
-		 * If we were the last child thread and the leader has
-		 * exited already, and the leader's parent ignores SIGCHLD,
-		 * then we are the one who should release the leader.
-		 */
-		zap_leader = do_notify_parent(leader, leader->exit_signal);
-		if (zap_leader)
-			leader->exit_state = EXIT_DEAD;
+	if (last &&
+	    (last->exit_state == EXIT_ZOMBIE) &&
+	    thread_group_empty(last) &&
+	    do_notify_parent(last, last->exit_signal)) {
+		last->exit_state = EXIT_DEAD;
+		autoreap = true;
 	}
 
 	write_unlock_irq(&tasklist_lock);
 	release_thread(p);
 	rcu_put_task_struct(p);
 
-	p = leader;
-	if (unlikely(zap_leader))
+	p = last;
+	if (unlikely(autoreap))
 		goto repeat;
 }
 
