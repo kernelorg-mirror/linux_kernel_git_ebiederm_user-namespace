@@ -32,8 +32,8 @@ static int ptrace_scope = YAMA_SCOPE_RELATIONAL;
 
 /* describe a ptrace relationship for potential exception */
 struct ptrace_relation {
-	struct task_struct *tracer;
-	struct task_struct *tracee;
+	struct pid *tracer;
+	struct pid *tracee;
 	bool invalid;
 	struct list_head node;
 	struct rcu_head rcu;
@@ -142,8 +142,8 @@ static void yama_relation_cleanup(struct work_struct *work)
  *
  * Returns 0 if relationship was added, -ve on error.
  */
-static int yama_ptracer_add(struct task_struct *tracer,
-			    struct task_struct *tracee)
+static int yama_ptracer_add(struct pid *tracer,
+			    struct pid *tracee)
 {
 	struct ptrace_relation *relation, *added;
 
@@ -180,8 +180,8 @@ out:
  * @tracer: remove any relation where tracer task matches
  * @tracee: remove any relation where tracee task matches
  */
-static void yama_ptracer_del(struct task_struct *tracer,
-			     struct task_struct *tracee)
+static void yama_ptracer_del(struct pid *tracer,
+			     struct pid *tracee)
 {
 	struct ptrace_relation *relation;
 	bool marked = false;
@@ -204,11 +204,11 @@ static void yama_ptracer_del(struct task_struct *tracer,
 
 /**
  * yama_task_free - check for task_pid to remove from exception list
- * @task: task being removed
+ * @pid: pid being removed
  */
-void yama_task_free(struct task_struct *task)
+void yama_pid_free(struct pid *pid)
 {
-	yama_ptracer_del(task, task);
+	yama_ptracer_del(pid, pid);
 }
 
 /**
@@ -226,7 +226,7 @@ int yama_task_prctl(int option, unsigned long arg2, unsigned long arg3,
 			   unsigned long arg4, unsigned long arg5)
 {
 	int rc = -ENOSYS;
-	struct task_struct *myself = current;
+	struct pid *myself = task_tgid(current);
 
 	switch (option) {
 	case PR_SET_PTRACER:
@@ -236,35 +236,27 @@ int yama_task_prctl(int option, unsigned long arg2, unsigned long arg3,
 		 * leader checking is handled later when walking the ancestry
 		 * at the time of PTRACE_ATTACH check.
 		 */
-		rcu_read_lock();
-		if (!thread_group_leader(myself))
-			myself = rcu_dereference(myself->group_leader);
-		get_task_struct(myself);
-		rcu_read_unlock();
-
 		if (arg2 == 0) {
 			yama_ptracer_del(NULL, myself);
 			rc = 0;
 		} else if (arg2 == PR_SET_PTRACER_ANY || (int)arg2 == -1) {
 			rc = yama_ptracer_add(NULL, myself);
 		} else {
+			struct pid *tracer_tgid = NULL;
 			struct task_struct *tracer;
 
 			rcu_read_lock();
 			tracer = find_task_by_vpid(arg2);
 			if (tracer)
-				get_task_struct(tracer);
-			else
-				rc = -EINVAL;
+				tracer_tgid = get_pid(task_tgid(tracer));
 			rcu_read_unlock();
 
-			if (tracer) {
-				rc = yama_ptracer_add(tracer, myself);
-				put_task_struct(tracer);
+			rc = -EINVAL;
+			if (tracer_tgid) {
+				rc = yama_ptracer_add(tracer_tgid, myself);
+				put_pid(tracer_tgid);
 			}
 		}
-
-		put_task_struct(myself);
 		break;
 	}
 
@@ -278,7 +270,7 @@ int yama_task_prctl(int option, unsigned long arg2, unsigned long arg3,
  *
  * Returns 1 if child is a descendant of parent, 0 if not.
  */
-static int task_is_descendant(struct task_struct *parent,
+static int task_is_descendant(struct pid *parent,
 			      struct task_struct *child)
 {
 	int rc = 0;
@@ -288,12 +280,8 @@ static int task_is_descendant(struct task_struct *parent,
 		return 0;
 
 	rcu_read_lock();
-	if (!thread_group_leader(parent))
-		parent = rcu_dereference(parent->group_leader);
 	while (walker->pid > 0) {
-		if (!thread_group_leader(walker))
-			walker = rcu_dereference(walker->group_leader);
-		if (walker == parent) {
+		if (task_tgid(walker) == parent) {
 			rc = 1;
 			break;
 		}
@@ -316,7 +304,8 @@ static int ptracer_exception_found(struct task_struct *tracer,
 {
 	int rc = 0;
 	struct ptrace_relation *relation;
-	struct task_struct *parent = NULL;
+	struct pid *tracee_tgid, *parent = NULL;
+	struct task_struct *ptracer;
 	bool found = false;
 
 	rcu_read_lock();
@@ -325,19 +314,18 @@ static int ptracer_exception_found(struct task_struct *tracer,
 	 * If there's already an active tracing relationship, then make an
 	 * exception for the sake of other accesses, like process_vm_rw().
 	 */
-	parent = ptrace_parent(tracee);
-	if (parent != NULL && same_thread_group(parent, tracer)) {
+	ptracer = ptrace_parent(tracee);
+	if (ptracer != NULL && same_thread_group(ptracer, tracer)) {
 		rc = 1;
 		goto unlock;
 	}
 
 	/* Look for a PR_SET_PTRACER relationship. */
-	if (!thread_group_leader(tracee))
-		tracee = rcu_dereference(tracee->group_leader);
+	tracee_tgid = task_tgid(tracee);
 	list_for_each_entry_rcu(relation, &ptracer_relations, node) {
 		if (relation->invalid)
 			continue;
-		if (relation->tracee == tracee) {
+		if (relation->tracee == tracee_tgid) {
 			parent = relation->tracer;
 			found = true;
 			break;
@@ -373,7 +361,7 @@ static int yama_ptrace_access_check(struct task_struct *child,
 			break;
 		case YAMA_SCOPE_RELATIONAL:
 			rcu_read_lock();
-			if (!task_is_descendant(current, child) &&
+			if (!task_is_descendant(task_tgid(current), child) &&
 			    !ptracer_exception_found(current, child) &&
 			    !ns_capable(__task_cred(child)->user_ns, CAP_SYS_PTRACE))
 				rc = -EPERM;
@@ -432,7 +420,7 @@ static struct security_hook_list yama_hooks[] __lsm_ro_after_init = {
 	LSM_HOOK_INIT(ptrace_access_check, yama_ptrace_access_check),
 	LSM_HOOK_INIT(ptrace_traceme, yama_ptrace_traceme),
 	LSM_HOOK_INIT(task_prctl, yama_task_prctl),
-	LSM_HOOK_INIT(task_free, yama_task_free),
+	LSM_HOOK_INIT(pid_free, yama_pid_free),
 };
 
 #ifdef CONFIG_SYSCTL

@@ -951,6 +951,11 @@ void security_task_free(struct task_struct *task)
 	call_void_hook(task_free, task);
 }
 
+void security_pid_free(struct pid *pid)
+{
+	call_void_hook(pid_free, pid);
+}
+
 int security_cred_alloc_blank(struct cred *cred, gfp_t gfp)
 {
 	return call_int_hook(cred_alloc_blank, 0, cred, gfp);

@@ -310,6 +310,7 @@ int security_file_open(struct file *file, const struct cred *cred);
 int security_task_create(unsigned long clone_flags);
 int security_task_alloc(struct task_struct *task, unsigned long clone_flags);
 void security_task_free(struct task_struct *task);
+void security_pid_free(struct pid *pid);
 int security_cred_alloc_blank(struct cred *cred, gfp_t gfp);
 void security_cred_free(struct cred *cred);
 int security_prepare_creds(struct cred *new, const struct cred *old, gfp_t gfp);
@@ -869,6 +870,9 @@ static inline int security_task_alloc(struct task_struct *task,
 }
 
 static inline void security_task_free(struct task_struct *task)
+{ }
+
+static inline void security_pid_free(struct pid *pid)
 { }
 
 static inline int security_cred_alloc_blank(struct cred *cred, gfp_t gfp)

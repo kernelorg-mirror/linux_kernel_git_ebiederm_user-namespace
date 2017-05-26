@@ -541,6 +541,9 @@
  * @task_free:
  *	@task task about to be freed.
  *	Handle release of task-related resources. (Note that this can be called
+ * @pid_free:
+ *	@pid pid being freed
+ *	Handle release of pid-related resources. (Note that this can be called
  *	from interrupt context.)
  * @cred_alloc_blank:
  *	@cred points to the credentials.
@@ -1489,6 +1492,7 @@ union security_list_options {
 	int (*task_create)(unsigned long clone_flags);
 	int (*task_alloc)(struct task_struct *task, unsigned long clone_flags);
 	void (*task_free)(struct task_struct *task);
+	void (*pid_free)(struct pid *pid);
 	int (*cred_alloc_blank)(struct cred *cred, gfp_t gfp);
 	void (*cred_free)(struct cred *cred);
 	int (*cred_prepare)(struct cred *new, const struct cred *old,
@@ -1756,6 +1760,7 @@ struct security_hook_heads {
 	struct list_head task_create;
 	struct list_head task_alloc;
 	struct list_head task_free;
+	struct list_head pid_free;
 	struct list_head cred_alloc_blank;
 	struct list_head cred_free;
 	struct list_head cred_prepare;
