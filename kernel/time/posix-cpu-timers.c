@@ -28,24 +28,41 @@ void update_rlimit_cpu(struct task_struct *task, unsigned long rlim_new)
 	spin_unlock_irq(&task->signal->siglock);
 }
 
-static int check_clock(const clockid_t which_clock)
+static struct task_struct *cpu_clock_task_rcu(const clockid_t which_clock)
 {
-	int error = 0;
+	const pid_t which_pid = CPUCLOCK_PID(which_clock);
+	struct pid *pid;
 	struct task_struct *p;
-	const pid_t pid = CPUCLOCK_PID(which_clock);
 
 	if (CPUCLOCK_WHICH(which_clock) >= CPUCLOCK_MAX)
-		return -EINVAL;
+		return ERR_PTR(-EINVAL);
 
-	if (pid == 0)
-		return 0;
+	if (which_pid == 0)
+		return current;
+
+	pid = find_vpid(which_pid);
+	if (CPUCLOCK_PERTHREAD(which_clock)) {
+		p = pid_task(pid, PIDTYPE_PID);
+		if (p && !same_thread_group(p, current))
+			p = ERR_PTR(-EPERM);
+	} else {
+		p = pid_task(pid, PIDTYPE_TGID);
+	}
+	if (!p)
+		p = ERR_PTR(-ESRCH);
+
+	return p;
+}
+
+static int check_clock(const clockid_t which_clock)
+{
+	struct task_struct *p;
+	int error = 0;
 
 	rcu_read_lock();
-	p = find_task_by_vpid(pid);
-	if (!p || !(CPUCLOCK_PERTHREAD(which_clock) ?
-		   same_thread_group(p, current) : has_group_leader_pid(p))) {
-		error = -EINVAL;
-	}
+	p = cpu_clock_task_rcu(which_clock);
+	if (IS_ERR(p))
+		error = PTR_ERR(p);
 	rcu_read_unlock();
 
 	return error;
@@ -257,51 +274,26 @@ static int cpu_clock_sample_group(const clockid_t which_clock,
 	return 0;
 }
 
-static int posix_cpu_clock_get_task(struct task_struct *tsk,
-				    const clockid_t which_clock,
-				    struct timespec64 *tp)
-{
-	int err = -EINVAL;
-	u64 rtn;
-
-	if (CPUCLOCK_PERTHREAD(which_clock)) {
-		if (same_thread_group(tsk, current))
-			err = cpu_clock_sample(which_clock, tsk, &rtn);
-	} else {
-		if (tsk == current || thread_group_leader(tsk))
-			err = cpu_clock_sample_group(which_clock, tsk, &rtn);
-	}
-
-	if (!err)
-		*tp = ns_to_timespec64(rtn);
-
-	return err;
-}
-
-
 static int posix_cpu_clock_get(const clockid_t which_clock, struct timespec64 *tp)
 {
-	const pid_t pid = CPUCLOCK_PID(which_clock);
-	int err = -EINVAL;
+	struct task_struct *p;
+	int err;
+	u64 rtn;
 
-	if (pid == 0) {
-		/*
-		 * Special case constant value for our own clocks.
-		 * We don't have to do any lookup to find ourselves.
-		 */
-		err = posix_cpu_clock_get_task(current, which_clock, tp);
+	rcu_read_lock();
+	p = cpu_clock_task_rcu(which_clock);
+	if (!IS_ERR(p)) {
+		if (CPUCLOCK_PERTHREAD(which_clock)) {
+			err = cpu_clock_sample(which_clock, p, &rtn);
+		} else {
+			err = cpu_clock_sample_group(which_clock, p, &rtn);
+		}
 	} else {
-		/*
-		 * Find the given PID, and validate that the caller
-		 * should be able to see it.
-		 */
-		struct task_struct *p;
-		rcu_read_lock();
-		p = find_task_by_vpid(pid);
-		if (p)
-			err = posix_cpu_clock_get_task(p, which_clock, tp);
-		rcu_read_unlock();
+		err = PTR_ERR(p);
 	}
+	rcu_read_unlock();
+	if (!err)
+		*tp = ns_to_timespec64(rtn);
 
 	return err;
 }
@@ -314,37 +306,17 @@ static int posix_cpu_clock_get(const clockid_t which_clock, struct timespec64 *t
 static int posix_cpu_timer_create(struct k_itimer *new_timer)
 {
 	int ret = 0;
-	const pid_t pid = CPUCLOCK_PID(new_timer->it_clock);
 	struct task_struct *p;
-
-	if (CPUCLOCK_WHICH(new_timer->it_clock) >= CPUCLOCK_MAX)
-		return -EINVAL;
 
 	INIT_LIST_HEAD(&new_timer->it.cpu.entry);
 
 	rcu_read_lock();
-	if (CPUCLOCK_PERTHREAD(new_timer->it_clock)) {
-		if (pid == 0) {
-			p = current;
-		} else {
-			p = find_task_by_vpid(pid);
-			if (p && !same_thread_group(p, current))
-				p = NULL;
-		}
-	} else {
-		if (pid == 0) {
-			p = current->group_leader;
-		} else {
-			p = find_task_by_vpid(pid);
-			if (p && !has_group_leader_pid(p))
-				p = NULL;
-		}
-	}
-	new_timer->it.cpu.task = p;
-	if (p) {
+	p = cpu_clock_task_rcu(new_timer->it_clock);
+	if (!IS_ERR(p)) {
+		new_timer->it.cpu.task = p;
 		get_task_struct(p);
 	} else {
-		ret = -EINVAL;
+		ret = PTR_ERR(p);
 	}
 	rcu_read_unlock();
 
