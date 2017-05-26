@@ -421,7 +421,7 @@ static struct pid *session_of_pgrp(struct pid *pgrp)
 
 	p = pid_task(pgrp, PIDTYPE_PGID);
 	if (p == NULL)
-		p = pid_task(pgrp, PIDTYPE_PID);
+		p = pid_task(pgrp, PIDTYPE_TGID);
 	if (p != NULL)
 		sid = task_session(p);
 
