@@ -68,6 +68,31 @@ static struct task_struct *cpu_clock_task_rcu(const clockid_t which_clock)
 	return p;
 }
 
+static struct pid *cpu_clock_pid_rcu(const clockid_t which_clock)
+{
+	struct task_struct *p = cpu_clock_task_rcu(which_clock);
+	struct pid *pid;
+
+	if (IS_ERR(p))
+		return ERR_CAST(p);
+
+	if (CPUCLOCK_PERTHREAD(which_clock))
+		pid = task_pid(p);
+	else
+		pid = task_tgid(p);
+	return pid;
+}
+
+static struct task_struct *cpu_timer_task_rcu(struct k_itimer *timer)
+{
+	enum pid_type type = PIDTYPE_TGID;
+
+	if (CPUCLOCK_PERTHREAD(timer->it_clock))
+		type = PIDTYPE_PID;
+
+	return pid_task(timer->it.cpu.pid, type);
+}
+
 static int check_clock(const clockid_t which_clock)
 {
 	struct task_struct *p;
@@ -320,17 +345,16 @@ static int posix_cpu_clock_get(const clockid_t which_clock, struct timespec64 *t
 static int posix_cpu_timer_create(struct k_itimer *new_timer)
 {
 	int ret = 0;
-	struct task_struct *p;
+	struct pid *pid;
 
 	INIT_LIST_HEAD(&new_timer->it.cpu.entry);
 
 	rcu_read_lock();
-	p = cpu_clock_task_rcu(new_timer->it_clock);
-	if (!IS_ERR(p)) {
-		new_timer->it.cpu.task = p;
-		get_task_struct(p);
+	pid = cpu_clock_pid_rcu(new_timer->it_clock);
+	if (!IS_ERR(pid)) {
+		new_timer->it.cpu.pid = get_pid(pid);
 	} else {
-		ret = PTR_ERR(p);
+		ret = PTR_ERR(pid);
 	}
 	rcu_read_unlock();
 
@@ -347,23 +371,38 @@ static int posix_cpu_timer_del(struct k_itimer *timer)
 {
 	int ret = 0;
 	unsigned long flags;
-	struct task_struct *p = timer->it.cpu.task;
+	struct task_struct *p;
 
-	WARN_ON_ONCE(p == NULL);
-
-	/*
-	 * Protect against process/thread timer list entry concurrent
-	 * read/writes.
-	 */
-	spin_lock_irqsave(&p->signal->siglock, flags);
-	if (timer->it.cpu.firing)
-		ret = TIMER_RETRY;
-	else
-		list_del(&timer->it.cpu.entry);
-	spin_unlock_irqrestore(&p->signal->siglock, flags);
+	rcu_read_lock();
+	p = cpu_timer_task_rcu(timer);
+	if (p) {
+		/*
+		 * Testing firing and deleting the cpu list entry
+		 * only needs to happen when p is found.  As a failure
+		 * to return a task from cpu_timer_task_rcu indicates
+		 * the clock has stopped and our timer has been
+		 * permanently removed from the cpu_timers lists.
+		 *
+		 * For a running clock it is necessary to obtain the
+		 * timer lock and the connected processes siglock
+		 * before testing firing (which is set under siglock
+		 * and cleared under the timer lock).
+		 */
+		/*
+		 * Protect against process/thread timer list entry concurrent
+		 * read/writes.
+		 */
+		spin_lock_irqsave(&p->signal->siglock, flags);
+		if (timer->it.cpu.firing)
+			ret = TIMER_RETRY;
+		else
+			list_del(&timer->it.cpu.entry);
+		spin_unlock_irqrestore(&p->signal->siglock, flags);
+	}
+	rcu_read_unlock();
 
 	if (!ret)
-		put_task_struct(p);
+		put_pid(timer->it.cpu.pid);
 
 	return ret;
 }
@@ -412,9 +451,8 @@ static inline int expires_gt(u64 expires, u64 new_exp)
  * Insert the timer on the appropriate list before any timers that
  * expire later.  This must be called with the siglock held.
  */
-static void arm_timer(struct k_itimer *timer)
+static void arm_timer(struct k_itimer *timer, struct task_struct *p)
 {
-	struct task_struct *p = timer->it.cpu.task;
 	struct list_head *head, *listpos;
 	struct task_cputime *cputime_expires;
 	struct cpu_timer_list *const nt = &timer->it.cpu;
@@ -537,11 +575,9 @@ static int posix_cpu_timer_set(struct k_itimer *timer, int timer_flags,
 			       struct itimerspec64 *new, struct itimerspec64 *old)
 {
 	unsigned long flags;
-	struct task_struct *p = timer->it.cpu.task;
+	struct task_struct *p;
 	u64 old_expires, new_expires, old_incr, val;
 	int ret;
-
-	WARN_ON_ONCE(p == NULL);
 
 	new_expires = timespec64_to_ns(&new->it_value);
 
@@ -549,10 +585,16 @@ static int posix_cpu_timer_set(struct k_itimer *timer, int timer_flags,
 	 * Protect against p->cpu_timers and p->signal->cpu_timers
 	 * read/write in arm_timer()
 	 */
-
+	rcu_read_lock();
+	p = cpu_timer_task_rcu(timer);
+	if (unlikely(!p)) {
+		rcu_read_unlock();
+		return -ESRCH;
+	}
 	spin_lock_irqsave(&p->signal->siglock, flags);
 	if (unlikely(!cpu_clock_alive(timer->it_clock, p))) {
 		spin_unlock_irqrestore(&p->signal->siglock, flags);
+		rcu_read_unlock();
 		return -ESRCH;
 	}
 
@@ -618,6 +660,7 @@ static int posix_cpu_timer_set(struct k_itimer *timer, int timer_flags,
 		 * it as an overrun (thanks to bump_cpu_timer above).
 		 */
 		spin_unlock_irqrestore(&p->signal->siglock, flags);
+		rcu_read_unlock();
 		goto out;
 	}
 
@@ -632,10 +675,11 @@ static int posix_cpu_timer_set(struct k_itimer *timer, int timer_flags,
 	 */
 	timer->it.cpu.expires = new_expires;
 	if (new_expires != 0 && val < new_expires) {
-		arm_timer(timer);
+		arm_timer(timer, p);
 	}
 
 	spin_unlock_irqrestore(&p->signal->siglock, flags);
+	rcu_read_unlock();
 	/*
 	 * Install the new reload setting, and
 	 * set up the signal and overrun bookkeeping.
@@ -672,9 +716,7 @@ static int posix_cpu_timer_set(struct k_itimer *timer, int timer_flags,
 static void posix_cpu_timer_get(struct k_itimer *timer, struct itimerspec64 *itp)
 {
 	u64 now;
-	struct task_struct *p = timer->it.cpu.task;
-
-	WARN_ON_ONCE(p == NULL);
+	struct task_struct *p;
 
 	/*
 	 * Easy part: convert the reload time.
@@ -686,6 +728,12 @@ static void posix_cpu_timer_get(struct k_itimer *timer, struct itimerspec64 *itp
 		return;
 	}
 
+	rcu_read_lock();
+	p = cpu_timer_task_rcu(timer);
+	if (!p) {
+		rcu_read_unlock();
+		return;
+	}
 	/*
 	 * Sample the clock to take the difference with the expiry time.
 	 */
@@ -694,6 +742,7 @@ static void posix_cpu_timer_get(struct k_itimer *timer, struct itimerspec64 *itp
 	} else {
 		cpu_timer_sample_group(timer->it_clock, p, &now);
 	}
+	rcu_read_unlock();
 
 	if (now < timer->it.cpu.expires) {
 		itp->it_value = ns_to_timespec64(timer->it.cpu.expires - now);
@@ -922,11 +971,15 @@ static void check_process_timers(struct task_struct *tsk,
 void posix_cpu_timer_schedule(struct k_itimer *timer)
 {
 	unsigned long flags;
-	struct task_struct *p = timer->it.cpu.task;
+	struct task_struct *p;
 	u64 now;
 
-	WARN_ON_ONCE(p == NULL);
-
+	rcu_read_lock();
+	p = cpu_timer_task_rcu(timer);
+	if (!p) {
+		rcu_read_unlock();
+		return;
+	}
 	/*
 	 * Fetch the current sample and update the timer's expiry time.
 	 */
@@ -946,9 +999,10 @@ void posix_cpu_timer_schedule(struct k_itimer *timer)
 	 * Now re-arm for the new expiry time.
 	 */
 	WARN_ON_ONCE(!irqs_disabled());
-	arm_timer(timer);
+	arm_timer(timer, p);
 out:
 	spin_unlock_irqrestore(&p->signal->siglock, flags);
+	rcu_read_unlock();
 	timer->it_overrun_last = timer->it_overrun;
 	timer->it_overrun = -1;
 	++timer->it_requeue_pending;

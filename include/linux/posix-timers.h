@@ -11,7 +11,7 @@
 struct cpu_timer_list {
 	struct list_head entry;
 	u64 expires, incr;
-	struct task_struct *task;
+	struct pid *pid;
 	int firing;
 };
 
