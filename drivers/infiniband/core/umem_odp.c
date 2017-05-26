@@ -333,7 +333,7 @@ int ib_umem_odp_get(struct ib_ucontext *context, struct ib_umem *umem,
 
 	/* Prevent creating ODP MRs in child processes */
 	rcu_read_lock();
-	our_pid = get_task_pid(current->group_leader, PIDTYPE_PID);
+	our_pid = get_task_pid(current, PIDTYPE_TGID);
 	rcu_read_unlock();
 	put_pid(our_pid);
 	if (context->tgid != our_pid) {

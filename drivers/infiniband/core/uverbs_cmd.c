@@ -112,7 +112,7 @@ ssize_t ib_uverbs_get_context(struct ib_uverbs_file *file,
 	uverbs_initialize_ucontext(ucontext);
 
 	rcu_read_lock();
-	ucontext->tgid = get_task_pid(current->group_leader, PIDTYPE_PID);
+	ucontext->tgid = get_task_pid(current, PIDTYPE_TGID);
 	rcu_read_unlock();
 	ucontext->closing = 0;
 
