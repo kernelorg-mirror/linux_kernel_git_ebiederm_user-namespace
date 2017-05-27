@@ -321,10 +321,8 @@ struct pid *alloc_pid(struct pid_namespace *ns)
 	}
 
 	if (unlikely(is_child_reaper(pid))) {
-		if (pid_ns_prepare_proc(ns)) {
-			disable_pid_allocation(ns);
+		if (pid_ns_prepare_proc(ns))
 			goto out_free;
-		}
 	}
 
 	get_pid_ns(ns);
@@ -350,6 +348,10 @@ out_unlock:
 	put_pid_ns(ns);
 
 out_free:
+	/* Ensure everything stops if allocation of pid 1 failed */
+	if ((i < ns->level) && (pid->numbers[ns->level].nr == 1))
+		disable_pid_allocation(ns);
+
 	while (++i <= ns->level)
 		free_pidmap(pid->numbers + i);
 
