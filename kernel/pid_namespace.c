@@ -271,10 +271,6 @@ void zap_pid_ns_processes(struct pid_namespace *pid_ns, struct list_head *dead)
 	pid_ns->child_reaper =
 		list_first_entry(&me->signal->thread_head,
 				 struct task_struct, thread_node);
-
-
-	if (pid_ns->reboot)
-		current->signal->group_exit_code = pid_ns->reboot;
 }
 
 #ifdef CONFIG_CHECKPOINT_RESTORE
@@ -315,25 +311,35 @@ static struct ctl_path kern_path[] = { { .procname = "kernel", }, { } };
 
 int reboot_pid_ns(struct pid_namespace *pid_ns, int cmd)
 {
+	struct task_struct *reaper;
+	int reboot;
+
 	if (pid_ns == &init_pid_ns)
 		return 0;
 
 	switch (cmd) {
 	case LINUX_REBOOT_CMD_RESTART2:
 	case LINUX_REBOOT_CMD_RESTART:
-		pid_ns->reboot = SIGHUP;
+		reboot = SIGHUP;
 		break;
 
 	case LINUX_REBOOT_CMD_POWER_OFF:
 	case LINUX_REBOOT_CMD_HALT:
-		pid_ns->reboot = SIGINT;
+		reboot = SIGINT;
 		break;
 	default:
 		return -EINVAL;
 	}
 
+
 	read_lock(&tasklist_lock);
-	force_sig(SIGKILL, pid_ns->child_reaper);
+	reaper = pid_ns->child_reaper;
+
+	spin_lock_irq(&reaper->sighand->siglock);
+	if (!signal_group_exit(reaper->signal)) {
+		start_group_exit(reaper, reboot);
+	}
+	spin_unlock_irq(&reaper->sighand->siglock);
 	read_unlock(&tasklist_lock);
 
 	do_exit(0);
