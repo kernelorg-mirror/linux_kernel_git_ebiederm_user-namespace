@@ -492,6 +492,7 @@ struct task_struct {
 	volatile long			state;
 	void				*stack;
 	atomic_t			usage;
+	atomic_t			rcu_usage;
 	/* Per task flags (PF_*), defined further below: */
 	unsigned int			flags;
 	unsigned int			ptrace;

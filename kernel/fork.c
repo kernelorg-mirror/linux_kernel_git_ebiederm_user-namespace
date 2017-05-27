@@ -567,7 +567,8 @@ static struct task_struct *dup_task_struct(struct task_struct *orig, int node)
 	 * One for us, one for whoever does the "release_task()" (usually
 	 * parent)
 	 */
-	atomic_set(&tsk->usage, 2);
+	atomic_set(&tsk->rcu_usage, 2);
+	atomic_set(&tsk->usage, 1); /* For rcu_usage */
 #ifdef CONFIG_BLK_DEV_IO_TRACE
 	tsk->btrace_seq = 0;
 #endif
