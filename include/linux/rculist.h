@@ -447,6 +447,28 @@ static inline void hlist_replace_rcu(struct hlist_node *old,
 	old->pprev = LIST_POISON2;
 }
 
+/**
+ * hlist_replace_init_rcu - replace old entry by new one
+ * @old : the element to be replaced
+ * @new : the new element to insert
+ *
+ * The @old entry will be replaced with the @new entry atomically.
+ *
+ * See hlist_del_init_rcu about what init means in rcu context.
+ */
+static inline void hlist_replace_init_rcu(struct hlist_node *old,
+					  struct hlist_node *new)
+{
+	struct hlist_node *next = old->next;
+
+	new->next = next;
+	new->pprev = old->pprev;
+	rcu_assign_pointer(*(struct hlist_node __rcu **)new->pprev, new);
+	if (next)
+		new->next->pprev = &new->next;
+	old->pprev = NULL;
+}
+
 /*
  * return the first or the next element in an RCU protected hlist
  */
