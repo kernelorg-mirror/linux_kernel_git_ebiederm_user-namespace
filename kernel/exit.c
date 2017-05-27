@@ -197,7 +197,7 @@ repeat:
 	if (last &&
 	    (last->exit_state == EXIT_ZOMBIE) &&
 	    reapable(last) &&
-	    do_notify_parent(last, last->signal->exit_signal)) {
+	    do_notify_parent(last, PIDTYPE_TGID)) {
 		last->exit_state = EXIT_DEAD;
 		autoreap = true;
 	}
@@ -559,7 +559,7 @@ static void reparent_leader(struct task_struct *father, struct task_struct *p,
 
 	/* If it has exited notify the new parent about this child's death. */
 	if (p->exit_state == EXIT_ZOMBIE && reapable(p)) {
-		if (do_notify_parent(p, p->signal->exit_signal)) {
+		if (do_notify_parent(p, PIDTYPE_TGID)) {
 			p->exit_state = EXIT_DEAD;
 			list_add(&p->ptrace_entry, dead);
 		}
@@ -634,12 +634,12 @@ renotify:
 	if (child_for_wait(tsk) && !ptrace_reparented(tsk)) {
 		state = EXIT_ZOMBIE;
 		if (reapable(tsk) &&
-		    do_notify_parent(tsk, tsk->signal->exit_signal))
+		    do_notify_parent(tsk, PIDTYPE_TGID))
 			state = EXIT_DEAD;
 	}
 	else if (unlikely(tsk->ptrace)) {
 		state = EXIT_TRACEE;
-		if (do_notify_parent(tsk, SIGCHLD)) {
+		if (do_notify_parent(tsk, PIDTYPE_PID)) {
 			__ptrace_unlink(tsk);
 			goto renotify;
 		}
@@ -1134,7 +1134,7 @@ static int wait_task_zombie(struct wait_opts *wo, int old_state, struct task_str
 		/* If parent wants a zombie, don't release it now */
 		state = EXIT_ZOMBIE;
 		if (reapable(p) &&
-		    do_notify_parent(p, p->signal->exit_signal))
+		    do_notify_parent(p, PIDTYPE_TGID))
 			state = EXIT_DEAD;
 		p->exit_state = state;
 		write_unlock_irq(&tasklist_lock);

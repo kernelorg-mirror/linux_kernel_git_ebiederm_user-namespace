@@ -1584,16 +1584,15 @@ ret:
  * Returns true if our parent ignored us and so we've switched to
  * self-reaping.
  */
-bool do_notify_parent(struct task_struct *tsk, int sig)
+bool do_notify_parent(struct task_struct *tsk, enum pid_type type)
 {
 	struct siginfo info;
 	unsigned long flags;
 	struct sighand_struct *psig;
 	struct task_struct *parent;
+	int sig;
 	bool autoreap = false;
 	u64 utime, stime;
-
-	BUG_ON(sig == -1);
 
  	/* do_notify_parent_cldstop should have been called instead.  */
  	BUG_ON(task_is_stopped_or_traced(tsk));
@@ -1601,6 +1600,7 @@ bool do_notify_parent(struct task_struct *tsk, int sig)
 	BUG_ON(!tsk->ptrace &&
 	       (!child_for_wait(tsk) || !thread_group_empty(tsk)));
 
+	sig = (type == PIDTYPE_TGID) ? tsk->signal->exit_signal : SIGCHLD;
 	if (sig != SIGCHLD) {
 		/*
 		 * This is only possible if parent == real_parent.
@@ -1624,7 +1624,8 @@ bool do_notify_parent(struct task_struct *tsk, int sig)
 	 * correct to rely on this
 	 */
 	rcu_read_lock();
-	info.si_pid = task_pid_nr_ns(tsk, task_active_pid_ns(tsk->parent));
+	info.si_pid = pid_nr_ns(task_pid_type(tsk, type),
+				task_active_pid_ns(tsk->parent));
 	info.si_uid = from_kuid_munged(task_cred_xxx(tsk->parent, user_ns),
 				       task_uid(tsk));
 	rcu_read_unlock();

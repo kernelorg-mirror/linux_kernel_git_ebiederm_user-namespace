@@ -304,7 +304,7 @@ extern int kill_pid_info_as_cred(int, struct siginfo *, struct pid *,
 				const struct cred *, u32);
 extern int kill_pgrp(struct pid *pid, int sig, int priv);
 extern int kill_pid(struct pid *pid, int sig, int priv);
-extern __must_check bool do_notify_parent(struct task_struct *, int);
+extern __must_check bool do_notify_parent(struct task_struct *, enum pid_type);
 extern void __wake_up_parent(struct task_struct *p, struct task_struct *parent);
 extern void force_sig(int, struct task_struct *);
 extern int send_sig(int, struct task_struct *, int);
