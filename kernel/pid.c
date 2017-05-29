@@ -257,7 +257,7 @@ static void delayed_put_pid(struct rcu_head *rhp)
 
 void free_pid(struct pid *pid)
 {
-	/* We can be called with write_lock_irq(&tasklist_lock) held */
+	/* We can be called with tasklist_lock held for write */
 	int i;
 	unsigned long flags;
 
@@ -267,14 +267,6 @@ void free_pid(struct pid *pid)
 		struct pid_namespace *ns = upid->ns;
 		hlist_del_rcu(&upid->pid_chain);
 		switch(--ns->nr_hashed) {
-		case 2:
-		case 1:
-			/* When all that is left in the pid namespace
-			 * is the reaper wake up the reaper.  The reaper
-			 * may be sleeping in zap_pid_ns_processes().
-			 */
-			wake_up_process(ns->child_reaper);
-			break;
 		case PIDNS_HASH_ADDING:
 			/* Handle a fork failure of the first process */
 			WARN_ON(ns->child_reaper);
@@ -361,9 +353,10 @@ out_free:
 
 void disable_pid_allocation(struct pid_namespace *ns)
 {
-	spin_lock_irq(&pidmap_lock);
+	unsigned long flags;
+	spin_lock_irqsave(&pidmap_lock, flags);
 	ns->nr_hashed &= ~PIDNS_HASH_ADDING;
-	spin_unlock_irq(&pidmap_lock);
+	spin_unlock_irqrestore(&pidmap_lock, flags);
 }
 
 struct pid *find_pid_ns(int nr, struct pid_namespace *ns)

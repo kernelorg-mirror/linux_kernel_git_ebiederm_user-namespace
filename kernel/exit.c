@@ -189,6 +189,7 @@ void rcu_put_task_struct(struct task_struct *tsk)
 
 void release_task(struct task_struct *p)
 {
+	struct pid_namespace *pid_ns;
 	struct task_struct *last;
 	bool autoreap;
 repeat:
@@ -200,8 +201,12 @@ repeat:
 
 	proc_flush_task(p);
 
+	if (thread_group_empty(p) && is_child_reaper(task_tgid(p)))
+		acct_exit_ns(task_active_pid_ns(p));
+
 	write_lock_irq(&tasklist_lock);
 	ptrace_release_task(p);
+	pid_ns = task_active_pid_ns(p->real_parent);
 	__exit_signal(p);
 
 	autoreap = false;
@@ -210,13 +215,17 @@ repeat:
 	if (list_is_singular(&p->signal->thread_head))
 		last = list_first_entry(&p->signal->thread_head,
 				       struct task_struct, thread_node);
+	/* This processes is done check the last thread in the pid namespace */
+	else if (list_empty(&p->signal->thread_head))
+		last = list_first_entry(&pid_ns->child_reaper->signal->thread_head,
+					struct task_struct, thread_node);
 	/*
 	 * If there is only one unreaped thread left and it is a
 	 * zombie notify it's parent process.
 	 */
 	if (last &&
 	    (last->exit_state == EXIT_ZOMBIE) &&
-	    thread_group_empty(last) &&
+	    reapable(last) &&
 	    do_notify_parent(last, last->exit_signal)) {
 		last->exit_state = EXIT_DEAD;
 		autoreap = true;
@@ -499,9 +508,8 @@ static struct task_struct *find_alive_thread(struct task_struct *p)
 	return NULL;
 }
 
-static struct task_struct *find_child_reaper(struct task_struct *father)
-	__releases(&tasklist_lock)
-	__acquires(&tasklist_lock)
+static struct task_struct *find_child_reaper(struct task_struct *father,
+	struct list_head *dead)
 {
 	struct pid_namespace *pid_ns = task_active_pid_ns(father);
 	struct task_struct *reaper = pid_ns->child_reaper;
@@ -515,15 +523,13 @@ static struct task_struct *find_child_reaper(struct task_struct *father)
 		return reaper;
 	}
 
-	write_unlock_irq(&tasklist_lock);
 	if (unlikely(pid_ns == &init_pid_ns)) {
 		panic("Attempted to kill init! exitcode=0x%08x\n",
 			father->signal->group_exit_code ?: father->exit_code);
 	}
-	zap_pid_ns_processes(pid_ns);
-	write_lock_irq(&tasklist_lock);
+	zap_pid_ns_processes(pid_ns, dead);
 
-	return father;
+	return NULL;
 }
 
 /*
@@ -581,7 +587,7 @@ static void reparent_leader(struct task_struct *father, struct task_struct *p,
 	p->exit_signal = SIGCHLD;
 
 	/* If it has exited notify the new parent about this child's death. */
-	if (p->exit_state == EXIT_ZOMBIE && thread_group_empty(p)) {
+	if (p->exit_state == EXIT_ZOMBIE && reapable(p)) {
 		if (do_notify_parent(p, p->exit_signal)) {
 			p->exit_state = EXIT_DEAD;
 			list_add(&p->ptrace_entry, dead);
@@ -607,8 +613,11 @@ static void forget_original_parent(struct task_struct *father,
 	if (unlikely(!list_empty(&father->ptraced)))
 		exit_ptrace(father, dead);
 
-	/* Can drop and reacquire tasklist_lock */
-	reaper = find_child_reaper(father);
+	reaper = find_child_reaper(father, dead);
+	/* Don't reparent children when the reaper is dead */
+	if (!reaper)
+		return;
+
 	if (list_empty(&father->children))
 		return;
 
@@ -653,7 +662,7 @@ renotify:
 	state = EXIT_DEAD;
 	if (thread_group_leader(tsk) && !ptrace_reparented(tsk)) {
 		state = EXIT_ZOMBIE;
-		if (thread_group_empty(tsk) &&
+		if (reapable(tsk) &&
 		    do_notify_parent(tsk, tsk->exit_signal))
 			state = EXIT_DEAD;
 	}
@@ -1003,6 +1012,29 @@ static int wait_noreap_copyout(struct wait_opts *wo, struct task_struct *p,
 	return retval;
 }
 
+bool reapable(struct task_struct *tsk)
+{
+	int pids;
+	/*
+	 * To maintain process semantics the thread group
+	 * leader must not be reaped until all of the other
+	 * threads in the thread group have been reaped.
+	 */
+	if (!thread_group_empty(tsk))
+		return false;
+	/*
+	 * It is not safe to reap a child reaper until all of the
+	 * processes in the pid namespace are no longer reparenting.
+	 *
+	 * With setns()+fork() there may be multiple process trees in
+	 * the pid namespace.
+	 */
+	if (!is_child_reaper(task_tgid(tsk)))
+		return true;
+	pids = task_pid(tsk) == task_tgid(tsk)? 1 : 2;
+	return task_active_pid_ns(tsk)->nr_hashed == pids;
+}
+
 /*
  * Handle sys_wait4 work for one task in state EXIT_ZOMBIE.  We hold
  * read_lock(&tasklist_lock) on entry.  If we return zero, we still hold
@@ -1144,7 +1176,7 @@ static int wait_task_zombie(struct wait_opts *wo, int old_state, struct task_str
 
 		/* If parent wants a zombie, don't release it now */
 		state = EXIT_ZOMBIE;
-		if (thread_group_empty(p) &&
+		if (reapable(p) &&
 		    do_notify_parent(p, p->exit_signal))
 			state = EXIT_DEAD;
 		p->exit_state = state;
@@ -1351,7 +1383,7 @@ static int wait_consider_task(struct wait_opts *wo, struct task_struct *p)
 		return ret;
 
 	/* zombie child process? */
-	if ((exit_state == EXIT_ZOMBIE) && thread_group_empty(p))
+	if ((exit_state == EXIT_ZOMBIE) && reapable(p))
 		return wait_task_zombie(wo, exit_state, p);
 
 	/*

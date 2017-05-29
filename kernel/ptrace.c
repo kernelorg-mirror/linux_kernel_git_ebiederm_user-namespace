@@ -492,7 +492,7 @@ static bool __exit_ptrace(struct task_struct *tracer, struct task_struct *p)
 		state = EXIT_DEAD;
 		if (thread_group_leader(p)) {
 			state = EXIT_ZOMBIE;
-			if (thread_group_empty(p) &&
+			if (reapable(p) &&
 			    do_notify_parent(p, p->exit_signal))
 				state = EXIT_DEAD;
 		}

@@ -203,12 +203,11 @@ void put_pid_ns(struct pid_namespace *ns)
 }
 EXPORT_SYMBOL_GPL(put_pid_ns);
 
-void zap_pid_ns_processes(struct pid_namespace *pid_ns)
+void zap_pid_ns_processes(struct pid_namespace *pid_ns, struct list_head *dead)
 {
+	/* Called with tasklist_lock held for writing. */
 	int nr;
-	int rc;
-	struct task_struct *task, *me = current;
-	int init_pids = task_pid(me) != task_tgid(me) ? 2 : 1;
+	struct task_struct *child, *task, *me = current;
 
 	/* Don't allow any more processes into the pid namespace */
 	disable_pid_allocation(pid_ns);
@@ -218,9 +217,9 @@ void zap_pid_ns_processes(struct pid_namespace *pid_ns)
 	 * This speeds up the namespace shutdown, plus see the comment
 	 * below.
 	 */
-	spin_lock_irq(&me->sighand->siglock);
+	spin_lock(&me->sighand->siglock);
 	me->sighand->action[SIGCHLD - 1].sa.sa_handler = SIG_IGN;
-	spin_unlock_irq(&me->sighand->siglock);
+	spin_unlock(&me->sighand->siglock);
 
 	/*
 	 * The last thread in the cgroup-init thread group is terminating.
@@ -235,7 +234,6 @@ void zap_pid_ns_processes(struct pid_namespace *pid_ns)
 	 * 	  maintain a tasklist for each pid namespace.
 	 *
 	 */
-	read_lock(&tasklist_lock);
 	nr = next_pidmap(pid_ns, 1);
 	while (nr > 0) {
 		rcu_read_lock();
@@ -248,47 +246,35 @@ void zap_pid_ns_processes(struct pid_namespace *pid_ns)
 
 		nr = next_pidmap(pid_ns, nr);
 	}
-	read_unlock(&tasklist_lock);
 
 	/*
-	 * Reap the EXIT_ZOMBIE children we had before we ignored SIGCHLD.
-	 * sys_wait4() will also block until our children traced from the
-	 * parent namespace are detached and become EXIT_DEAD.
+	 * Walk through every thread of the the init task and
+	 * reap all EXIT_ZOMBIE children we had before we ignored SIGCHLD.
 	 */
-	do {
-		clear_thread_flag(TIF_SIGPENDING);
-		rc = sys_wait4(-1, NULL, __WALL, NULL);
-	} while (rc != -ECHILD);
-
-	/*
-	 * sys_wait4() above can't reap the EXIT_DEAD children but we do not
-	 * really care, we could reparent them to the global init. We could
-	 * exit and reap ->child_reaper even if it is not the last thread in
-	 * this pid_ns, free_pid(nr_hashed == 0) calls proc_cleanup_work(),
-	 * pid_ns can not go away until proc_kill_sb() drops the reference.
-	 *
-	 * But this ns can also have other tasks injected by setns()+fork().
-	 * Again, ignoring the user visible semantics we do not really need
-	 * to wait until they are all reaped, but they can be reparented to
-	 * us and thus we need to ensure that pid->child_reaper stays valid
-	 * until they all go away. See free_pid()->wake_up_process().
-	 *
-	 * We rely on ignored SIGCHLD, an injected zombie must be autoreaped
-	 * if reparented.
-	 */
-	for (;;) {
-		set_current_state(TASK_INTERRUPTIBLE);
-		if (pid_ns->nr_hashed == init_pids)
-			break;
-		schedule();
+	for_each_thread(me, task) {
+		list_for_each_entry(child, &task->children, sibling) {
+			if (child->exit_state != EXIT_ZOMBIE)
+				continue;
+			if (!reapable(child))
+				continue;
+			child->exit_state = EXIT_DEAD;
+			list_add(&child->ptrace_entry, dead);
+		}
 	}
-	__set_current_state(TASK_RUNNING);
+	/*
+	 * There will still be reparenting among the tasks in this pid
+	 * namespace as they won't autoreap until after they have made
+	 * the init process their parent.  Ensure child_reaper points
+	 * to the last thread of the init process that will be reaped
+	 * to guarantee there is always somewhere to reparent to.
+	 */
+	pid_ns->child_reaper =
+		list_first_entry(&me->signal->thread_head,
+				 struct task_struct, thread_node);
+
 
 	if (pid_ns->reboot)
 		current->signal->group_exit_code = pid_ns->reboot;
-
-	acct_exit_ns(pid_ns);
-	return;
 }
 
 #ifdef CONFIG_CHECKPOINT_RESTORE
