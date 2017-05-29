@@ -639,7 +639,7 @@ static void forget_original_parent(struct task_struct *father,
  */
 static void exit_notify(struct task_struct *tsk, int group_dead)
 {
-	bool autoreap;
+	bool autoreap = true;
 	struct task_struct *p, *n;
 	LIST_HEAD(dead);
 
@@ -649,17 +649,12 @@ static void exit_notify(struct task_struct *tsk, int group_dead)
 	if (group_dead)
 		kill_orphaned_pgrp(tsk->group_leader, NULL);
 
-	if (unlikely(tsk->ptrace)) {
-		int sig = thread_group_leader(tsk) &&
-				thread_group_empty(tsk) &&
-				!ptrace_reparented(tsk) ?
-			tsk->exit_signal : SIGCHLD;
-		autoreap = do_notify_parent(tsk, sig);
-	} else if (thread_group_leader(tsk)) {
+	if (thread_group_leader(tsk) && !ptrace_reparented(tsk)) {
 		autoreap = thread_group_empty(tsk) &&
 			do_notify_parent(tsk, tsk->exit_signal);
-	} else {
-		autoreap = true;
+	}
+	else if (unlikely(tsk->ptrace)) {
+		autoreap = do_notify_parent(tsk, SIGCHLD);
 	}
 
 	tsk->exit_state = autoreap ? EXIT_DEAD : EXIT_ZOMBIE;
