@@ -96,11 +96,6 @@ static void __exit_signal(struct task_struct *tsk)
 	spin_lock(&sig->siglock);
 	group_dead = list_is_singular(&sig->thread_head);
 
-	if (!group_dead) {
-		if (tsk == sig->curr_target)
-			sig->curr_target = next_thread(tsk);
-	}
-
 	add_device_randomness((const void*) &tsk->se.sum_exec_runtime,
 			      sizeof(unsigned long long));
 
@@ -620,6 +615,18 @@ static void update_thread_for_wait(struct task_struct *tsk,
 
 }
 
+static void update_curr_target(struct task_struct *tsk,
+			       struct task_struct *next)
+{
+	struct signal_struct *sig = tsk->signal;
+	if (next && sig->curr_target == tsk) {
+		spin_lock(&sig->siglock);
+		if (sig->curr_target == tsk)
+			sig->curr_target = next;
+		spin_unlock(&sig->siglock);
+	}
+}
+
 /*
  * Remove this task from the land of the living.
  */
@@ -634,6 +641,7 @@ void forget_task(struct task_struct *tsk, struct list_head *dead)
 
 	update_process_membership(tsk, next);
 	update_thread_for_wait(tsk, next);
+	update_curr_target(tsk, next);
 
 	reaper = find_child_reaper(tsk, next, dead);
 	/* Only reparent children when the reaper lives */
