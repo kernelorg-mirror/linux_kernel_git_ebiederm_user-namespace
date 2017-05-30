@@ -91,7 +91,7 @@ static void __unhash_process(struct task_struct *p)
 static void __exit_signal(struct task_struct *tsk)
 {
 	struct signal_struct *sig = tsk->signal;
-	bool group_dead = thread_group_leader(tsk);
+	bool group_dead;
 	struct sighand_struct *sighand;
 	struct tty_struct *uninitialized_var(tty);
 	u64 utime, stime;
@@ -99,6 +99,7 @@ static void __exit_signal(struct task_struct *tsk)
 	sighand = rcu_dereference_check(tsk->sighand,
 					lockdep_tasklist_lock_is_held());
 	spin_lock(&sighand->siglock);
+	group_dead = list_is_singular(&sig->thread_head);
 
 #ifdef CONFIG_POSIX_TIMERS
 	posix_cpu_timers_exit(tsk);
