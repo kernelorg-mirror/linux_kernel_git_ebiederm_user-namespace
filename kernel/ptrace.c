@@ -497,27 +497,30 @@ static int ignoring_children(struct sighand_struct *sigh)
  */
 static bool __exit_ptrace(struct task_struct *tracer, struct task_struct *p)
 {
-	bool dead;
+	int state = p->exit_state;
 
 	__ptrace_unlink(p);
 
-	if (p->exit_state != EXIT_ZOMBIE)
-		return false;
-
-	dead = !thread_group_leader(p);
-
-	if (!dead && thread_group_empty(p)) {
-		if (!same_thread_group(p->real_parent, tracer))
-			dead = do_notify_parent(p, p->exit_signal);
-		else if (ignoring_children(tracer->sighand)) {
+	if (state == EXIT_ZOMBIE) {
+		/* Honor the parents request to autoreap children */
+		if (thread_group_empty(p) &&
+		    ignoring_children(tracer->sighand)) {
+			state = EXIT_DEAD;
 			__wake_up_parent(p, tracer);
-			dead = true;
+		}
+	}
+	else if (state == EXIT_TRACEE) {
+		state = EXIT_DEAD;
+		if (thread_group_leader(p)) {
+			state = EXIT_ZOMBIE;
+			if (thread_group_empty(p) &&
+			    do_notify_parent(p, p->exit_signal))
+				state = EXIT_DEAD;
 		}
 	}
 	/* Mark it as in the process of being reaped. */
-	if (dead)
-		p->exit_state = EXIT_DEAD;
-	return dead;
+	p->exit_state = state;
+	return state == EXIT_DEAD;
 }
 
 static int ptrace_detach(struct task_struct *child, unsigned int data)

@@ -580,8 +580,7 @@ static void reparent_leader(struct task_struct *father, struct task_struct *p,
 	p->exit_signal = SIGCHLD;
 
 	/* If it has exited notify the new parent about this child's death. */
-	if (!p->ptrace &&
-	    p->exit_state == EXIT_ZOMBIE && thread_group_empty(p)) {
+	if (p->exit_state == EXIT_ZOMBIE && thread_group_empty(p)) {
 		if (do_notify_parent(p, p->exit_signal)) {
 			p->exit_state = EXIT_DEAD;
 			list_add(&p->ptrace_entry, dead);
@@ -639,7 +638,7 @@ static void forget_original_parent(struct task_struct *father,
  */
 static void exit_notify(struct task_struct *tsk, int group_dead)
 {
-	bool autoreap = true;
+	int state = EXIT_DEAD;
 	struct task_struct *p, *n;
 	LIST_HEAD(dead);
 
@@ -650,14 +649,18 @@ static void exit_notify(struct task_struct *tsk, int group_dead)
 		kill_orphaned_pgrp(tsk->group_leader, NULL);
 
 	if (thread_group_leader(tsk) && !ptrace_reparented(tsk)) {
-		autoreap = thread_group_empty(tsk) &&
-			do_notify_parent(tsk, tsk->exit_signal);
+		state = EXIT_ZOMBIE;
+		if (thread_group_empty(tsk) &&
+		    do_notify_parent(tsk, tsk->exit_signal))
+			state = EXIT_DEAD;
 	}
 	else if (unlikely(tsk->ptrace)) {
-		autoreap = do_notify_parent(tsk, SIGCHLD);
+		state = EXIT_TRACEE;
+		if (do_notify_parent(tsk, SIGCHLD))
+			state = EXIT_DEAD;
 	}
 
-	tsk->exit_state = autoreap ? EXIT_DEAD : EXIT_ZOMBIE;
+	tsk->exit_state = state;
 	if (tsk->exit_state == EXIT_DEAD)
 		list_add(&tsk->ptrace_entry, &dead);
 
@@ -1001,7 +1004,7 @@ static int wait_noreap_copyout(struct wait_opts *wo, struct task_struct *p,
  * the lock and this task is uninteresting.  If we return nonzero, we have
  * released the lock and the system call should return.
  */
-static int wait_task_zombie(struct wait_opts *wo, struct task_struct *p)
+static int wait_task_zombie(struct wait_opts *wo, int old_state, struct task_struct *p)
 {
 	int state, retval, status;
 	pid_t pid = task_pid_vnr(p);
@@ -1029,11 +1032,11 @@ static int wait_task_zombie(struct wait_opts *wo, struct task_struct *p)
 		return wait_noreap_copyout(wo, p, pid, uid, why, status);
 	}
 	/*
-	 * Move the task's state to DEAD/TRACE, only one thread can do this.
+	 * Move the task's state to DEAD/TRACED only one thread can do this.
 	 */
-	state = (ptrace_reparented(p) && thread_group_leader(p)) ?
-		EXIT_TRACE : EXIT_DEAD;
-	if (cmpxchg(&p->exit_state, EXIT_ZOMBIE, state) != EXIT_ZOMBIE)
+	state = ((old_state == EXIT_TRACEE) && thread_group_leader(p)) ?
+		EXIT_TRACED : EXIT_DEAD;
+	if (cmpxchg(&p->exit_state, old_state, state) != old_state)
 		return 0;
 	/*
 	 * We own this thread, nobody else can reap it.
@@ -1041,10 +1044,7 @@ static int wait_task_zombie(struct wait_opts *wo, struct task_struct *p)
 	read_unlock(&tasklist_lock);
 	sched_annotate_sleep();
 
-	/*
-	 * Check thread_group_leader() to exclude the traced sub-threads.
-	 */
-	if (state == EXIT_DEAD && thread_group_leader(p)) {
+	if (old_state == EXIT_ZOMBIE) {
 		struct signal_struct *sig = p->signal;
 		struct signal_struct *psig = current->signal;
 		unsigned long maxrss;
@@ -1132,7 +1132,7 @@ static int wait_task_zombie(struct wait_opts *wo, struct task_struct *p)
 	if (!retval)
 		retval = pid;
 
-	if (state == EXIT_TRACE) {
+	if (state == EXIT_TRACED) {
 		write_lock_irq(&tasklist_lock);
 		/* We dropped tasklist, ptracer could die and untrace */
 		ptrace_unlink(p);
@@ -1335,8 +1335,7 @@ static int wait_consider_task(struct wait_opts *wo, int ptrace,
 {
 	/*
 	 * We can race with wait_task_zombie() from another thread.
-	 * Ensure that EXIT_ZOMBIE -> EXIT_DEAD/EXIT_TRACE transition
-	 * can't confuse the checks below.
+	 * Ensure that exit_state transition can't confuse the checks below.
 	 */
 	int exit_state = ACCESS_ONCE(p->exit_state);
 	int ret;
@@ -1349,11 +1348,8 @@ static int wait_consider_task(struct wait_opts *wo, int ptrace,
 		return ret;
 
 	/* zombie child process? */
-	if ((exit_state == EXIT_ZOMBIE) &&
-	    !ptrace_reparented(p) &&
-	    thread_group_leader(p) &&
-	    thread_group_empty(p))
-		return wait_task_zombie(wo, p);
+	if ((exit_state == EXIT_ZOMBIE) && thread_group_empty(p))
+		return wait_task_zombie(wo, exit_state, p);
 
 	/*
 	 * A zombie ptracee that is not a child of it's ptracer's
@@ -1361,11 +1357,10 @@ static int wait_consider_task(struct wait_opts *wo, int ptrace,
 	 * and reaping will be cascaded to the real parent when the
 	 * ptracer detaches.
 	 */
-	if ((exit_state == EXIT_ZOMBIE) && ptrace &&
-	    (!thread_group_leader(p) || ptrace_reparented(p)))
-		return wait_task_zombie(wo, p);
+	if ((exit_state == EXIT_TRACEE) && ptrace)
+		return wait_task_zombie(wo, exit_state, p);
 
-	if (unlikely(exit_state == EXIT_TRACE)) {
+	if (unlikely(exit_state == EXIT_TRACED)) {
 		/*
 		 * ptrace == 0 means we are the natural parent. In this case
 		 * we should clear notask_error, debugger will notify us.

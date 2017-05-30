@@ -73,7 +73,6 @@ struct task_group;
 /* Used in tsk->exit_state: */
 #define EXIT_DEAD			16
 #define EXIT_ZOMBIE			32
-#define EXIT_TRACE			(EXIT_ZOMBIE | EXIT_DEAD)
 /* Used in tsk->state again: */
 #define TASK_DEAD			64
 #define TASK_WAKEKILL			128
@@ -82,6 +81,11 @@ struct task_group;
 #define TASK_NOLOAD			1024
 #define TASK_NEW			2048
 #define TASK_STATE_MAX			4096
+/* Used in tsk->exit_state again: */
+#define __EXIT_TRACEE                   8192
+#define __EXIT_TRACED                   16384
+#define EXIT_TRACEE			(EXIT_ZOMBIE | __EXIT_TRACEE)
+#define EXIT_TRACED			(EXIT_ZOMBIE | __EXIT_TRACED)
 
 #define TASK_STATE_TO_CHAR_STR		"RSDTtXZxKWPNn"
 
