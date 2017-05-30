@@ -2762,6 +2762,9 @@ static struct rq *finish_task_switch(struct task_struct *prev)
 		/* Task is done with its stack. */
 		put_task_stack(prev);
 
+		add_device_randomness(&prev->se.sum_exec_runtime,
+				      sizeof(prev->se.sum_exec_runtime));
+
 		rcu_put_task_struct(prev);
 	}
 

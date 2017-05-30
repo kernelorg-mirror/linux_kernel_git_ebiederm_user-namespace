@@ -96,9 +96,6 @@ static void __exit_signal(struct task_struct *tsk)
 	spin_lock(&sig->siglock);
 	group_dead = list_is_singular(&sig->thread_head);
 
-	add_device_randomness((const void*) &tsk->se.sum_exec_runtime,
-			      sizeof(unsigned long long));
-
 	sig->nr_threads--;
 	__unhash_process(tsk);
 
