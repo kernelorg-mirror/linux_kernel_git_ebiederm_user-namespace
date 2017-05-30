@@ -609,8 +609,10 @@ static void reparent_children(struct task_struct *father,
 	list_splice_tail_init(&father->children, &new_parent->children);
 }
 
-static void forget_original_parent(struct task_struct *tsk,
-					struct list_head *dead)
+/*
+ * Remove this task from the land of the living.
+ */
+static void forget_task(struct task_struct *tsk, struct list_head *dead)
 {
 	struct task_struct *reaper, *next;
 
@@ -635,7 +637,7 @@ static void exit_notify(struct task_struct *tsk, int group_dead)
 	LIST_HEAD(dead);
 
 	write_lock_irq(&tasklist_lock);
-	forget_original_parent(tsk, &dead);
+	forget_task(tsk, &dead);
 
 	if (group_dead)
 		kill_orphaned_pgrp(tsk, NULL);
