@@ -1589,7 +1589,7 @@ bool do_notify_parent(struct task_struct *tsk, enum pid_type type)
 	struct siginfo info;
 	unsigned long flags;
 	struct sighand_struct *psig;
-	struct task_struct *parent;
+	struct task_struct *parent = tsk->parent;
 	int sig;
 	bool autoreap = false;
 	u64 utime, stime;
@@ -1606,7 +1606,7 @@ bool do_notify_parent(struct task_struct *tsk, enum pid_type type)
 		 * This is only possible if parent == real_parent.
 		 * Check if it has changed security domain.
 		 */
-		if (tsk->parent_exec_id != tsk->parent->self_exec_id)
+		if (tsk->parent_exec_id != parent->self_exec_id)
 			sig = SIGCHLD;
 	}
 
@@ -1625,8 +1625,8 @@ bool do_notify_parent(struct task_struct *tsk, enum pid_type type)
 	 */
 	rcu_read_lock();
 	info.si_pid = pid_nr_ns(task_pid_type(tsk, type),
-				task_active_pid_ns(tsk->parent));
-	info.si_uid = from_kuid_munged(task_cred_xxx(tsk->parent, user_ns),
+				task_active_pid_ns(parent));
+	info.si_uid = from_kuid_munged(task_cred_xxx(parent, user_ns),
 				       task_uid(tsk));
 	rcu_read_unlock();
 
@@ -1644,7 +1644,6 @@ bool do_notify_parent(struct task_struct *tsk, enum pid_type type)
 		info.si_status = tsk->exit_code >> 8;
 	}
 
-	parent = tsk->parent;
 	spin_lock_irqsave(&parent->signal->siglock, flags);
 	psig = parent->sighand;
 	spin_lock(&psig->lock);
