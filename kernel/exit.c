@@ -493,11 +493,6 @@ static struct task_struct *find_child_reaper(struct task_struct *father,
 		pid_ns->child_reaper = reaper;
 		return reaper;
 	}
-
-	if (unlikely(pid_ns == &init_pid_ns)) {
-		panic("Attempted to kill init! exitcode=0x%08x\n",
-			father->signal->group_exit_code ?: father->exit_code);
-	}
 	zap_pid_ns_processes(pid_ns, dead);
 
 	return NULL;
@@ -658,6 +653,21 @@ renotify:
 	}
 }
 
+static void exit_child_reaper(struct task_struct *tsk)
+{
+	struct pid *tgid = task_tgid(tsk);
+	struct pid_namespace *pid_ns;
+
+	if (likely(!is_child_reaper(tgid)))
+		return;
+
+	pid_ns = ns_of_pid(tgid);
+	if (unlikely(pid_ns == &init_pid_ns)) {
+		panic("Attempted to kill init! exitcode=0x%08x\n",
+		      tsk->signal->group_exit_code);
+	}
+}
+
 #ifdef CONFIG_DEBUG_STACK_USAGE
 static void check_stack_usage(void)
 {
@@ -756,6 +766,7 @@ void __noreturn do_exit(long code)
 	acct_update_integrals(tsk);
 	posix_cpu_timers_exit(tsk, group_dead);
 	if (group_dead) {
+		exit_child_reaper(tsk);
 		itimers_exit(tsk->signal);
 		exit_posix_timers(tsk->signal);
 		if (tsk->mm)
