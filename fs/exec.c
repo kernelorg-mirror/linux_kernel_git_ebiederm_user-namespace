@@ -1123,11 +1123,7 @@ static int de_thread(struct task_struct *tsk)
 		 */
 		tsk->pid = old->pid;
 		change_pid(tsk, PIDTYPE_PID, task_pid(old));
-		transfer_pid(old, tsk, PIDTYPE_TGID);
-		transfer_pid(old, tsk, PIDTYPE_PGID);
-		transfer_pid(old, tsk, PIDTYPE_SID);
 
-		list_replace_rcu(&old->tasks, &tsk->tasks);
 		list_replace_init(&old->sibling, &tsk->sibling);
 
 		BUG_ON(old->exit_state != EXIT_ZOMBIE);

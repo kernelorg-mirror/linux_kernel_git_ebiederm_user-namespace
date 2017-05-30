@@ -609,6 +609,41 @@ static void reparent_children(struct task_struct *father,
 	list_splice_tail_init(&father->children, &new_parent->children);
 }
 
+static void move_process_membership(struct task_struct *tsk,
+				    struct task_struct *next)
+{
+	transfer_pid(tsk, next, PIDTYPE_TGID);
+	transfer_pid(tsk, next, PIDTYPE_PGID);
+	transfer_pid(tsk, next, PIDTYPE_SID);
+
+	list_replace_rcu(&tsk->tasks, &next->tasks);
+}
+
+/*
+ * Keep the list membership on a living thread
+ */
+static void update_process_membership(struct task_struct *tsk,
+				      struct task_struct *next)
+{
+	if (!thread_group_representative(tsk))
+		return;
+
+	/* Ensure that after all of the threads have died the list
+	 * membership will be moved to the thread that will be reaped
+	 * last.
+	 */
+	if (!next && !child_for_wait(tsk)) {
+		struct task_struct *final_thread =
+			list_first_entry(&tsk->signal->thread_head,
+					 struct task_struct, thread_node);
+		if (final_thread && final_thread != tsk)
+			next = final_thread;
+	}
+
+	if (next)
+		move_process_membership(tsk, next);
+}
+
 /*
  * Remove this task from the land of the living.
  */
@@ -621,6 +656,7 @@ static void forget_task(struct task_struct *tsk, struct list_head *dead)
 
 	next = find_alive_thread(tsk);
 
+	update_process_membership(tsk, next);
 	reaper = find_child_reaper(tsk, next, dead);
 	/* Only reparent children when the reaper lives */
 	if (reaper)
