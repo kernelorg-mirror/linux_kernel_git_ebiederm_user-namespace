@@ -324,6 +324,8 @@ void thread_group_cputime(struct task_struct *tsk, struct task_cputime *times)
 		times->sum_exec_runtime = sig->sum_sched_runtime;
 
 		for_each_thread(tsk, t) {
+			if (tsk->exit_state)
+				continue;
 			task_cputime(t, &utime, &stime);
 			times->utime += utime;
 			times->stime += stime;

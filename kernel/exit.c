@@ -92,7 +92,6 @@ static void __exit_signal(struct task_struct *tsk)
 {
 	struct signal_struct *sig = tsk->signal;
 	bool group_dead;
-	u64 utime, stime;
 
 	spin_lock(&sig->siglock);
 	group_dead = list_is_singular(&sig->thread_head);
@@ -112,28 +111,8 @@ static void __exit_signal(struct task_struct *tsk)
 	add_device_randomness((const void*) &tsk->se.sum_exec_runtime,
 			      sizeof(unsigned long long));
 
-	/*
-	 * Accumulate here the counters for all threads as they die. We could
-	 * skip the group leader because it is the last user of signal_struct,
-	 * but we want to avoid the race with thread_group_cputime() which can
-	 * see the empty ->thread_head list.
-	 */
-	task_cputime(tsk, &utime, &stime);
-	write_seqlock(&sig->stats_lock);
-	sig->utime += utime;
-	sig->stime += stime;
-	sig->gtime += task_gtime(tsk);
-	sig->min_flt += tsk->min_flt;
-	sig->maj_flt += tsk->maj_flt;
-	sig->nvcsw += tsk->nvcsw;
-	sig->nivcsw += tsk->nivcsw;
-	sig->inblock += task_io_get_inblock(tsk);
-	sig->oublock += task_io_get_oublock(tsk);
-	task_io_accounting_add(&sig->ioac, &tsk->ioac);
-	sig->sum_sched_runtime += tsk->se.sum_exec_runtime;
 	sig->nr_threads--;
 	__unhash_process(tsk);
-	write_sequnlock(&sig->stats_lock);
 
 	spin_unlock(&sig->siglock);
 }
@@ -652,12 +631,34 @@ void forget_task(struct task_struct *tsk, struct list_head *dead)
 		reparent_children(tsk, next, reaper, dead);
 }
 
+static void exit_stats(struct task_struct *tsk)
+{
+	struct signal_struct *sig = tsk->signal;
+	u64 utime, stime;
+	/*
+	 * Accumulate here the counters for all threads as they die.
+	 */
+	task_cputime(tsk, &utime, &stime);
+	sig->utime += utime;
+	sig->stime += stime;
+	sig->gtime += task_gtime(tsk);
+	sig->min_flt += tsk->min_flt;
+	sig->maj_flt += tsk->maj_flt;
+	sig->nvcsw += tsk->nvcsw;
+	sig->nivcsw += tsk->nivcsw;
+	sig->inblock += task_io_get_inblock(tsk);
+	sig->oublock += task_io_get_oublock(tsk);
+	task_io_accounting_add(&sig->ioac, &tsk->ioac);
+	sig->sum_sched_runtime += tsk->se.sum_exec_runtime;
+}
+
 /*
  * Send signals to all our closest relatives so that they know
  * to properly mourn us..
  */
 static void exit_notify(struct task_struct *tsk, int group_dead)
 {
+	struct signal_struct *sig = tsk->signal;
 	int state;
 
 	write_lock_irq(&tasklist_lock);
@@ -679,7 +680,16 @@ renotify:
 			goto renotify;
 		}
 	}
+
+	/*
+	 * Hold stats_lock over setting of exit_state to ensure
+	 * thread_group_cputime will not count times for tasks that
+	 * have exited.
+	 */
+	write_seqlock(&sig->stats_lock);
+	exit_stats(tsk);
 	tsk->exit_state = state;
+	write_sequnlock(&sig->stats_lock);
 
 	/* mt-exec, de_thread() is waiting for group leader */
 	if (unlikely(tsk->signal->notify_count < 0))
