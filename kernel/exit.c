@@ -579,26 +579,19 @@ static void reparent_process(struct task_struct *father, struct task_struct *p,
  *	as a result of our exiting, and if they have any stopped
  *	jobs, send them a SIGHUP and then a SIGCONT.  (POSIX 3.2.2.2)
  */
-static void forget_original_parent(struct task_struct *father,
-					struct list_head *dead)
+static void reparent_children(struct task_struct *father,
+			      struct task_struct *reaper,
+			      struct list_head *dead)
 {
-	struct task_struct *p, *t, *reaper;
-
-	if (unlikely(!list_empty(&father->ptraced)))
-		exit_ptrace(father, dead);
-
-	reaper = find_child_reaper(father, dead);
-	/* Don't reparent children when the reaper is dead */
-	if (!reaper)
-		return;
+	struct task_struct *p, *t, *new_parent;
 
 	if (list_empty(&father->children))
 		return;
 
-	reaper = find_new_reaper(father, reaper);
+	new_parent = find_new_reaper(father, reaper);
 	list_for_each_entry(p, &father->children, sibling) {
 		for_each_thread(p, t) {
-			t->real_parent = reaper;
+			t->real_parent = new_parent;
 			BUG_ON((!t->ptrace) != (t->parent == father));
 			if (likely(!t->ptrace))
 				t->parent = t->real_parent;
@@ -610,10 +603,24 @@ static void forget_original_parent(struct task_struct *father,
 		 * If this is a threaded reparent there is no need to
 		 * notify anyone anything has happened.
 		 */
-		if (!same_thread_group(reaper, father))
+		if (!same_thread_group(new_parent, father))
 			reparent_process(father, p, dead);
 	}
-	list_splice_tail_init(&father->children, &reaper->children);
+	list_splice_tail_init(&father->children, &new_parent->children);
+}
+
+static void forget_original_parent(struct task_struct *tsk,
+					struct list_head *dead)
+{
+	struct task_struct *reaper;
+
+	if (unlikely(!list_empty(&tsk->ptraced)))
+		exit_ptrace(tsk, dead);
+
+	reaper = find_child_reaper(tsk, dead);
+	/* Only reparent children when the reaper lives */
+	if (reaper)
+		reparent_children(tsk, reaper, dead);
 }
 
 /*
