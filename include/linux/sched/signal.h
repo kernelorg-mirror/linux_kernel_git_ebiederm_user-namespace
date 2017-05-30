@@ -87,7 +87,7 @@ struct signal_struct {
 	/* thread group exit support */
 	int			group_exit_code;
 
-	/* exec support, notify group_exec_task when notify_count is 0 or -1 */
+	/* exec support, notify group_exec_task when notify_count is 0 */
 	int			notify_count;
 	struct task_struct	*group_exec_task;
 

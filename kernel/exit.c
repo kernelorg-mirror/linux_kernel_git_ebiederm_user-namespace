@@ -97,13 +97,6 @@ static void __exit_signal(struct task_struct *tsk)
 	group_dead = list_is_singular(&sig->thread_head);
 
 	if (!group_dead) {
-		/*
-		 * If there is any task waiting for the group exit
-		 * then notify it:
-		 */
-		if (sig->notify_count > 0 && !--sig->notify_count)
-			wake_up_process(sig->group_exec_task);
-
 		if (tsk == sig->curr_target)
 			sig->curr_target = next_thread(tsk);
 	}
@@ -691,13 +684,18 @@ renotify:
 	tsk->exit_state = state;
 	write_sequnlock(&sig->stats_lock);
 
-	/* mt-exec, de_thread() is waiting for group leader */
-	if (unlikely(tsk->signal->notify_count < 0))
-		wake_up_process(tsk->signal->group_exec_task);
 	write_unlock_irq(&tasklist_lock);
 
 	if (state == EXIT_DEAD)
 		release_task(tsk);
+
+	/* mt-exec, de_thread() is waiting */
+	if (unlikely(sig->notify_count)) {
+		spin_lock_irq(&sig->siglock);
+		if (sig->notify_count && !--sig->notify_count)
+			wake_up_process(sig->group_exec_task);
+		spin_unlock_irq(&sig->siglock);
+	}
 }
 
 static void exit_child_reaper(struct task_struct *tsk)

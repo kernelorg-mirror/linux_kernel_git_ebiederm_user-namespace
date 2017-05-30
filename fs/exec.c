@@ -1067,8 +1067,6 @@ static int de_thread(struct task_struct *tsk)
 
 	sig->group_exec_task = tsk;
 	sig->notify_count = zap_other_threads(tsk);
-	if (!child_for_wait(tsk))
-		sig->notify_count--;
 
 	while (sig->notify_count) {
 		__set_current_state(TASK_KILLABLE);
@@ -1078,6 +1076,7 @@ static int de_thread(struct task_struct *tsk)
 			goto killed;
 		spin_lock_irq(lock);
 	}
+	sig->group_exec_task = NULL;
 	spin_unlock_irq(lock);
 
 	/*
@@ -1089,23 +1088,8 @@ static int de_thread(struct task_struct *tsk)
 		struct task_struct *old =
 			wait_pid_task(task_tgid(tsk), PIDTYPE_TGID);
 
-		for (;;) {
-			cgroup_threadgroup_change_begin(tsk);
-			write_lock_irq(&tasklist_lock);
-			/*
-			 * Do this under tasklist_lock to ensure that
-			 * exit_notify() can't miss ->group_exec_task
-			 */
-			sig->notify_count = -1;
-			if (likely(old->exit_state))
-				break;
-			__set_current_state(TASK_KILLABLE);
-			write_unlock_irq(&tasklist_lock);
-			cgroup_threadgroup_change_end(tsk);
-			schedule();
-			if (unlikely(__fatal_signal_pending(tsk)))
-				goto killed;
-		}
+		cgroup_threadgroup_change_begin(tsk);
+		write_lock_irq(&tasklist_lock);
 
 		BUG_ON(!same_thread_group(old, tsk));
 		BUG_ON(has_group_leader_pid(tsk));
@@ -1142,9 +1126,6 @@ static int de_thread(struct task_struct *tsk)
 		release_task(old);
 	}
 
-	sig->group_exec_task = NULL;
-	sig->notify_count = 0;
-
 no_thread_group:
 	/* we have changed execution domain */
 	sig->exit_signal = SIGCHLD;
@@ -1180,11 +1161,11 @@ no_thread_group:
 	return 0;
 
 killed:
-	/* protects against exit_notify() and __exit_signal() */
-	read_lock(&tasklist_lock);
+	/* protects against exit_notify() */
+	spin_lock_irq(lock);
 	sig->group_exec_task = NULL;
 	sig->notify_count = 0;
-	read_unlock(&tasklist_lock);
+	spin_unlock_irq(lock);
 	return -EAGAIN;
 }
 
