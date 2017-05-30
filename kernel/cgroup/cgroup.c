@@ -3748,7 +3748,7 @@ static void *cgroup_procs_next(struct seq_file *s, void *v, loff_t *pos)
 
 	do {
 		task = css_task_iter_next(it);
-	} while (task && !thread_group_leader(task));
+	} while (task && !thread_group_representative(task));
 
 	return task;
 }

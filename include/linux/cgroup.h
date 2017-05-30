@@ -276,7 +276,7 @@ void css_task_iter_end(struct css_task_iter *it);
 	for ((leader) = cgroup_taskset_first((tset), &(dst_css));	\
 	     (leader);							\
 	     (leader) = cgroup_taskset_next((tset), &(dst_css)))	\
-		if (!thread_group_leader(leader))			\
+		if (!thread_group_representative(leader))		\
 			;						\
 		else
 

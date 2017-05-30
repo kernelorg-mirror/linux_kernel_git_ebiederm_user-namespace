@@ -587,7 +587,7 @@ static inline int get_nr_threads(struct task_struct *tsk)
 	return tsk->signal->nr_threads;
 }
 
-static inline bool thread_group_leader(struct task_struct *p)
+static inline bool thread_group_representative(struct task_struct *p)
 {
 	return !hlist_unhashed(&p->pid_links[PIDTYPE_PGID]);
 }
