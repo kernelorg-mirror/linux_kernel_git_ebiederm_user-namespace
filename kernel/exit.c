@@ -551,7 +551,7 @@ static struct task_struct *find_new_reaper(struct task_struct *father,
 /*
 * Any that need to be release_task'd are put on the @dead list.
  */
-static void reparent_leader(struct task_struct *father, struct task_struct *p,
+static void reparent_process(struct task_struct *father, struct task_struct *p,
 				struct list_head *dead)
 {
 	if (unlikely(p->exit_state == EXIT_DEAD))
@@ -611,7 +611,7 @@ static void forget_original_parent(struct task_struct *father,
 		 * notify anyone anything has happened.
 		 */
 		if (!same_thread_group(reaper, father))
-			reparent_leader(father, p, dead);
+			reparent_process(father, p, dead);
 	}
 	list_splice_tail_init(&father->children, &reaper->children);
 }
