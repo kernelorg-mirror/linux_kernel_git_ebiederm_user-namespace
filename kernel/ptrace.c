@@ -468,19 +468,6 @@ static int ptrace_traceme(void)
 }
 
 /*
- * Called with irqs disabled, returns true if childs should reap themselves.
- */
-static int ignoring_children(struct sighand_struct *sigh)
-{
-	int ret;
-	spin_lock(&sigh->siglock);
-	ret = (sigh->action[SIGCHLD-1].sa.sa_handler == SIG_IGN) ||
-	      (sigh->action[SIGCHLD-1].sa.sa_flags & SA_NOCLDWAIT);
-	spin_unlock(&sigh->siglock);
-	return ret;
-}
-
-/*
  * Called with tasklist_lock held for writing.
  * Unlink a traced task, and clean it up if it was a traced zombie.
  * Return true if it needs to be reaped with release_task().
@@ -501,15 +488,7 @@ static bool __exit_ptrace(struct task_struct *tracer, struct task_struct *p)
 
 	__ptrace_unlink(p);
 
-	if (state == EXIT_ZOMBIE) {
-		/* Honor the parents request to autoreap children */
-		if (thread_group_empty(p) &&
-		    ignoring_children(tracer->sighand)) {
-			state = EXIT_DEAD;
-			__wake_up_parent(p, tracer);
-		}
-	}
-	else if (state == EXIT_TRACEE) {
+	if (state == EXIT_TRACEE) {
 		state = EXIT_DEAD;
 		if (thread_group_leader(p)) {
 			state = EXIT_ZOMBIE;

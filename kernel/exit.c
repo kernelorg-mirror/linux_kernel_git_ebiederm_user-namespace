@@ -638,7 +638,7 @@ static void forget_original_parent(struct task_struct *father,
  */
 static void exit_notify(struct task_struct *tsk, int group_dead)
 {
-	int state = EXIT_DEAD;
+	int state;
 	struct task_struct *p, *n;
 	LIST_HEAD(dead);
 
@@ -648,6 +648,8 @@ static void exit_notify(struct task_struct *tsk, int group_dead)
 	if (group_dead)
 		kill_orphaned_pgrp(tsk->group_leader, NULL);
 
+renotify:
+	state = EXIT_DEAD;
 	if (thread_group_leader(tsk) && !ptrace_reparented(tsk)) {
 		state = EXIT_ZOMBIE;
 		if (thread_group_empty(tsk) &&
@@ -656,8 +658,10 @@ static void exit_notify(struct task_struct *tsk, int group_dead)
 	}
 	else if (unlikely(tsk->ptrace)) {
 		state = EXIT_TRACEE;
-		if (do_notify_parent(tsk, SIGCHLD))
-			state = EXIT_DEAD;
+		if (do_notify_parent(tsk, SIGCHLD)) {
+			__ptrace_unlink(tsk);
+			goto renotify;
+		}
 	}
 
 	tsk->exit_state = state;
