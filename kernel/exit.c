@@ -92,7 +92,6 @@ static void __exit_signal(struct task_struct *tsk)
 {
 	struct signal_struct *sig = tsk->signal;
 	bool group_dead;
-	struct sighand_struct *sighand;
 	u64 utime, stime;
 
 	spin_lock(&sig->siglock);
@@ -136,11 +135,7 @@ static void __exit_signal(struct task_struct *tsk)
 	__unhash_process(tsk);
 	write_sequnlock(&sig->stats_lock);
 
-	sighand = tsk->sighand;
-	tsk->sighand = NULL;
 	spin_unlock(&sig->siglock);
-
-	__cleanup_sighand(sighand);
 }
 
 static void delayed_put_task_struct(struct rcu_head *rhp)

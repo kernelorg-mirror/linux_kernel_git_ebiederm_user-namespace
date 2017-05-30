@@ -2483,6 +2483,9 @@ out:
 	flush_sigqueue(&tsk->pending);
 	if (group_dead)
 		flush_sigqueue(&sig->shared_pending);
+
+	__cleanup_sighand(tsk->sighand);
+	tsk->sighand = NULL;
 	spin_unlock_irq(&sig->siglock);
 
 	/*
