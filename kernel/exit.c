@@ -153,18 +153,10 @@ static void __exit_signal(struct task_struct *tsk)
 	__unhash_process(tsk);
 	write_sequnlock(&sig->stats_lock);
 
-	/*
-	 * Do this under ->siglock, we can race with another thread
-	 * doing sigqueue_free() if we have SIGQUEUE_PREALLOC signals.
-	 */
-	flush_sigqueue(&tsk->pending);
 	tsk->sighand = NULL;
 	spin_unlock(&sighand->siglock);
 
 	__cleanup_sighand(sighand);
-	if (group_dead) {
-		flush_sigqueue(&sig->shared_pending);
-	}
 }
 
 static void delayed_put_task_struct(struct rcu_head *rhp)

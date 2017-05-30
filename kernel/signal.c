@@ -2460,6 +2460,13 @@ bool exit_signals(struct task_struct *tsk, int exit_code)
 	    task_participate_group_stop(tsk))
 		group_stop = CLD_STOPPED;
 out:
+	/*
+	 * Do this under ->siglock, we can race with another thread
+	 * doing sigqueue_free() if we have SIGQUEUE_PREALLOC signals.
+	 */
+	flush_sigqueue(&tsk->pending);
+	if (group_dead)
+		flush_sigqueue(&sig->shared_pending);
 	spin_unlock_irq(&tsk->sighand->siglock);
 
 	/*
