@@ -641,7 +641,7 @@ static void update_process_membership(struct task_struct *tsk,
 /*
  * Remove this task from the land of the living.
  */
-static void forget_task(struct task_struct *tsk, struct list_head *dead)
+void forget_task(struct task_struct *tsk, struct list_head *dead)
 {
 	struct task_struct *reaper, *next;
 
@@ -664,11 +664,8 @@ static void forget_task(struct task_struct *tsk, struct list_head *dead)
 static void exit_notify(struct task_struct *tsk, int group_dead)
 {
 	int state;
-	LIST_HEAD(dead);
 
 	write_lock_irq(&tasklist_lock);
-	forget_task(tsk, &dead);
-
 	if (group_dead)
 		kill_orphaned_pgrp(tsk, NULL);
 
@@ -687,17 +684,15 @@ renotify:
 			goto renotify;
 		}
 	}
-
 	tsk->exit_state = state;
-	if (tsk->exit_state == EXIT_DEAD)
-		list_add(&tsk->ptrace_entry, &dead);
 
 	/* mt-exec, de_thread() is waiting for group leader */
 	if (unlikely(tsk->signal->notify_count < 0))
 		wake_up_process(tsk->signal->group_exec_task);
 	write_unlock_irq(&tasklist_lock);
 
-	release_tasks(&dead);
+	if (state == EXIT_DEAD)
+		release_task(tsk);
 }
 
 static void exit_child_reaper(struct task_struct *tsk)

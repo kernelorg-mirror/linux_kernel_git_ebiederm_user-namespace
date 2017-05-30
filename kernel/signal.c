@@ -2422,6 +2422,7 @@ static void retarget_shared_pending(struct task_struct *tsk, sigset_t *which)
 bool exit_signals(struct task_struct *tsk, int exit_code)
 {
 	struct signal_struct *sig = tsk->signal;
+	LIST_HEAD(dead);
 	bool group_dead;
 	int group_stop = 0;
 	sigset_t unblocked;
@@ -2432,7 +2433,10 @@ bool exit_signals(struct task_struct *tsk, int exit_code)
 	 */
 	cgroup_threadgroup_change_begin(tsk);
 
-	spin_lock_irq(&sig->siglock);
+	write_lock_irq(&tasklist_lock);
+	forget_task(tsk, &dead);
+
+	spin_lock(&sig->siglock);
 	/*
 	 * From now this task is not visible for group-wide signals,
 	 * see wants_signal(), do_signal_stop().
@@ -2450,6 +2454,7 @@ bool exit_signals(struct task_struct *tsk, int exit_code)
 		signal_set_exit_flags(sig, SIGNAL_GROUP_EXIT);
 	}
 
+	write_unlock(&tasklist_lock);
 	cgroup_threadgroup_change_end(tsk);
 
 	if (!signal_pending(tsk) || (sig->flags & SIGNAL_GROUP_EXIT))
@@ -2481,6 +2486,7 @@ out:
 		do_notify_parent_cldstop(tsk, false, PIDTYPE_TGID, group_stop);
 		read_unlock(&tasklist_lock);
 	}
+	release_tasks(&dead);
 	return group_dead;
 }
 
