@@ -211,6 +211,16 @@ repeat:
 		goto repeat;
 }
 
+void release_tasks(struct list_head *dead)
+{
+	struct task_struct *p, *n;
+
+	list_for_each_entry_safe(p, n, dead, ptrace_entry) {
+		list_del_init(&p->ptrace_entry);
+		release_task(p);
+	}
+}
+
 void rcuwait_wake_up(struct rcuwait *w)
 {
 	struct task_struct *task;
@@ -613,7 +623,6 @@ static void forget_original_parent(struct task_struct *father,
 static void exit_notify(struct task_struct *tsk, int group_dead)
 {
 	int state;
-	struct task_struct *p, *n;
 	LIST_HEAD(dead);
 
 	write_lock_irq(&tasklist_lock);
@@ -647,10 +656,7 @@ renotify:
 		wake_up_process(tsk->signal->group_exec_task);
 	write_unlock_irq(&tasklist_lock);
 
-	list_for_each_entry_safe(p, n, &dead, ptrace_entry) {
-		list_del_init(&p->ptrace_entry);
-		release_task(p);
-	}
+	release_tasks(&dead);
 }
 
 static void exit_child_reaper(struct task_struct *tsk)

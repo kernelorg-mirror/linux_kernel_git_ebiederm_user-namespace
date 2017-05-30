@@ -39,6 +39,7 @@ void __noreturn do_task_dead(void);
 extern void proc_caches_init(void);
 
 extern void release_task(struct task_struct * p);
+extern void release_tasks(struct list_head *dead);
 extern bool reapable(struct task_struct *task);
 
 #ifdef CONFIG_HAVE_COPY_THREAD_TLS
