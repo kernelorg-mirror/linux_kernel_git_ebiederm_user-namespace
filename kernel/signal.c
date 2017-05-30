@@ -2452,7 +2452,7 @@ bool exit_signals(struct task_struct *tsk, int exit_code)
 	cgroup_threadgroup_change_begin(tsk);
 
 	write_lock_irq(&tasklist_lock);
-	forget_task(tsk, &dead);
+	group_dead = forget_task(tsk, &dead);
 
 	spin_lock(&sig->siglock);
 	/*
@@ -2460,8 +2460,6 @@ bool exit_signals(struct task_struct *tsk, int exit_code)
 	 * see wants_signal(), do_signal_stop().
 	 */
 	tsk->flags |= PF_EXITING;
-
-	group_dead = atomic_dec_and_test(&sig->live);
 
 	/*
 	 * Ensure that SIGNAL_GROUP_EXIT will be set after

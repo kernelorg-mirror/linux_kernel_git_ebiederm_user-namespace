@@ -426,13 +426,15 @@ static void exit_mm(void)
 		exit_oom_victim();
 }
 
-static struct task_struct *find_alive_thread(struct task_struct *p)
+static struct task_struct *find_alive_thread(struct task_struct *p, bool dead)
 {
 	struct task_struct *t;
 
-	for_each_thread(p, t) {
-		if ((t != p) && !(t->flags & PF_EXITING))
-			return t;
+	if (!dead) {
+		for_each_thread(p, t) {
+			if ((t != p) && !(t->flags & PF_EXITING))
+				return t;
+		}
 	}
 	return NULL;
 }
@@ -617,14 +619,15 @@ static void update_curr_target(struct task_struct *tsk,
 /*
  * Remove this task from the land of the living.
  */
-void forget_task(struct task_struct *tsk, struct list_head *dead)
+bool forget_task(struct task_struct *tsk, struct list_head *dead)
 {
 	struct task_struct *reaper, *next;
+	bool group_dead = atomic_dec_and_test(&tsk->signal->live);
 
 	if (unlikely(!list_empty(&tsk->ptraced)))
 		exit_ptrace(tsk, dead);
 
-	next = find_alive_thread(tsk);
+	next = find_alive_thread(tsk, group_dead);
 
 	update_process_membership(tsk, next);
 	update_thread_for_wait(tsk, next);
@@ -634,6 +637,8 @@ void forget_task(struct task_struct *tsk, struct list_head *dead)
 	/* Only reparent children when the reaper lives */
 	if (reaper)
 		reparent_children(tsk, next, reaper, dead);
+
+	return group_dead;
 }
 
 static void exit_stats(struct task_struct *tsk)
