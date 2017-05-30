@@ -68,10 +68,16 @@
 #include <asm/pgtable.h>
 #include <asm/mmu_context.h>
 
-static void __unhash_process(struct task_struct *p)
+/*
+ * This function expects the tasklist_lock write-locked.
+ */
+static void unhash_process(struct task_struct *p)
 {
 	struct signal_struct *sig = p->signal;
+
+	spin_lock(&sig->siglock);
 	nr_threads--;
+	sig->nr_threads--;
 	detach_pid(p, PIDTYPE_PID);
 	if (list_is_singular(&sig->thread_head)) {
 		detach_pid(p, PIDTYPE_TGID);
@@ -83,22 +89,6 @@ static void __unhash_process(struct task_struct *p)
 		__this_cpu_dec(process_counts);
 	}
 	list_del_rcu(&p->thread_node);
-}
-
-/*
- * This function expects the tasklist_lock write-locked.
- */
-static void __exit_signal(struct task_struct *tsk)
-{
-	struct signal_struct *sig = tsk->signal;
-	bool group_dead;
-
-	spin_lock(&sig->siglock);
-	group_dead = list_is_singular(&sig->thread_head);
-
-	sig->nr_threads--;
-	__unhash_process(tsk);
-
 	spin_unlock(&sig->siglock);
 }
 
@@ -137,7 +127,7 @@ repeat:
 	write_lock_irq(&tasklist_lock);
 	ptrace_release_task(p);
 	pid_ns = task_active_pid_ns(p->real_parent);
-	__exit_signal(p);
+	unhash_process(p);
 
 	autoreap = false;
 	last = NULL;
