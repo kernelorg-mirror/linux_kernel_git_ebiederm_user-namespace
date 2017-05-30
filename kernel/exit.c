@@ -68,11 +68,12 @@
 #include <asm/pgtable.h>
 #include <asm/mmu_context.h>
 
-static void __unhash_process(struct task_struct *p, bool group_dead)
+static void __unhash_process(struct task_struct *p)
 {
+	struct signal_struct *sig = p->signal;
 	nr_threads--;
 	detach_pid(p, PIDTYPE_PID);
-	if (group_dead) {
+	if (list_is_singular(&sig->thread_head)) {
 		detach_pid(p, PIDTYPE_PGID);
 		detach_pid(p, PIDTYPE_SID);
 
@@ -152,7 +153,7 @@ static void __exit_signal(struct task_struct *tsk)
 	task_io_accounting_add(&sig->ioac, &tsk->ioac);
 	sig->sum_sched_runtime += tsk->se.sum_exec_runtime;
 	sig->nr_threads--;
-	__unhash_process(tsk, group_dead);
+	__unhash_process(tsk);
 	write_sequnlock(&sig->stats_lock);
 
 	/*
