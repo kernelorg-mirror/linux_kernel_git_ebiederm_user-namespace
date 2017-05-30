@@ -490,7 +490,7 @@ static struct task_struct *find_alive_thread(struct task_struct *p)
 }
 
 static struct task_struct *find_child_reaper(struct task_struct *father,
-	struct list_head *dead)
+	struct task_struct *next, struct list_head *dead)
 {
 	struct pid_namespace *pid_ns = task_active_pid_ns(father);
 	struct task_struct *reaper = pid_ns->child_reaper;
@@ -498,9 +498,8 @@ static struct task_struct *find_child_reaper(struct task_struct *father,
 	if (likely(reaper != father))
 		return reaper;
 
-	reaper = find_alive_thread(father);
-	if (reaper) {
-		pid_ns->child_reaper = reaper;
+	if (next) {
+		pid_ns->child_reaper = next;
 		return reaper;
 	}
 	zap_pid_ns_processes(pid_ns, dead);
@@ -516,11 +515,11 @@ static struct task_struct *find_child_reaper(struct task_struct *father,
  * 3. give it to the init process (PID 1) in our pid namespace
  */
 static struct task_struct *find_new_reaper(struct task_struct *father,
+					   struct task_struct *thread,
 					   struct task_struct *child_reaper)
 {
-	struct task_struct *thread, *reaper;
+	struct task_struct *reaper;
 
-	thread = find_alive_thread(father);
 	if (thread)
 		return thread;
 
@@ -580,6 +579,7 @@ static void reparent_process(struct task_struct *father, struct task_struct *p,
  *	jobs, send them a SIGHUP and then a SIGCONT.  (POSIX 3.2.2.2)
  */
 static void reparent_children(struct task_struct *father,
+			      struct task_struct *thread,
 			      struct task_struct *reaper,
 			      struct list_head *dead)
 {
@@ -588,7 +588,7 @@ static void reparent_children(struct task_struct *father,
 	if (list_empty(&father->children))
 		return;
 
-	new_parent = find_new_reaper(father, reaper);
+	new_parent = find_new_reaper(father, thread, reaper);
 	list_for_each_entry(p, &father->children, sibling) {
 		for_each_thread(p, t) {
 			t->real_parent = new_parent;
@@ -612,15 +612,17 @@ static void reparent_children(struct task_struct *father,
 static void forget_original_parent(struct task_struct *tsk,
 					struct list_head *dead)
 {
-	struct task_struct *reaper;
+	struct task_struct *reaper, *next;
 
 	if (unlikely(!list_empty(&tsk->ptraced)))
 		exit_ptrace(tsk, dead);
 
-	reaper = find_child_reaper(tsk, dead);
+	next = find_alive_thread(tsk);
+
+	reaper = find_child_reaper(tsk, next, dead);
 	/* Only reparent children when the reaper lives */
 	if (reaper)
-		reparent_children(tsk, reaper, dead);
+		reparent_children(tsk, next, reaper, dead);
 }
 
 /*
