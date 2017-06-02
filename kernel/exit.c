@@ -1599,8 +1599,7 @@ repeat:
 
 	set_current_state(TASK_INTERRUPTIBLE);
 	read_lock(&tasklist_lock);
-	tsk = current;
-	do {
+	for_each_thread(current, tsk) {
 		if (wo->wo_type <= PIDTYPE_TGID) {
 			retval = do_wait_pid(wo, tsk);
 		} else {
@@ -1615,7 +1614,7 @@ repeat:
 
 		if (wo->wo_flags & __WNOTHREAD)
 			break;
-	} while_each_thread(current, tsk);
+	}
 	read_unlock(&tasklist_lock);
 
 notask:
