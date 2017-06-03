@@ -605,6 +605,21 @@ static void update_process_membership(struct task_struct *tsk,
 		move_process_membership(tsk, next);
 }
 
+static void update_thread_for_wait(struct task_struct *tsk,
+				   struct task_struct *next)
+{
+	bool first_thread = task_pid(tsk) == task_tgid(tsk);
+	/*
+	 * If the first thread is not being ptraced use next
+	 * to represent this thread group on the list of
+	 * children.
+	 */
+	if (child_for_wait(tsk) && next &&
+	    !(first_thread && tsk->ptrace && !ptrace_reparented(tsk)))
+		list_replace_init(&tsk->sibling, &next->sibling);
+
+}
+
 /*
  * Remove this task from the land of the living.
  */
@@ -618,6 +633,8 @@ void forget_task(struct task_struct *tsk, struct list_head *dead)
 	next = find_alive_thread(tsk);
 
 	update_process_membership(tsk, next);
+	update_thread_for_wait(tsk, next);
+
 	reaper = find_child_reaper(tsk, next, dead);
 	/* Only reparent children when the reaper lives */
 	if (reaper)
@@ -652,6 +669,7 @@ static void exit_stats(struct task_struct *tsk)
 static void exit_notify(struct task_struct *tsk, int group_dead)
 {
 	struct signal_struct *sig = tsk->signal;
+	bool first_thread = task_pid(tsk) == task_tgid(tsk);
 	int state;
 
 	write_lock_irq(&tasklist_lock);
@@ -660,7 +678,8 @@ static void exit_notify(struct task_struct *tsk, int group_dead)
 
 renotify:
 	state = EXIT_DEAD;
-	if (child_for_wait(tsk) && !ptrace_reparented(tsk)) {
+	if (child_for_wait(tsk) && !ptrace_reparented(tsk) &&
+	    (first_thread || !tsk->ptrace)) {
 		state = EXIT_ZOMBIE;
 		if (reapable(tsk) &&
 		    do_notify_parent(tsk, PIDTYPE_TGID))

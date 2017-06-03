@@ -1080,50 +1080,45 @@ static int de_thread(struct task_struct *tsk)
 	spin_unlock_irq(lock);
 
 	/*
-	 * At this point all other threads have exited, all we have to
-	 * do is to wait for the old thread group leader to become
-	 * inactive, and to assume its PID:
+	 * After exec linux guarantee's that tgid == pid.  If that is
+	 * not already the case make that happen now.
 	 */
-	if (!child_for_wait(tsk)) {
-		struct task_struct *old =
-			wait_pid_task(task_tgid(tsk), PIDTYPE_TGID);
+	if (task_pid(tsk) != task_tgid(tsk)) {
+		struct task_struct *old = NULL;
 
 		cgroup_threadgroup_change_begin(tsk);
 		write_lock_irq(&tasklist_lock);
 
-		BUG_ON(!same_thread_group(old, tsk));
-		BUG_ON(has_group_leader_pid(tsk));
-		/*
-		 * An exec() starts a new thread group with the
-		 * TGID of the previous thread group. Rehash the
-		 * two threads with a switched PID, and release
-		 * the former thread group leader:
-		 */
+		tsk->pid = tsk->tgid;
+		change_pid(tsk, PIDTYPE_PID, task_tgid(tsk));
 
-		/* Become a process group leader with the old leader's pid.
-		 * The old leader becomes a thread of the this thread group.
-		 * Note: The old leader also uses this pid until release_task
-		 *       is called.  Odd but simple and correct.
-		 */
-		tsk->pid = old->pid;
-		change_pid(tsk, PIDTYPE_PID, task_pid(old));
+		if (!child_for_wait(tsk)) {
+			/*
+			 * The code comes here if the old thread with
+			 * pid == tgid is unreapable because it is
+			 * being ptraced by it's real_parent and the
+			 * thread group remains alive.
+			 *
+			 * Make tsk the child that non-ptrace wait sees,
+			 * and reap the previous thread.
+			 */
+			old = wait_pid_task(task_tgid(tsk), PIDTYPE_TGID);
+			BUG_ON(!same_thread_group(old, tsk));
+			BUG_ON(old->exit_state != EXIT_ZOMBIE);
 
-		list_replace_init(&old->sibling, &tsk->sibling);
-
-		BUG_ON(old->exit_state != EXIT_ZOMBIE);
-		old->exit_state = EXIT_DEAD;
-
-		/*
-		 * We are going to release_task()->ptrace_unlink() silently,
-		 * the tracer can sleep in do_wait(). EXIT_DEAD guarantees
-		 * the tracer wont't block again waiting for this thread.
-		 */
-		if (unlikely(old->ptrace))
+			list_replace_init(&old->sibling, &tsk->sibling);
+			old->exit_state = EXIT_DEAD;
+			/*
+			 * We are going to release_task()->ptrace_unlink() silently,
+			 * the tracer can sleep in do_wait(). EXIT_DEAD guarantees
+			 * the tracer wont't block again waiting for this thread.
+			 */
 			__wake_up_parent(old, old->parent);
+		}
 		write_unlock_irq(&tasklist_lock);
 		cgroup_threadgroup_change_end(tsk);
-
-		release_task(old);
+		if (old)
+			release_task(old);
 	}
 
 no_thread_group:
