@@ -1071,7 +1071,7 @@ static int de_thread(struct task_struct *tsk)
 
 	sig->group_exit_task = tsk;
 	sig->notify_count = zap_other_threads(tsk);
-	if (!thread_group_leader(tsk))
+	if (!child_for_wait(tsk))
 		sig->notify_count--;
 
 	while (sig->notify_count) {
@@ -1089,7 +1089,7 @@ static int de_thread(struct task_struct *tsk)
 	 * do is to wait for the thread group leader to become inactive,
 	 * and to assume its PID:
 	 */
-	if (!thread_group_leader(tsk)) {
+	if (!child_for_wait(tsk)) {
 		struct task_struct *leader = tsk->group_leader;
 
 		for (;;) {
@@ -1202,7 +1202,7 @@ no_thread_group:
 		__cleanup_sighand(oldsighand);
 	}
 
-	BUG_ON(!thread_group_leader(tsk));
+	BUG_ON(!child_for_wait(tsk));
 	return 0;
 
 killed:

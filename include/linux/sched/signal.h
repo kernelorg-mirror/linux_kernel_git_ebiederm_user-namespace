@@ -608,4 +608,9 @@ static inline unsigned long rlimit_max(unsigned int limit)
 	return task_rlimit_max(current, limit);
 }
 
+static inline bool child_for_wait(struct task_struct *p)
+{
+	return !list_empty(&p->sibling);
+}
+
 #endif /* _LINUX_SCHED_SIGNAL_H */

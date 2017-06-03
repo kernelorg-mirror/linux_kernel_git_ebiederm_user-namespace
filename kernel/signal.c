@@ -1600,7 +1600,7 @@ bool do_notify_parent(struct task_struct *tsk, int sig)
  	BUG_ON(task_is_stopped_or_traced(tsk));
 
 	BUG_ON(!tsk->ptrace &&
-	       (tsk->group_leader != tsk || !thread_group_empty(tsk)));
+	       (!child_for_wait(tsk) || !thread_group_empty(tsk)));
 
 	if (sig != SIGCHLD) {
 		/*

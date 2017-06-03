@@ -660,7 +660,7 @@ static void exit_notify(struct task_struct *tsk, int group_dead)
 
 renotify:
 	state = EXIT_DEAD;
-	if (thread_group_leader(tsk) && !ptrace_reparented(tsk)) {
+	if (child_for_wait(tsk) && !ptrace_reparented(tsk)) {
 		state = EXIT_ZOMBIE;
 		if (reapable(tsk) &&
 		    do_notify_parent(tsk, tsk->exit_signal))
@@ -980,7 +980,7 @@ static int eligible_child(struct wait_opts *wo, struct task_struct *p)
 	 */
 	return (((p->exit_signal == SIGCHLD) ||
 		 (p->parent_exec_id == p->real_parent->self_exec_id))
-		 && thread_group_leader(p) && !ptrace_reparented(p)) ^
+		 && child_for_wait(p) && !ptrace_reparented(p)) ^
 		!!(wo->wo_flags & __WCLONE);
 }
 
@@ -1071,7 +1071,7 @@ static int wait_task_zombie(struct wait_opts *wo, int old_state, struct task_str
 	/*
 	 * Move the task's state to DEAD/TRACED only one thread can do this.
 	 */
-	state = ((old_state == EXIT_TRACEE) && thread_group_leader(p)) ?
+	state = ((old_state == EXIT_TRACEE) && child_for_wait(p)) ?
 		EXIT_TRACED : EXIT_DEAD;
 	if (cmpxchg(&p->exit_state, old_state, state) != old_state)
 		return 0;
@@ -1230,7 +1230,7 @@ static int wait_task_stopped(struct wait_opts *wo, struct task_struct *p)
 	/*
 	 * Traditionally we see ptrace'd stopped tasks regardless of options.
 	 */
-	group = thread_group_leader(p) && !ptrace_reparented(p);
+	group = child_for_wait(p) && !ptrace_reparented(p);
 	pstop = same_thread_group(current, p->parent);
 	gstop = group && (wo->wo_flags & WUNTRACED);
 	if (!pstop && !gstop)
@@ -1398,7 +1398,7 @@ static int wait_consider_task(struct wait_opts *wo, struct task_struct *p)
 	/* Is this task past the point where ptrace cares? */
 	if (unlikely((exit_state == EXIT_TRACED) &&
 		     !(same_thread_group(current, p->real_parent) &&
-		       thread_group_leader(p))))
+		       child_for_wait(p))))
 		return 0;
 
 	/*
@@ -1481,7 +1481,7 @@ static int do_wait_pid(struct wait_opts *wo, struct task_struct *tsk)
 
 	/* Not on one of this tasks child lists? */
 	if ((tsk != p->parent) &&
-	    ((tsk != p->real_parent) || !thread_group_leader(p)))
+	    ((tsk != p->real_parent) || !child_for_wait(p)))
 		return 0;
 
 	return wait_consider_task(wo, p);

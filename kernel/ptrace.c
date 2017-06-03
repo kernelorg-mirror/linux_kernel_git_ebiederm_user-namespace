@@ -490,7 +490,7 @@ static bool __exit_ptrace(struct task_struct *tracer, struct task_struct *p)
 
 	if (state == EXIT_TRACEE) {
 		state = EXIT_DEAD;
-		if (thread_group_leader(p)) {
+		if (child_for_wait(p)) {
 			state = EXIT_ZOMBIE;
 			if (reapable(p) &&
 			    do_notify_parent(p, p->exit_signal))
