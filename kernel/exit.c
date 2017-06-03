@@ -221,7 +221,7 @@ repeat:
 	if (last &&
 	    (last->exit_state == EXIT_ZOMBIE) &&
 	    reapable(last) &&
-	    do_notify_parent(last, last->exit_signal)) {
+	    do_notify_parent(last, last->signal->exit_signal)) {
 		last->exit_state = EXIT_DEAD;
 		autoreap = true;
 	}
@@ -579,11 +579,11 @@ static void reparent_leader(struct task_struct *father, struct task_struct *p,
 		return;
 
 	/* We don't want people slaying init. */
-	p->exit_signal = SIGCHLD;
+	p->signal->exit_signal = SIGCHLD;
 
 	/* If it has exited notify the new parent about this child's death. */
 	if (p->exit_state == EXIT_ZOMBIE && reapable(p)) {
-		if (do_notify_parent(p, p->exit_signal)) {
+		if (do_notify_parent(p, p->signal->exit_signal)) {
 			p->exit_state = EXIT_DEAD;
 			list_add(&p->ptrace_entry, dead);
 		}
@@ -658,7 +658,7 @@ renotify:
 	if (child_for_wait(tsk) && !ptrace_reparented(tsk)) {
 		state = EXIT_ZOMBIE;
 		if (reapable(tsk) &&
-		    do_notify_parent(tsk, tsk->exit_signal))
+		    do_notify_parent(tsk, tsk->signal->exit_signal))
 			state = EXIT_DEAD;
 	}
 	else if (unlikely(tsk->ptrace)) {
@@ -973,7 +973,7 @@ static int eligible_child(struct wait_opts *wo, struct task_struct *p)
 	 * parent via SIGCHLD (when __WCLONE is not set) or use
 	 * another signal (when __WCLONE is set).
 	 */
-	return (((p->exit_signal == SIGCHLD) ||
+	return (((p->signal->exit_signal == SIGCHLD) ||
 		 (p->parent_exec_id == p->real_parent->self_exec_id))
 		 && child_for_wait(p) && !ptrace_reparented(p)) ^
 		!!(wo->wo_flags & __WCLONE);
@@ -1172,7 +1172,7 @@ static int wait_task_zombie(struct wait_opts *wo, int old_state, struct task_str
 		/* If parent wants a zombie, don't release it now */
 		state = EXIT_ZOMBIE;
 		if (reapable(p) &&
-		    do_notify_parent(p, p->exit_signal))
+		    do_notify_parent(p, p->signal->exit_signal))
 			state = EXIT_DEAD;
 		p->exit_state = state;
 		write_unlock_irq(&tasklist_lock);

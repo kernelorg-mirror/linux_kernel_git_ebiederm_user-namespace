@@ -575,7 +575,6 @@ struct task_struct {
 #endif
 	int				exit_state;
 	int				exit_code;
-	int				exit_signal;
 	/* The signal sent when the parent dies: */
 	int				pdeath_signal;
 	/* JOBCTL_*, siglock protected: */

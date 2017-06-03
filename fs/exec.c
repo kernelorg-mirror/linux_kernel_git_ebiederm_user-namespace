@@ -1135,9 +1135,6 @@ static int de_thread(struct task_struct *tsk)
 		tsk->group_leader = tsk;
 		leader->group_leader = tsk;
 
-		tsk->exit_signal = SIGCHLD;
-		leader->exit_signal = -1;
-
 		BUG_ON(leader->exit_state != EXIT_ZOMBIE);
 		leader->exit_state = EXIT_DEAD;
 
@@ -1159,7 +1156,7 @@ static int de_thread(struct task_struct *tsk)
 
 no_thread_group:
 	/* we have changed execution domain */
-	tsk->exit_signal = SIGCHLD;
+	sig->exit_signal = SIGCHLD;
 
 #ifdef CONFIG_POSIX_TIMERS
 	exit_itimers(sig);

@@ -227,6 +227,7 @@ struct signal_struct {
 
 	/* Boot based time in nsecs: */
 	u64				real_start_time;
+	int				exit_signal;
 };
 
 /*
