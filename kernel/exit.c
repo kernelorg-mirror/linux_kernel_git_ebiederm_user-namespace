@@ -1014,7 +1014,8 @@ bool reapable(struct task_struct *tsk)
 static int wait_task_zombie(struct wait_opts *wo, int old_state, struct task_struct *p)
 {
 	int state, retval, status;
-	pid_t pid = task_pid_vnr(p);
+	pid_t pid = (old_state == EXIT_TRACEE) ?
+		task_pid_vnr(p) : task_tgid_vnr(p);
 	uid_t uid = from_kuid_munged(current_user_ns(), task_uid(p));
 	struct siginfo __user *infop;
 
@@ -1243,7 +1244,7 @@ static int wait_task_stopped(struct wait_opts *wo, struct task_struct *p)
 	 */
 	get_task_struct(p);
 	uid = from_kuid_munged(current_user_ns(), task_uid(p));
-	pid = task_pid_vnr(p);
+	pid = group ? task_tgid_vnr(p) : task_pid_vnr(p);
 	read_unlock(&tasklist_lock);
 	sched_annotate_sleep();
 
@@ -1305,7 +1306,7 @@ static int wait_task_continued(struct wait_opts *wo, struct task_struct *p)
 	uid = from_kuid_munged(current_user_ns(), task_uid(p));
 	spin_unlock_irq(&p->signal->siglock);
 
-	pid = task_pid_vnr(p);
+	pid = task_tgid_vnr(p);
 	get_task_struct(p);
 	read_unlock(&tasklist_lock);
 	sched_annotate_sleep();
@@ -1479,12 +1480,37 @@ void __wake_up_parent(struct task_struct *p, struct task_struct *parent)
 				TASK_INTERRUPTIBLE, 1, p);
 }
 
+static int disambiguate_pid(struct wait_opts *wo)
+{
+	struct task_struct *tsk;
+
+	if (wo->wo_type == PIDTYPE_TGID) {
+		rcu_read_lock();
+		tsk = pid_task(wo->wo_pid, PIDTYPE_TGID);
+		if (!tsk || !same_thread_group(tsk->real_parent, current)) {
+			tsk = pid_task(wo->wo_pid, PIDTYPE_PID);
+			if (!tsk || !same_thread_group(tsk->parent, current))
+				goto notask;
+			wo->wo_type = PIDTYPE_PID;
+		}
+		rcu_read_unlock();
+	}
+	return 0;
+notask:
+	rcu_read_unlock();
+	return -ECHILD;
+}
+
 static long do_wait(struct wait_opts *wo)
 {
 	struct task_struct *tsk;
 	int retval;
 
 	trace_sched_process_wait(wo->wo_pid);
+
+	retval = disambiguate_pid(wo);
+	if (retval)
+		return retval;
 
 	init_waitqueue_func_entry(&wo->child_wait, child_wait_callback);
 	wo->child_wait.private = current;
@@ -1505,7 +1531,7 @@ repeat:
 	read_lock(&tasklist_lock);
 	tsk = current;
 	do {
-		if (wo->wo_type == PIDTYPE_PID) {
+		if (wo->wo_type <= PIDTYPE_TGID) {
 			retval = do_wait_pid(wo, tsk);
 		} else {
 			retval = do_wait_thread(wo, tsk);
@@ -1556,7 +1582,7 @@ SYSCALL_DEFINE5(waitid, int, which, pid_t, upid, struct siginfo __user *,
 		type = PIDTYPE_MAX;
 		break;
 	case P_PID:
-		type = PIDTYPE_PID;
+		type = PIDTYPE_TGID;
 		if (upid <= 0)
 			return -EINVAL;
 		break;
@@ -1627,7 +1653,7 @@ SYSCALL_DEFINE4(wait4, pid_t, upid, int __user *, stat_addr,
 		type = PIDTYPE_PGID;
 		pid = get_task_pid(current, PIDTYPE_PGID);
 	} else /* upid > 0 */ {
-		type = PIDTYPE_PID;
+		type = PIDTYPE_TGID;
 		pid = find_get_pid(upid);
 	}
 
