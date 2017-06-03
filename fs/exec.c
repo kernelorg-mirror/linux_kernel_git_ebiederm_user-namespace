@@ -1086,7 +1086,8 @@ static int de_thread(struct task_struct *tsk)
 	 * and to assume its PID:
 	 */
 	if (!child_for_wait(tsk)) {
-		struct task_struct *leader = tsk->group_leader;
+		struct task_struct *leader =
+			wait_pid_task(task_tgid(tsk), PIDTYPE_TGID);
 
 		for (;;) {
 			cgroup_threadgroup_change_begin(tsk);

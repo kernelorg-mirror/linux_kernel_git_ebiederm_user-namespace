@@ -1432,9 +1432,20 @@ static int ptrace_do_wait(struct wait_opts *wo, struct task_struct *tsk)
 	return 0;
 }
 
+struct task_struct *wait_pid_task(struct pid *pid, enum pid_type type)
+{
+	struct task_struct *p = pid_task(pid, type);
+
+	/* For PIDTYPE_TGID ensure p is on the child list */
+	if ((type == PIDTYPE_TGID) && !child_for_wait(p))
+		p = list_first_entry(&p->signal->thread_head,
+				     struct task_struct, thread_node);
+	return p;
+}
+
 static int do_wait_pid(struct wait_opts *wo, struct task_struct *tsk)
 {
-	struct task_struct *p = pid_task(wo->wo_pid, wo->wo_type);
+	struct task_struct *p = wait_pid_task(wo->wo_pid, wo->wo_type);
 
 	/* Not on one of this tasks child lists? */
 	if ((tsk != p->parent) &&

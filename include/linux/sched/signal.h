@@ -661,4 +661,6 @@ static inline bool child_for_wait(struct task_struct *p)
 	return !list_empty(&p->sibling);
 }
 
+struct task_struct *wait_pid_task(struct pid *pid, enum pid_type type);
+
 #endif /* _LINUX_SCHED_SIGNAL_H */
