@@ -1438,6 +1438,18 @@ static int ptrace_do_wait(struct wait_opts *wo, struct task_struct *tsk)
 	return 0;
 }
 
+static int do_wait_pid(struct wait_opts *wo, struct task_struct *tsk)
+{
+	struct task_struct *p = pid_task(wo->wo_pid, wo->wo_type);
+
+	/* Not on one of this tasks child lists? */
+	if ((tsk != p->parent) &&
+	    ((tsk != p->real_parent) || !thread_group_leader(p)))
+		return 0;
+
+	return wait_consider_task(wo, p);
+}
+
 static int child_wait_callback(wait_queue_t *wait, unsigned mode,
 				int sync, void *key)
 {
@@ -1486,11 +1498,15 @@ repeat:
 	read_lock(&tasklist_lock);
 	tsk = current;
 	do {
-		retval = do_wait_thread(wo, tsk);
-		if (retval)
-			goto end;
+		if (wo->wo_type == PIDTYPE_PID) {
+			retval = do_wait_pid(wo, tsk);
+		} else {
+			retval = do_wait_thread(wo, tsk);
+			if (retval)
+				goto end;
 
-		retval = ptrace_do_wait(wo, tsk);
+			retval = ptrace_do_wait(wo, tsk);
+		}
 		if (retval)
 			goto end;
 
