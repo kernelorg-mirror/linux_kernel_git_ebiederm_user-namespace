@@ -1329,8 +1329,7 @@ static int wait_task_continued(struct wait_opts *wo, struct task_struct *p)
  * then ->notask_error is 0 if @p is an eligible child,
  * or still -ECHILD.
  */
-static int wait_consider_task(struct wait_opts *wo, int ptrace,
-				struct task_struct *p)
+static int wait_consider_task(struct wait_opts *wo, struct task_struct *p)
 {
 	/*
 	 * We can race with wait_task_zombie() from another thread.
@@ -1356,11 +1355,13 @@ static int wait_consider_task(struct wait_opts *wo, int ptrace,
 	 * and reaping will be cascaded to the real parent when the
 	 * ptracer detaches.
 	 */
-	if ((exit_state == EXIT_TRACEE) && ptrace)
+	if ((exit_state == EXIT_TRACEE) && same_thread_group(current, p->parent))
 		return wait_task_zombie(wo, exit_state, p);
 
 	/* Is this task past the point where ptrace cares? */
-	if (unlikely((exit_state == EXIT_TRACED) && ptrace))
+	if (unlikely((exit_state == EXIT_TRACED) &&
+		     !(same_thread_group(current, p->real_parent) &&
+		       thread_group_leader(p))))
 		return 0;
 
 	/*
@@ -1414,7 +1415,7 @@ static int do_wait_thread(struct wait_opts *wo, struct task_struct *tsk)
 	struct task_struct *p;
 
 	list_for_each_entry(p, &tsk->children, sibling) {
-		int ret = wait_consider_task(wo, 0, p);
+		int ret = wait_consider_task(wo, p);
 
 		if (ret)
 			return ret;
@@ -1428,7 +1429,7 @@ static int ptrace_do_wait(struct wait_opts *wo, struct task_struct *tsk)
 	struct task_struct *p;
 
 	list_for_each_entry(p, &tsk->ptraced, ptrace_entry) {
-		int ret = wait_consider_task(wo, 1, p);
+		int ret = wait_consider_task(wo, p);
 
 		if (ret)
 			return ret;
