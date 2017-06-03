@@ -950,31 +950,26 @@ static int eligible_pid(struct wait_opts *wo, struct task_struct *p)
 		task_pid_type(p, wo->wo_type) == wo->wo_pid;
 }
 
-static int
-eligible_child(struct wait_opts *wo, bool ptrace, struct task_struct *p)
+static int eligible_child(struct wait_opts *wo, struct task_struct *p)
 {
 	if (!eligible_pid(wo, p))
 		return 0;
 
 	/*
-	 * Wait for all children (clone and not) if __WALL is set or
-	 * if it is traced by us.
+	 * Wait for all children (clone and not) if __WALL is set.
 	 */
-	if (ptrace || (wo->wo_flags & __WALL))
+	if (wo->wo_flags & __WALL)
 		return 1;
 
 	/*
-	 * Otherwise, wait for clone children *only* if __WCLONE is set;
-	 * otherwise, wait for non-clone children *only*.
-	 *
-	 * Note: a "clone" child here is one that reports to its parent
-	 * using a signal other than SIGCHLD, or a non-leader thread which
-	 * we can only see if it is traced by us.
+	 * Otherwise wait for either children that report to their
+	 * parent via SIGCHLD (when __WCLONE is not set) or use
+	 * another signal (when __WCLONE is set).
 	 */
-	if ((p->exit_signal != SIGCHLD) ^ !!(wo->wo_flags & __WCLONE))
-		return 0;
-
-	return 1;
+	return (((p->exit_signal == SIGCHLD) ||
+		 (p->parent_exec_id == p->real_parent->self_exec_id))
+		 && thread_group_leader(p) && !ptrace_reparented(p)) ^
+		!!(wo->wo_flags & __WCLONE);
 }
 
 static int wait_noreap_copyout(struct wait_opts *wo, struct task_struct *p,
@@ -1343,7 +1338,7 @@ static int wait_consider_task(struct wait_opts *wo, int ptrace,
 	if (unlikely(exit_state == EXIT_DEAD))
 		return 0;
 
-	ret = eligible_child(wo, ptrace, p);
+	ret = eligible_child(wo, p);
 	if (!ret)
 		return ret;
 
