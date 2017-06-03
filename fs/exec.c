@@ -1082,11 +1082,11 @@ static int de_thread(struct task_struct *tsk)
 
 	/*
 	 * At this point all other threads have exited, all we have to
-	 * do is to wait for the thread group leader to become inactive,
-	 * and to assume its PID:
+	 * do is to wait for the old thread group leader to become
+	 * inactive, and to assume its PID:
 	 */
 	if (!child_for_wait(tsk)) {
-		struct task_struct *leader =
+		struct task_struct *old =
 			wait_pid_task(task_tgid(tsk), PIDTYPE_TGID);
 
 		for (;;) {
@@ -1097,7 +1097,7 @@ static int de_thread(struct task_struct *tsk)
 			 * exit_notify() can't miss ->group_exec_task
 			 */
 			sig->notify_count = -1;
-			if (likely(leader->exit_state))
+			if (likely(old->exit_state))
 				break;
 			__set_current_state(TASK_KILLABLE);
 			write_unlock_irq(&tasklist_lock);
@@ -1107,7 +1107,7 @@ static int de_thread(struct task_struct *tsk)
 				goto killed;
 		}
 
-		BUG_ON(!same_thread_group(leader, tsk));
+		BUG_ON(!same_thread_group(old, tsk));
 		BUG_ON(has_group_leader_pid(tsk));
 		/*
 		 * An exec() starts a new thread group with the
@@ -1121,32 +1121,32 @@ static int de_thread(struct task_struct *tsk)
 		 * Note: The old leader also uses this pid until release_task
 		 *       is called.  Odd but simple and correct.
 		 */
-		tsk->pid = leader->pid;
-		change_pid(tsk, PIDTYPE_PID, task_pid(leader));
-		transfer_pid(leader, tsk, PIDTYPE_TGID);
-		transfer_pid(leader, tsk, PIDTYPE_PGID);
-		transfer_pid(leader, tsk, PIDTYPE_SID);
+		tsk->pid = old->pid;
+		change_pid(tsk, PIDTYPE_PID, task_pid(old));
+		transfer_pid(old, tsk, PIDTYPE_TGID);
+		transfer_pid(old, tsk, PIDTYPE_PGID);
+		transfer_pid(old, tsk, PIDTYPE_SID);
 
-		list_replace_rcu(&leader->tasks, &tsk->tasks);
-		list_replace_init(&leader->sibling, &tsk->sibling);
+		list_replace_rcu(&old->tasks, &tsk->tasks);
+		list_replace_init(&old->sibling, &tsk->sibling);
 
 		tsk->group_leader = tsk;
-		leader->group_leader = tsk;
+		old->group_leader = tsk;
 
-		BUG_ON(leader->exit_state != EXIT_ZOMBIE);
-		leader->exit_state = EXIT_DEAD;
+		BUG_ON(old->exit_state != EXIT_ZOMBIE);
+		old->exit_state = EXIT_DEAD;
 
 		/*
 		 * We are going to release_task()->ptrace_unlink() silently,
 		 * the tracer can sleep in do_wait(). EXIT_DEAD guarantees
 		 * the tracer wont't block again waiting for this thread.
 		 */
-		if (unlikely(leader->ptrace))
-			__wake_up_parent(leader, leader->parent);
+		if (unlikely(old->ptrace))
+			__wake_up_parent(old, old->parent);
 		write_unlock_irq(&tasklist_lock);
 		cgroup_threadgroup_change_end(tsk);
 
-		release_task(leader);
+		release_task(old);
 	}
 
 	sig->group_exec_task = NULL;
