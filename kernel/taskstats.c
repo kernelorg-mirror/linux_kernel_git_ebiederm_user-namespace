@@ -273,7 +273,7 @@ static void fill_tgid_exit(struct task_struct *tsk)
 {
 	unsigned long flags;
 
-	spin_lock_irqsave(&tsk->sighand->siglock, flags);
+	spin_lock_irqsave(&tsk->signal->siglock, flags);
 	if (!tsk->signal->stats)
 		goto ret;
 
@@ -285,7 +285,7 @@ static void fill_tgid_exit(struct task_struct *tsk)
 	 */
 	delayacct_add_tsk(tsk->signal->stats, tsk);
 ret:
-	spin_unlock_irqrestore(&tsk->sighand->siglock, flags);
+	spin_unlock_irqrestore(&tsk->signal->siglock, flags);
 	return;
 }
 
@@ -576,12 +576,12 @@ static struct taskstats *taskstats_tgid_alloc(struct task_struct *tsk)
 	/* No problem if kmem_cache_zalloc() fails */
 	stats = kmem_cache_zalloc(taskstats_cache, GFP_KERNEL);
 
-	spin_lock_irq(&tsk->sighand->siglock);
+	spin_lock_irq(&tsk->signal->siglock);
 	if (!sig->stats) {
 		sig->stats = stats;
 		stats = NULL;
 	}
-	spin_unlock_irq(&tsk->sighand->siglock);
+	spin_unlock_irq(&tsk->signal->siglock);
 
 	if (stats)
 		kmem_cache_free(taskstats_cache, stats);

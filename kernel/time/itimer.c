@@ -50,7 +50,7 @@ static void get_cpu_itimer(struct task_struct *tsk, unsigned int clock_id,
 	u64 val, interval;
 	struct cpu_itimer *it = &tsk->signal->it[clock_id];
 
-	spin_lock_irq(&tsk->sighand->siglock);
+	spin_lock_irq(&tsk->signal->siglock);
 
 	val = it->expires;
 	interval = it->incr;
@@ -72,7 +72,7 @@ static void get_cpu_itimer(struct task_struct *tsk, unsigned int clock_id,
 			val -= t;
 	}
 
-	spin_unlock_irq(&tsk->sighand->siglock);
+	spin_unlock_irq(&tsk->signal->siglock);
 
 	value->it_value = ns_to_timeval(val);
 	value->it_interval = ns_to_timeval(interval);
@@ -84,11 +84,11 @@ int do_getitimer(int which, struct itimerval *value)
 
 	switch (which) {
 	case ITIMER_REAL:
-		spin_lock_irq(&tsk->sighand->siglock);
+		spin_lock_irq(&tsk->signal->siglock);
 		value->it_value = itimer_get_remtime(&tsk->signal->real_timer);
 		value->it_interval =
 			ktime_to_timeval(tsk->signal->it_real_incr);
-		spin_unlock_irq(&tsk->sighand->siglock);
+		spin_unlock_irq(&tsk->signal->siglock);
 		break;
 	case ITIMER_VIRTUAL:
 		get_cpu_itimer(tsk, CPUCLOCK_VIRT, value);
@@ -141,7 +141,7 @@ static void set_cpu_itimer(struct task_struct *tsk, unsigned int clock_id,
 	nval = timeval_to_ns(&value->it_value);
 	ninterval = timeval_to_ns(&value->it_interval);
 
-	spin_lock_irq(&tsk->sighand->siglock);
+	spin_lock_irq(&tsk->signal->siglock);
 
 	oval = it->expires;
 	ointerval = it->incr;
@@ -155,7 +155,7 @@ static void set_cpu_itimer(struct task_struct *tsk, unsigned int clock_id,
 	trace_itimer_state(clock_id == CPUCLOCK_VIRT ?
 			   ITIMER_VIRTUAL : ITIMER_PROF, value, nval);
 
-	spin_unlock_irq(&tsk->sighand->siglock);
+	spin_unlock_irq(&tsk->signal->siglock);
 
 	if (ovalue) {
 		ovalue->it_value = ns_to_timeval(oval);
@@ -185,7 +185,7 @@ int do_setitimer(int which, struct itimerval *value, struct itimerval *ovalue)
 	switch (which) {
 	case ITIMER_REAL:
 again:
-		spin_lock_irq(&tsk->sighand->siglock);
+		spin_lock_irq(&tsk->signal->siglock);
 		timer = &tsk->signal->real_timer;
 		if (ovalue) {
 			ovalue->it_value = itimer_get_remtime(timer);
@@ -194,7 +194,7 @@ again:
 		}
 		/* We are sharing ->siglock with it_real_fn() */
 		if (hrtimer_try_to_cancel(timer) < 0) {
-			spin_unlock_irq(&tsk->sighand->siglock);
+			spin_unlock_irq(&tsk->signal->siglock);
 			goto again;
 		}
 		expires = timeval_to_ktime(value->it_value);
@@ -206,7 +206,7 @@ again:
 			tsk->signal->it_real_incr = 0;
 
 		trace_itimer_state(ITIMER_REAL, value, 0);
-		spin_unlock_irq(&tsk->sighand->siglock);
+		spin_unlock_irq(&tsk->signal->siglock);
 		break;
 	case ITIMER_VIRTUAL:
 		set_cpu_itimer(tsk, CPUCLOCK_VIRT, value, ovalue);

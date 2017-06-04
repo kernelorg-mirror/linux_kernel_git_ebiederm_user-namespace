@@ -81,6 +81,7 @@ extern struct fs_struct init_fs;
 	INIT_PREV_CPUTIME(sig)						\
 	.cred_guard_mutex =						\
 		 __MUTEX_INITIALIZER(sig.cred_guard_mutex),		\
+	.siglock	= __SPIN_LOCK_UNLOCKED(sig.siglock),		\
 }
 
 extern struct nsproxy init_nsproxy;
@@ -89,7 +90,6 @@ extern struct nsproxy init_nsproxy;
 	.count		= ATOMIC_INIT(1), 				\
 	.action		= { { { .sa_handler = SIG_DFL, } }, },		\
 	.lock		= __SPIN_LOCK_UNLOCKED(sighand.lock),		\
-	.siglock	= __SPIN_LOCK_UNLOCKED(sighand.siglock),	\
 }
 
 extern struct group_info init_groups;

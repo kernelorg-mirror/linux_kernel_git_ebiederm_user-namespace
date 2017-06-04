@@ -95,9 +95,7 @@ static void __exit_signal(struct task_struct *tsk)
 	struct sighand_struct *sighand;
 	u64 utime, stime;
 
-	sighand = rcu_dereference_check(tsk->sighand,
-					lockdep_tasklist_lock_is_held());
-	spin_lock(&sighand->siglock);
+	spin_lock(&sig->siglock);
 	group_dead = list_is_singular(&sig->thread_head);
 
 #ifdef CONFIG_POSIX_TIMERS
@@ -153,8 +151,9 @@ static void __exit_signal(struct task_struct *tsk)
 	__unhash_process(tsk);
 	write_sequnlock(&sig->stats_lock);
 
+	sighand = tsk->sighand;
 	tsk->sighand = NULL;
-	spin_unlock(&sighand->siglock);
+	spin_unlock(&sig->siglock);
 
 	__cleanup_sighand(sighand);
 }
@@ -889,15 +888,13 @@ do_group_exit(int exit_code)
 	if (signal_group_exit(sig) || sig->group_exec_task)
 		exit_code = sig->group_exit_code;
 	else if (!thread_group_empty(current)) {
-		struct sighand_struct *const sighand = current->sighand;
-
-		spin_lock_irq(&sighand->siglock);
+		spin_lock_irq(&sig->siglock);
 		if (signal_group_exit(sig))
 			/* Another thread got here before we took the lock.  */
 			exit_code = sig->group_exit_code;
 		else
 			start_group_exit(current, exit_code);
-		spin_unlock_irq(&sighand->siglock);
+		spin_unlock_irq(&sig->siglock);
 	}
 
 	do_exit(exit_code);
@@ -1089,7 +1086,7 @@ static int wait_task_zombie(struct wait_opts *wo, int old_state, struct task_str
 		 * in the group including the group leader.
 		 */
 		thread_group_cputime_adjusted(p, &tgutime, &tgstime);
-		spin_lock_irq(&current->sighand->siglock);
+		spin_lock_irq(&psig->siglock);
 		write_seqlock(&psig->stats_lock);
 		psig->cutime += tgutime + sig->cutime;
 		psig->cstime += tgstime + sig->cstime;
@@ -1114,7 +1111,7 @@ static int wait_task_zombie(struct wait_opts *wo, int old_state, struct task_str
 		task_io_accounting_add(&psig->ioac, &p->ioac);
 		task_io_accounting_add(&psig->ioac, &sig->ioac);
 		write_sequnlock(&psig->stats_lock);
-		spin_unlock_irq(&current->sighand->siglock);
+		spin_unlock_irq(&psig->siglock);
 	}
 
 	retval = wo->wo_rusage
@@ -1192,7 +1189,7 @@ static int *task_group_stopped_code(struct task_struct *p)
  *
  * CONTEXT:
  * read_lock(&tasklist_lock), which is released if return value is
- * non-zero.  Also, grabs and releases @p->sighand->siglock.
+ * non-zero.  Also, grabs and releases @p->signal->siglock.
  *
  * RETURNS:
  * 0 if wait condition didn't exist and search for other wait conditions
@@ -1222,7 +1219,7 @@ static int wait_task_stopped(struct wait_opts *wo, struct task_struct *p)
 		return 0;
 
 	exit_code = 0;
-	spin_lock_irq(&p->sighand->siglock);
+	spin_lock_irq(&p->signal->siglock);
 
 	p_code = g_code = NULL;
 	if (pstop)
@@ -1241,7 +1238,7 @@ static int wait_task_stopped(struct wait_opts *wo, struct task_struct *p)
 		if (!(wo->wo_flags & WNOWAIT))
 			*g_code = 0;
 	}
-	spin_unlock_irq(&p->sighand->siglock);
+	spin_unlock_irq(&p->signal->siglock);
 	if (!exit_code)
 		return 0;
 
@@ -1305,16 +1302,16 @@ static int wait_task_continued(struct wait_opts *wo, struct task_struct *p)
 	if (!(p->signal->flags & SIGNAL_STOP_CONTINUED))
 		return 0;
 
-	spin_lock_irq(&p->sighand->siglock);
+	spin_lock_irq(&p->signal->siglock);
 	/* Re-check with the lock held.  */
 	if (!(p->signal->flags & SIGNAL_STOP_CONTINUED)) {
-		spin_unlock_irq(&p->sighand->siglock);
+		spin_unlock_irq(&p->signal->siglock);
 		return 0;
 	}
 	if (!unlikely(wo->wo_flags & WNOWAIT))
 		p->signal->flags &= ~SIGNAL_STOP_CONTINUED;
 	uid = from_kuid_munged(current_user_ns(), task_uid(p));
-	spin_unlock_irq(&p->sighand->siglock);
+	spin_unlock_irq(&p->signal->siglock);
 
 	pid = task_pid_vnr(p);
 	get_task_struct(p);

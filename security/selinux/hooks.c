@@ -2570,7 +2570,7 @@ static void selinux_bprm_committed_creds(struct linux_binprm *bprm)
 			for (i = 0; i < 3; i++)
 				do_setitimer(i, &itimer, NULL);
 		}
-		spin_lock_irq(&current->sighand->siglock);
+		spin_lock_irq(&current->signal->siglock);
 		if (!fatal_signal_pending(current)) {
 			flush_sigqueue(&current->pending);
 			flush_sigqueue(&current->signal->shared_pending);
@@ -2578,7 +2578,7 @@ static void selinux_bprm_committed_creds(struct linux_binprm *bprm)
 			sigemptyset(&current->blocked);
 			recalc_sigpending();
 		}
-		spin_unlock_irq(&current->sighand->siglock);
+		spin_unlock_irq(&current->signal->siglock);
 	}
 
 	/* Wake up the parent if it is waiting so that it can recheck

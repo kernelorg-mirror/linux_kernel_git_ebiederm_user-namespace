@@ -82,10 +82,10 @@ static int autofs4_write(struct autofs_sb_info *sbi,
 	 * SIGPIPE unless it was already supposed to get one
 	 */
 	if (wr == -EPIPE && !sigpipe) {
-		spin_lock_irqsave(&current->sighand->siglock, flags);
+		spin_lock_irqsave(&current->signal->siglock, flags);
 		sigdelset(&current->pending.signal, SIGPIPE);
 		recalc_sigpending();
-		spin_unlock_irqrestore(&current->sighand->siglock, flags);
+		spin_unlock_irqrestore(&current->signal->siglock, flags);
 	}
 
 	return (bytes > 0);
@@ -487,19 +487,19 @@ int autofs4_wait(struct autofs_sb_info *sbi,
 		unsigned long irqflags;
 		sigset_t oldset;
 
-		spin_lock_irqsave(&current->sighand->siglock, irqflags);
+		spin_lock_irqsave(&current->signal->siglock, irqflags);
 		oldset = current->blocked;
 		shutdown_sigs_mask = SHUTDOWN_SIGS & ~oldset.sig[0];
 		siginitsetinv(&current->blocked, shutdown_sigs_mask);
 		recalc_sigpending();
-		spin_unlock_irqrestore(&current->sighand->siglock, irqflags);
+		spin_unlock_irqrestore(&current->signal->siglock, irqflags);
 
 		wait_event_interruptible(wq->queue, wq->name.name == NULL);
 
-		spin_lock_irqsave(&current->sighand->siglock, irqflags);
+		spin_lock_irqsave(&current->signal->siglock, irqflags);
 		current->blocked = oldset;
 		recalc_sigpending();
-		spin_unlock_irqrestore(&current->sighand->siglock, irqflags);
+		spin_unlock_irqrestore(&current->signal->siglock, irqflags);
 	} else {
 		pr_debug("skipped sleeping\n");
 	}

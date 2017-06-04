@@ -1115,9 +1115,9 @@ static void svc_unregister(const struct svc_serv *serv, struct net *net)
 		}
 	}
 
-	spin_lock_irqsave(&current->sighand->siglock, flags);
+	spin_lock_irqsave(&current->signal->siglock, flags);
 	recalc_sigpending();
-	spin_unlock_irqrestore(&current->sighand->siglock, flags);
+	spin_unlock_irqrestore(&current->signal->siglock, flags);
 }
 
 /*

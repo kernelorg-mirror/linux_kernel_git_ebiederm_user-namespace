@@ -452,7 +452,7 @@ static void fill_ac(acct_t *ac)
 	ac->ac_ahz = AHZ;
 #endif
 
-	spin_lock_irq(&current->sighand->siglock);
+	spin_lock_irq(&current->signal->siglock);
 	tty = current->signal->tty;	/* Safe as we hold the siglock */
 	ac->ac_tty = tty ? old_encode_dev(tty_devnum(tty)) : 0;
 	ac->ac_utime = encode_comp_t(nsec_to_AHZ(pacct->ac_utime));
@@ -462,7 +462,7 @@ static void fill_ac(acct_t *ac)
 	ac->ac_minflt = encode_comp_t(pacct->ac_minflt);
 	ac->ac_majflt = encode_comp_t(pacct->ac_majflt);
 	ac->ac_exitcode = pacct->ac_exitcode;
-	spin_unlock_irq(&current->sighand->siglock);
+	spin_unlock_irq(&current->signal->siglock);
 }
 /*
  *  do_acct_process does all actual work. Caller holds the reference to file.
@@ -547,7 +547,7 @@ void acct_collect(long exitcode, int group_dead)
 		up_read(&current->mm->mmap_sem);
 	}
 
-	spin_lock_irq(&current->sighand->siglock);
+	spin_lock_irq(&current->signal->siglock);
 	if (group_dead)
 		pacct->ac_mem = vsize / 1024;
 	if (current->signal->flags & SIGNAL_GROUP_EXIT)
@@ -566,7 +566,7 @@ void acct_collect(long exitcode, int group_dead)
 	pacct->ac_stime += stime;
 	pacct->ac_minflt += current->min_flt;
 	pacct->ac_majflt += current->maj_flt;
-	spin_unlock_irq(&current->sighand->siglock);
+	spin_unlock_irq(&current->signal->siglock);
 }
 
 static void slow_acct_process(struct pid_namespace *ns)

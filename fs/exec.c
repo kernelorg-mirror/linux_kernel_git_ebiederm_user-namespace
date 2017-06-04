@@ -1051,7 +1051,7 @@ static int de_thread(struct task_struct *tsk)
 {
 	struct signal_struct *sig = tsk->signal;
 	struct sighand_struct *oldsighand = tsk->sighand;
-	spinlock_t *lock = &oldsighand->siglock;
+	spinlock_t *lock = &sig->siglock;
 
 	if (thread_group_empty(tsk))
 		goto no_thread_group;
@@ -1173,9 +1173,9 @@ no_thread_group:
 		       sizeof(newsighand->action));
 
 		write_lock_irq(&tasklist_lock);
-		spin_lock(&oldsighand->siglock);
+		spin_lock(&sig->siglock);
 		rcu_assign_pointer(tsk->sighand, newsighand);
-		spin_unlock(&oldsighand->siglock);
+		spin_unlock(&sig->siglock);
 		write_unlock_irq(&tasklist_lock);
 
 		__cleanup_sighand(oldsighand);

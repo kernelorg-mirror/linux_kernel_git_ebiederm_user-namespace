@@ -117,7 +117,7 @@ void __ptrace_unlink(struct task_struct *child)
 	child->ptracer_cred = NULL;
 	put_cred(old_cred);
 
-	spin_lock(&child->sighand->siglock);
+	spin_lock(&child->signal->siglock);
 	child->ptrace = 0;
 	/*
 	 * Clear all pending traps and TRAPPING.  TRAPPING should be
@@ -155,7 +155,7 @@ void __ptrace_unlink(struct task_struct *child)
 	if (child->jobctl & JOBCTL_STOP_PENDING || task_is_traced(child))
 		ptrace_signal_wake_up(child, true);
 
-	spin_unlock(&child->sighand->siglock);
+	spin_unlock(&child->signal->siglock);
 }
 
 /* Ensure that nothing can wake it up, even SIGKILL */
@@ -167,12 +167,12 @@ static bool ptrace_freeze_traced(struct task_struct *task)
 	if (task->jobctl & JOBCTL_LISTENING)
 		return ret;
 
-	spin_lock_irq(&task->sighand->siglock);
+	spin_lock_irq(&task->signal->siglock);
 	if (task_is_traced(task) && !__fatal_signal_pending(task)) {
 		task->state = __TASK_TRACED;
 		ret = true;
 	}
-	spin_unlock_irq(&task->sighand->siglock);
+	spin_unlock_irq(&task->signal->siglock);
 
 	return ret;
 }
@@ -188,14 +188,14 @@ static void ptrace_unfreeze_traced(struct task_struct *task)
 	 * PTRACE_LISTEN can allow ptrace_trap_notify to wake us up remotely.
 	 * Recheck state under the lock to close this race.
 	 */
-	spin_lock_irq(&task->sighand->siglock);
+	spin_lock_irq(&task->signal->siglock);
 	if (task->state == __TASK_TRACED) {
 		if (__fatal_signal_pending(task))
 			wake_up_state(task, __TASK_TRACED);
 		else
 			task->state = TASK_TRACED;
 	}
-	spin_unlock_irq(&task->sighand->siglock);
+	spin_unlock_irq(&task->signal->siglock);
 }
 
 /**
@@ -210,7 +210,7 @@ static void ptrace_unfreeze_traced(struct task_struct *task)
  * state.
  *
  * CONTEXT:
- * Grabs and releases tasklist_lock and @child->sighand->siglock.
+ * Grabs and releases tasklist_lock and @child->signal->siglock.
  *
  * RETURNS:
  * 0 on success, -ESRCH if %child is not ready.
@@ -392,7 +392,7 @@ static int ptrace_attach(struct task_struct *task, long request,
 	if (!seize)
 		send_sig_info(SIGSTOP, SEND_SIG_FORCED, task);
 
-	spin_lock(&task->sighand->siglock);
+	spin_lock(&task->signal->siglock);
 
 	/*
 	 * If the task is already STOPPED, set JOBCTL_TRAP_STOP and
@@ -415,7 +415,7 @@ static int ptrace_attach(struct task_struct *task, long request,
 	    task_set_jobctl_pending(task, JOBCTL_TRAP_STOP | JOBCTL_TRAPPING))
 		signal_wake_up_state(task, __TASK_STOPPED);
 
-	spin_unlock(&task->sighand->siglock);
+	spin_unlock(&task->signal->siglock);
 
 	retval = 0;
 unlock_tasklist:
@@ -688,14 +688,14 @@ static int ptrace_peek_siginfo(struct task_struct *child,
 		siginfo_t info;
 		s32 off = arg.off + i;
 
-		spin_lock_irq(&child->sighand->siglock);
+		spin_lock_irq(&child->signal->siglock);
 		list_for_each_entry(q, &pending->list, list) {
 			if (!off--) {
 				copy_siginfo(&info, &q->info);
 				break;
 			}
 		}
-		spin_unlock_irq(&child->sighand->siglock);
+		spin_unlock_irq(&child->signal->siglock);
 
 		if (off >= 0) /* beyond the end of the list */
 			break;
@@ -802,11 +802,11 @@ static int ptrace_resume(struct task_struct *child, long request,
 	 */
 	need_siglock = data && !thread_group_empty(current);
 	if (need_siglock)
-		spin_lock_irq(&child->sighand->siglock);
+		spin_lock_irq(&child->signal->siglock);
 	child->exit_code = data;
 	wake_up_state(child, __TASK_TRACED);
 	if (need_siglock)
-		spin_unlock_irq(&child->sighand->siglock);
+		spin_unlock_irq(&child->signal->siglock);
 
 	return 0;
 }
@@ -936,9 +936,9 @@ int ptrace_request(struct task_struct *child, long request,
 		 * retarget_shared_pending() and recalc_sigpending() are not
 		 * called here.
 		 */
-		spin_lock_irq(&child->sighand->siglock);
+		spin_lock_irq(&child->signal->siglock);
 		child->blocked = new_set;
-		spin_unlock_irq(&child->sighand->siglock);
+		spin_unlock_irq(&child->signal->siglock);
 
 		ret = 0;
 		break;

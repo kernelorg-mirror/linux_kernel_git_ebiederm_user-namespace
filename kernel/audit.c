@@ -2196,10 +2196,10 @@ struct tty_struct *audit_get_tty(struct task_struct *tsk)
 	struct tty_struct *tty = NULL;
 	unsigned long flags;
 
-	spin_lock_irqsave(&tsk->sighand->siglock, flags);
+	spin_lock_irqsave(&tsk->signal->siglock, flags);
 	if (tsk->signal)
 		tty = tty_kref_get(tsk->signal->tty);
-	spin_unlock_irqrestore(&tsk->sighand->siglock, flags);
+	spin_unlock_irqrestore(&tsk->signal->siglock, flags);
 	return tty;
 }
 

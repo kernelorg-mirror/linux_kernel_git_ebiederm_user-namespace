@@ -335,11 +335,11 @@ int reboot_pid_ns(struct pid_namespace *pid_ns, int cmd)
 	read_lock(&tasklist_lock);
 	reaper = pid_ns->child_reaper;
 
-	spin_lock_irq(&reaper->sighand->siglock);
+	spin_lock_irq(&reaper->signal->siglock);
 	if (!signal_group_exit(reaper->signal)) {
 		start_group_exit(reaper, reboot);
 	}
-	spin_unlock_irq(&reaper->sighand->siglock);
+	spin_unlock_irq(&reaper->signal->siglock);
 	read_unlock(&tasklist_lock);
 
 	do_exit(0);

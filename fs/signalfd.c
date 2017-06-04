@@ -64,12 +64,12 @@ static unsigned int signalfd_poll(struct file *file, poll_table *wait)
 
 	poll_wait(file, &current->signal->signalfd_wqh, wait);
 
-	spin_lock_irq(&current->sighand->siglock);
+	spin_lock_irq(&current->signal->siglock);
 	if (next_signal(&current->pending, &ctx->sigmask) ||
 	    next_signal(&current->signal->shared_pending,
 			&ctx->sigmask))
 		events |= POLLIN;
-	spin_unlock_irq(&current->sighand->siglock);
+	spin_unlock_irq(&current->signal->siglock);
 
 	return events;
 }
@@ -162,7 +162,7 @@ static ssize_t signalfd_dequeue(struct signalfd_ctx *ctx, siginfo_t *info,
 	ssize_t ret;
 	DECLARE_WAITQUEUE(wait, current);
 
-	spin_lock_irq(&current->sighand->siglock);
+	spin_lock_irq(&current->signal->siglock);
 	ret = dequeue_signal(current, &ctx->sigmask, info);
 	switch (ret) {
 	case 0:
@@ -170,7 +170,7 @@ static ssize_t signalfd_dequeue(struct signalfd_ctx *ctx, siginfo_t *info,
 			break;
 		ret = -EAGAIN;
 	default:
-		spin_unlock_irq(&current->sighand->siglock);
+		spin_unlock_irq(&current->signal->siglock);
 		return ret;
 	}
 
@@ -184,11 +184,11 @@ static ssize_t signalfd_dequeue(struct signalfd_ctx *ctx, siginfo_t *info,
 			ret = -ERESTARTSYS;
 			break;
 		}
-		spin_unlock_irq(&current->sighand->siglock);
+		spin_unlock_irq(&current->signal->siglock);
 		schedule();
-		spin_lock_irq(&current->sighand->siglock);
+		spin_lock_irq(&current->signal->siglock);
 	}
-	spin_unlock_irq(&current->sighand->siglock);
+	spin_unlock_irq(&current->signal->siglock);
 
 	remove_wait_queue(&current->signal->signalfd_wqh, &wait);
 	__set_current_state(TASK_RUNNING);
@@ -295,9 +295,9 @@ SYSCALL_DEFINE4(signalfd4, int, ufd, sigset_t __user *, user_mask,
 			fdput(f);
 			return -EINVAL;
 		}
-		spin_lock_irq(&current->sighand->siglock);
+		spin_lock_irq(&current->signal->siglock);
 		ctx->sigmask = sigmask;
-		spin_unlock_irq(&current->sighand->siglock);
+		spin_unlock_irq(&current->signal->siglock);
 
 		wake_up(&current->signal->signalfd_wqh);
 		fdput(f);

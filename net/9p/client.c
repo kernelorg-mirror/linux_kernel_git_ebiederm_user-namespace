@@ -781,9 +781,9 @@ again:
 			err = 0;
 	}
 	if (sigpending) {
-		spin_lock_irqsave(&current->sighand->siglock, flags);
+		spin_lock_irqsave(&current->signal->siglock, flags);
 		recalc_sigpending();
-		spin_unlock_irqrestore(&current->sighand->siglock, flags);
+		spin_unlock_irqrestore(&current->signal->siglock, flags);
 	}
 	if (err < 0)
 		goto reterr;
@@ -862,9 +862,9 @@ static struct p9_req_t *p9_client_zc_rpc(struct p9_client *c, int8_t type,
 			err = 0;
 	}
 	if (sigpending) {
-		spin_lock_irqsave(&current->sighand->siglock, flags);
+		spin_lock_irqsave(&current->signal->siglock, flags);
 		recalc_sigpending();
-		spin_unlock_irqrestore(&current->sighand->siglock, flags);
+		spin_unlock_irqrestore(&current->signal->siglock, flags);
 	}
 	if (err < 0)
 		goto reterr;

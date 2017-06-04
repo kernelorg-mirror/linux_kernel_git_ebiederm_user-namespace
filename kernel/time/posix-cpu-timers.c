@@ -23,9 +23,9 @@ void update_rlimit_cpu(struct task_struct *task, unsigned long rlim_new)
 {
 	u64 nsecs = rlim_new * NSEC_PER_SEC;
 
-	spin_lock_irq(&task->sighand->siglock);
+	spin_lock_irq(&task->signal->siglock);
 	set_process_cpu_timer(task, CPUCLOCK_PROF, &nsecs, NULL);
-	spin_unlock_irq(&task->sighand->siglock);
+	spin_unlock_irq(&task->signal->siglock);
 }
 
 static int check_clock(const clockid_t which_clock)
@@ -434,7 +434,7 @@ static inline int expires_gt(u64 expires, u64 new_exp)
 
 /*
  * Insert the timer on the appropriate list before any timers that
- * expire later.  This must be called with the sighand lock held.
+ * expire later.  This must be called with the siglock held.
  */
 static void arm_timer(struct k_itimer *timer)
 {
@@ -877,7 +877,7 @@ static void check_process_timers(struct task_struct *tsk,
 
         /*
 	 * Signify that a thread is checking for process timers.
-	 * Write access to this field is protected by the sighand lock.
+	 * Write access to this field is protected by the siglock.
 	 */
 	sig->cputimer.checking_timer = true;
 
@@ -1122,7 +1122,7 @@ void run_posix_cpu_timers(struct task_struct *tsk)
 
 /*
  * Set one of the process-wide special case CPU timers or RLIMIT_CPU.
- * The tsk->sighand->siglock must be held by the caller.
+ * The tsk->signal->siglock must be held by the caller.
  */
 void set_process_cpu_timer(struct task_struct *tsk, unsigned int clock_idx,
 			   u64 *newval, u64 *oldval)

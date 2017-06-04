@@ -207,7 +207,7 @@ static u32 seccomp_run_filters(const struct seccomp_data *sd)
 
 static inline bool seccomp_may_assign_mode(unsigned long seccomp_mode)
 {
-	assert_spin_locked(&current->sighand->siglock);
+	assert_spin_locked(&current->signal->siglock);
 
 	if (current->seccomp.mode && current->seccomp.mode != seccomp_mode)
 		return false;
@@ -218,7 +218,7 @@ static inline bool seccomp_may_assign_mode(unsigned long seccomp_mode)
 static inline void seccomp_assign_mode(struct task_struct *task,
 				       unsigned long seccomp_mode)
 {
-	assert_spin_locked(&task->sighand->siglock);
+	assert_spin_locked(&task->signal->siglock);
 
 	task->seccomp.mode = seccomp_mode;
 	/*
@@ -246,7 +246,7 @@ static int is_ancestor(struct seccomp_filter *parent,
 /**
  * seccomp_can_sync_threads: checks if all threads can be synchronized
  *
- * Expects sighand and cred_guard_mutex locks to be held.
+ * Expects siglock and cred_guard_mutex locks to be held.
  *
  * Returns 0 on success, -ve on error, or the pid of a thread which was
  * either not in the correct seccomp mode or it did not have an ancestral
@@ -257,7 +257,7 @@ static inline pid_t seccomp_can_sync_threads(void)
 	struct task_struct *thread, *caller;
 
 	BUG_ON(!mutex_is_locked(&current->signal->cred_guard_mutex));
-	assert_spin_locked(&current->sighand->siglock);
+	assert_spin_locked(&current->signal->siglock);
 
 	/* Validate all threads being eligible for synchronization. */
 	caller = current;
@@ -288,7 +288,7 @@ static inline pid_t seccomp_can_sync_threads(void)
 /**
  * seccomp_sync_threads: sets all threads to use current's filter
  *
- * Expects sighand and cred_guard_mutex locks to be held, and for
+ * Expects signal and cred_guard_mutex locks to be held, and for
  * seccomp_can_sync_threads() to have returned success already
  * without dropping the locks.
  *
@@ -298,7 +298,7 @@ static inline void seccomp_sync_threads(void)
 	struct task_struct *thread, *caller;
 
 	BUG_ON(!mutex_is_locked(&current->signal->cred_guard_mutex));
-	assert_spin_locked(&current->sighand->siglock);
+	assert_spin_locked(&current->signal->siglock);
 
 	/* Synchronize all threads. */
 	caller = current;
@@ -416,7 +416,7 @@ out:
  * @flags:  flags to change filter behavior
  * @filter: seccomp filter to add to the current process
  *
- * Caller must be holding current->sighand->siglock lock.
+ * Caller must be holding current->signal->siglock lock.
  *
  * Returns 0 on success, -ve on error.
  */
@@ -426,7 +426,7 @@ static long seccomp_attach_filter(unsigned int flags,
 	unsigned long total_insns;
 	struct seccomp_filter *walker;
 
-	assert_spin_locked(&current->sighand->siglock);
+	assert_spin_locked(&current->signal->siglock);
 
 	/* Validate resulting filter length. */
 	total_insns = filter->prog->len;
@@ -711,7 +711,7 @@ static long seccomp_set_mode_strict(void)
 	const unsigned long seccomp_mode = SECCOMP_MODE_STRICT;
 	long ret = -EINVAL;
 
-	spin_lock_irq(&current->sighand->siglock);
+	spin_lock_irq(&current->signal->siglock);
 
 	if (!seccomp_may_assign_mode(seccomp_mode))
 		goto out;
@@ -723,7 +723,7 @@ static long seccomp_set_mode_strict(void)
 	ret = 0;
 
 out:
-	spin_unlock_irq(&current->sighand->siglock);
+	spin_unlock_irq(&current->signal->siglock);
 
 	return ret;
 }
@@ -766,7 +766,7 @@ static long seccomp_set_mode_filter(unsigned int flags,
 	    mutex_lock_killable(&current->signal->cred_guard_mutex))
 		goto out_free;
 
-	spin_lock_irq(&current->sighand->siglock);
+	spin_lock_irq(&current->signal->siglock);
 
 	if (!seccomp_may_assign_mode(seccomp_mode))
 		goto out;
@@ -779,7 +779,7 @@ static long seccomp_set_mode_filter(unsigned int flags,
 
 	seccomp_assign_mode(current, seccomp_mode);
 out:
-	spin_unlock_irq(&current->sighand->siglock);
+	spin_unlock_irq(&current->signal->siglock);
 	if (flags & SECCOMP_FILTER_FLAG_TSYNC)
 		mutex_unlock(&current->signal->cred_guard_mutex);
 out_free:
@@ -864,7 +864,7 @@ long seccomp_get_filter(struct task_struct *task, unsigned long filter_off,
 		return -EACCES;
 	}
 
-	spin_lock_irq(&task->sighand->siglock);
+	spin_lock_irq(&task->signal->siglock);
 	if (task->seccomp.mode != SECCOMP_MODE_FILTER) {
 		ret = -EINVAL;
 		goto out;
@@ -909,7 +909,7 @@ long seccomp_get_filter(struct task_struct *task, unsigned long filter_off,
 		goto out;
 
 	get_seccomp_filter(task);
-	spin_unlock_irq(&task->sighand->siglock);
+	spin_unlock_irq(&task->signal->siglock);
 
 	if (copy_to_user(data, fprog->filter, bpf_classic_proglen(fprog)))
 		ret = -EFAULT;
@@ -918,7 +918,7 @@ long seccomp_get_filter(struct task_struct *task, unsigned long filter_off,
 	return ret;
 
 out:
-	spin_unlock_irq(&task->sighand->siglock);
+	spin_unlock_irq(&task->signal->siglock);
 	return ret;
 }
 #endif

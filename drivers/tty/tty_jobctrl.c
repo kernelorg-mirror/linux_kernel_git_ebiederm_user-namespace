@@ -73,10 +73,10 @@ void proc_clear_tty(struct task_struct *p)
 {
 	unsigned long flags;
 	struct tty_struct *tty;
-	spin_lock_irqsave(&p->sighand->siglock, flags);
+	spin_lock_irqsave(&p->signal->siglock, flags);
 	tty = p->signal->tty;
 	p->signal->tty = NULL;
-	spin_unlock_irqrestore(&p->sighand->siglock, flags);
+	spin_unlock_irqrestore(&p->signal->siglock, flags);
 	tty_kref_put(tty);
 }
 
@@ -116,9 +116,9 @@ static void __proc_set_tty(struct tty_struct *tty)
 
 static void proc_set_tty(struct tty_struct *tty)
 {
-	spin_lock_irq(&current->sighand->siglock);
+	spin_lock_irq(&current->signal->siglock);
 	__proc_set_tty(tty);
-	spin_unlock_irq(&current->sighand->siglock);
+	spin_unlock_irq(&current->signal->siglock);
 }
 
 /*
@@ -127,7 +127,7 @@ static void proc_set_tty(struct tty_struct *tty)
 void tty_open_proc_set_tty(struct file *filp, struct tty_struct *tty)
 {
 	read_lock(&tasklist_lock);
-	spin_lock_irq(&current->sighand->siglock);
+	spin_lock_irq(&current->signal->siglock);
 	if (current->signal->leader &&
 	    !current->signal->tty &&
 	    tty->session == NULL) {
@@ -148,7 +148,7 @@ void tty_open_proc_set_tty(struct file *filp, struct tty_struct *tty)
 		if (filp->f_mode & FMODE_READ)
 			__proc_set_tty(tty);
 	}
-	spin_unlock_irq(&current->sighand->siglock);
+	spin_unlock_irq(&current->signal->siglock);
 	read_unlock(&tasklist_lock);
 }
 
@@ -157,9 +157,9 @@ struct tty_struct *get_current_tty(void)
 	struct tty_struct *tty;
 	unsigned long flags;
 
-	spin_lock_irqsave(&current->sighand->siglock, flags);
+	spin_lock_irqsave(&current->signal->siglock, flags);
 	tty = tty_kref_get(current->signal->tty);
-	spin_unlock_irqrestore(&current->sighand->siglock, flags);
+	spin_unlock_irqrestore(&current->signal->siglock, flags);
 	return tty;
 }
 EXPORT_SYMBOL_GPL(get_current_tty);
@@ -196,7 +196,7 @@ int tty_signal_session_leader(struct tty_struct *tty, int exit_session)
 	read_lock(&tasklist_lock);
 	if (tty->session) {
 		do_each_pid_task(tty->session, PIDTYPE_SID, p) {
-			spin_lock_irq(&p->sighand->siglock);
+			spin_lock_irq(&p->signal->siglock);
 			if (p->signal->tty == tty) {
 				p->signal->tty = NULL;
 				/* We defer the dereferences outside fo
@@ -204,7 +204,7 @@ int tty_signal_session_leader(struct tty_struct *tty, int exit_session)
 				refs++;
 			}
 			if (!p->signal->leader) {
-				spin_unlock_irq(&p->sighand->siglock);
+				spin_unlock_irq(&p->signal->siglock);
 				continue;
 			}
 			__group_send_sig_info(SIGHUP, SEND_SIG_PRIV, p);
@@ -215,7 +215,7 @@ int tty_signal_session_leader(struct tty_struct *tty, int exit_session)
 			if (tty->pgrp)
 				p->signal->tty_old_pgrp = get_pid(tty->pgrp);
 			spin_unlock(&tty->ctrl_lock);
-			spin_unlock_irq(&p->sighand->siglock);
+			spin_unlock_irq(&p->signal->siglock);
 		} while_each_pid_task(tty->session, PIDTYPE_SID, p);
 	}
 	read_unlock(&tasklist_lock);
@@ -279,10 +279,10 @@ void disassociate_ctty(int on_exit)
 
 	} else if (on_exit) {
 		struct pid *old_pgrp;
-		spin_lock_irq(&current->sighand->siglock);
+		spin_lock_irq(&current->signal->siglock);
 		old_pgrp = current->signal->tty_old_pgrp;
 		current->signal->tty_old_pgrp = NULL;
-		spin_unlock_irq(&current->sighand->siglock);
+		spin_unlock_irq(&current->signal->siglock);
 		if (old_pgrp) {
 			kill_pgrp(old_pgrp, SIGHUP, on_exit);
 			kill_pgrp(old_pgrp, SIGCONT, on_exit);
@@ -291,7 +291,7 @@ void disassociate_ctty(int on_exit)
 		return;
 	}
 
-	spin_lock_irq(&current->sighand->siglock);
+	spin_lock_irq(&current->signal->siglock);
 	put_pid(current->signal->tty_old_pgrp);
 	current->signal->tty_old_pgrp = NULL;
 
@@ -307,7 +307,7 @@ void disassociate_ctty(int on_exit)
 		tty_kref_put(tty);
 	}
 
-	spin_unlock_irq(&current->sighand->siglock);
+	spin_unlock_irq(&current->signal->siglock);
 	/* Now clear signal->tty under the lock */
 	read_lock(&tasklist_lock);
 	session_clear_tty(task_session(current));

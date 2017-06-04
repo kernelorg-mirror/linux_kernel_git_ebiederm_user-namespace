@@ -548,7 +548,7 @@ static struct task_struct *dup_task_struct(struct task_struct *orig, int node)
 #ifdef CONFIG_SECCOMP
 	/*
 	 * We must handle setting up seccomp filters once we're under
-	 * the sighand lock in case orig has changed between now and
+	 * the siglock in case orig has changed between now and
 	 * then. Until then, filter must be NULL to avoid messing up
 	 * the usage counts on the error path calling free_task.
 	 */
@@ -1339,7 +1339,7 @@ void __cleanup_sighand(struct sighand_struct *sighand)
 	if (atomic_dec_and_test(&sighand->count)) {
 		/*
 		 * sighand_cachep is SLAB_TYPESAFE_BY_RCU so we can free it
-		 * without an RCU grace period, see __lock_task_sighand().
+		 * without an RCU grace period.
 		 */
 		kmem_cache_free(sighand_cachep, sighand);
 	}
@@ -1389,6 +1389,7 @@ static int copy_signal(unsigned long clone_flags, struct task_struct *tsk)
 	tsk->thread_node = (struct list_head)LIST_HEAD_INIT(sig->thread_head);
 
 	init_waitqueue_head(&sig->wait_chldexit);
+	spin_lock_init(&sig->siglock);
 	sig->curr_target = tsk;
 	init_sigpending(&sig->shared_pending);
 	init_waitqueue_head(&sig->signalfd_wqh);
@@ -1429,7 +1430,7 @@ static void copy_seccomp(struct task_struct *p)
 	 * needed because this new task is not yet running and cannot
 	 * be racing exec.
 	 */
-	assert_spin_locked(&current->sighand->siglock);
+	assert_spin_locked(&current->signal->siglock);
 
 	/* Ref-count the new filter user, and assign it. */
 	get_seccomp_filter(current);
@@ -1838,7 +1839,7 @@ static __latent_entropy struct task_struct *copy_process(
 
 	klp_copy_process(p);
 
-	spin_lock(&current->sighand->siglock);
+	spin_lock(&current->signal->siglock);
 
 	/*
 	 * Copy seccomp details explicitly here, in case they were changed
@@ -1906,7 +1907,7 @@ static __latent_entropy struct task_struct *copy_process(
 	}
 
 	total_forks++;
-	spin_unlock(&current->sighand->siglock);
+	spin_unlock(&current->signal->siglock);
 	syscall_tracepoint_update(p);
 	write_unlock_irq(&tasklist_lock);
 
@@ -1921,7 +1922,7 @@ static __latent_entropy struct task_struct *copy_process(
 	return p;
 
 bad_fork_cancel_cgroup:
-	spin_unlock(&current->sighand->siglock);
+	spin_unlock(&current->signal->siglock);
 	write_unlock_irq(&tasklist_lock);
 	cgroup_cancel_fork(p);
 bad_fork_free_pid:
@@ -2185,7 +2186,6 @@ static void sighand_ctor(void *data)
 	struct sighand_struct *sighand = data;
 
 	spin_lock_init(&sighand->lock);
-	spin_lock_init(&sighand->siglock);
 }
 
 void __init proc_caches_init(void)

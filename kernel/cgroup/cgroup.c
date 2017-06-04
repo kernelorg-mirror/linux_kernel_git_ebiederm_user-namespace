@@ -1588,9 +1588,9 @@ static void cgroup_enable_task_cg_lists(void)
 		 *
 		 * Interrupts were already disabled while acquiring
 		 * the css_set_lock, so we do not need to disable it
-		 * again when acquiring the sighand->siglock here.
+		 * again when acquiring the signal->siglock here.
 		 */
-		spin_lock(&p->sighand->siglock);
+		spin_lock(&p->signal->siglock);
 		if (!(p->flags & PF_EXITING)) {
 			struct css_set *cset = task_css_set(p);
 
@@ -1599,7 +1599,7 @@ static void cgroup_enable_task_cg_lists(void)
 			list_add_tail(&p->cg_list, &cset->tasks);
 			get_css_set(cset);
 		}
-		spin_unlock(&p->sighand->siglock);
+		spin_unlock(&p->signal->siglock);
 	} while_each_thread(g, p);
 	read_unlock(&tasklist_lock);
 out_unlock:

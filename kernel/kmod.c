@@ -220,9 +220,9 @@ static int call_usermodehelper_exec_async(void *data)
 	struct cred *new;
 	int retval;
 
-	spin_lock_irq(&current->sighand->siglock);
+	spin_lock_irq(&current->signal->siglock);
 	flush_signal_handlers(current, 1);
-	spin_unlock_irq(&current->sighand->siglock);
+	spin_unlock_irq(&current->signal->siglock);
 
 	/*
 	 * Our parent (unbound workqueue) runs with elevated scheduling

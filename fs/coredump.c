@@ -337,13 +337,13 @@ static int zap_threads(struct task_struct *tsk, struct mm_struct *mm,
 	unsigned long flags;
 	int nr = -EAGAIN;
 
-	spin_lock_irq(&tsk->sighand->siglock);
+	spin_lock_irq(&tsk->signal->siglock);
 	if (!signal_group_exit(tsk->signal)) {
 		mm->core_state = core_state;
 		nr = zap_process(tsk, exit_code, 0);
 		clear_tsk_thread_flag(tsk, TIF_SIGPENDING);
 	}
-	spin_unlock_irq(&tsk->sighand->siglock);
+	spin_unlock_irq(&tsk->signal->siglock);
 	if (unlikely(nr < 0))
 		return nr;
 
@@ -448,11 +448,11 @@ static void coredump_finish(struct mm_struct *mm, bool core_dumped)
 	struct core_thread *curr, *next;
 	struct task_struct *task;
 
-	spin_lock_irq(&current->sighand->siglock);
+	spin_lock_irq(&current->signal->siglock);
 	if (core_dumped && !__fatal_signal_pending(current))
 		current->signal->group_exit_code |= 0x80;
 	signal_set_exit_flags(current->signal, SIGNAL_GROUP_EXIT);
-	spin_unlock_irq(&current->sighand->siglock);
+	spin_unlock_irq(&current->signal->siglock);
 
 	next = mm->core_state->dumper.next;
 	while ((curr = next) != NULL) {

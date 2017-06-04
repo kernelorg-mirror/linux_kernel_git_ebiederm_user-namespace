@@ -466,7 +466,7 @@ static enum hrtimer_restart posix_timer_fn(struct hrtimer *timer)
 			 * FIXME: What we really want, is to stop this
 			 * timer completely and restart it in case the
 			 * SIG_IGN is removed. This is a non trivial
-			 * change which involves sighand locking
+			 * change which involves siglock
 			 * (sigh !), which we don't want to do late in
 			 * the release cycle.
 			 *
@@ -667,10 +667,10 @@ SYSCALL_DEFINE3(timer_create, const clockid_t, which_clock,
 	if (error)
 		goto out;
 
-	spin_lock_irq(&current->sighand->siglock);
+	spin_lock_irq(&current->signal->siglock);
 	new_timer->it_signal = current->signal;
 	list_add(&new_timer->list, &current->signal->posix_timers);
-	spin_unlock_irq(&current->sighand->siglock);
+	spin_unlock_irq(&current->signal->siglock);
 
 	return 0;
 	/*
@@ -953,9 +953,9 @@ static int do_timer_delete(struct k_itimer *timer, unsigned long flags)
 		return TIMER_RETRY;
 	}
 
-	spin_lock(&current->sighand->siglock);
+	spin_lock(&current->signal->siglock);
 	list_del(&timer->list);
-	spin_unlock(&current->sighand->siglock);
+	spin_unlock(&current->signal->siglock);
 	/*
 	 * This keeps any tasks waiting on the spin lock from thinking
 	 * they got something (see the lock code above).

@@ -16,7 +16,6 @@ struct sighand_struct {
 	atomic_t		count;
 	struct k_sigaction	action[_NSIG];
 	spinlock_t		lock;	/* Only protects sighand_struct */
-	spinlock_t		siglock;
 };
 
 /*
@@ -68,13 +67,6 @@ struct thread_group_cputimer {
 	bool checking_timer;
 };
 
-/*
- * NOTE! "signal_struct" does not have its own
- * locking, because a shared signal_struct always
- * implies a shared sighand_struct, so locking
- * sighand_struct is always a proper superset of
- * the locking of signal_struct.
- */
 struct signal_struct {
 	atomic_t		sigcnt;
 	atomic_t		live;
@@ -82,6 +74,8 @@ struct signal_struct {
 	struct list_head	thread_head;
 
 	wait_queue_head_t	wait_chldexit;	/* for wait4() */
+
+	spinlock_t		siglock;
 
 	/* current thread group signal load-balancing target: */
 	struct task_struct	*curr_target;
@@ -283,19 +277,19 @@ static inline int kernel_dequeue_signal(siginfo_t *info)
 	siginfo_t __info;
 	int ret;
 
-	spin_lock_irq(&tsk->sighand->siglock);
+	spin_lock_irq(&tsk->signal->siglock);
 	ret = dequeue_signal(tsk, &tsk->blocked, info ?: &__info);
-	spin_unlock_irq(&tsk->sighand->siglock);
+	spin_unlock_irq(&tsk->signal->siglock);
 
 	return ret;
 }
 
 static inline void kernel_signal_stop(void)
 {
-	spin_lock_irq(&current->sighand->siglock);
+	spin_lock_irq(&current->signal->siglock);
 	if (current->jobctl & JOBCTL_STOP_DEQUEUED)
 		__set_current_state(TASK_STOPPED);
-	spin_unlock_irq(&current->sighand->siglock);
+	spin_unlock_irq(&current->signal->siglock);
 
 	schedule();
 }
@@ -353,7 +347,7 @@ static inline int signal_pending_state(long state, struct task_struct *p)
  * Reevaluate whether the task has signals pending delivery.
  * Wake the task if so.
  * This is required every time the blocked sigset_t changes.
- * callers must hold sighand->siglock.
+ * callers must hold signal->siglock.
  */
 extern void recalc_sigpending_and_wake(struct task_struct *t);
 extern void recalc_sigpending(void);
@@ -594,23 +588,22 @@ static inline int thread_group_empty(struct task_struct *p)
 	return list_empty(&p->thread_group);
 }
 
-extern struct sighand_struct *__lock_task_sighand(struct task_struct *tsk,
-							unsigned long *flags);
-
 static inline struct sighand_struct *lock_task_sighand(struct task_struct *tsk,
 						       unsigned long *flags)
 {
-	struct sighand_struct *ret;
-
-	ret = __lock_task_sighand(tsk, flags);
-	(void)__cond_lock(&tsk->sighand->siglock, ret);
-	return ret;
+	spin_lock_irqsave(&tsk->signal->siglock, *flags);
+	/* Fail if the task has already been reaped */
+	if (unlikely(!tsk->sighand)) {
+		spin_unlock_irqrestore(&tsk->signal->siglock, *flags);
+		return NULL;
+	}
+	return tsk->sighand;
 }
 
 static inline void unlock_task_sighand(struct task_struct *tsk,
 						unsigned long *flags)
 {
-	spin_unlock_irqrestore(&tsk->sighand->siglock, *flags);
+	spin_unlock_irqrestore(&tsk->signal->siglock, *flags);
 }
 
 static inline unsigned long task_rlimit(const struct task_struct *tsk,

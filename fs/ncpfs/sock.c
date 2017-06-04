@@ -725,7 +725,7 @@ static int ncp_do_request(struct ncp_server *server, int size,
 		sigset_t old_set;
 		unsigned long mask, flags;
 
-		spin_lock_irqsave(&current->sighand->siglock, flags);
+		spin_lock_irqsave(&current->signal->siglock, flags);
 		old_set = current->blocked;
 		if (current->flags & PF_EXITING)
 			mask = 0;
@@ -746,14 +746,14 @@ static int ncp_do_request(struct ncp_server *server, int size,
 		}
 		siginitsetinv(&current->blocked, mask);
 		recalc_sigpending();
-		spin_unlock_irqrestore(&current->sighand->siglock, flags);
+		spin_unlock_irqrestore(&current->signal->siglock, flags);
 		
 		result = do_ncp_rpc_call(server, size, reply, max_reply_size);
 
-		spin_lock_irqsave(&current->sighand->siglock, flags);
+		spin_lock_irqsave(&current->signal->siglock, flags);
 		current->blocked = old_set;
 		recalc_sigpending();
-		spin_unlock_irqrestore(&current->sighand->siglock, flags);
+		spin_unlock_irqrestore(&current->signal->siglock, flags);
 	}
 
 	ncp_dbg(2, "do_ncp_rpc_call returned %d\n", result);
