@@ -731,7 +731,6 @@ static int kill_ok_by_cred(struct task_struct *t)
 static int check_kill_permission(int sig, struct siginfo *info,
 				 struct task_struct *t)
 {
-	struct pid *sid;
 	int error;
 
 	if (!valid_signal(sig))
@@ -748,12 +747,7 @@ static int check_kill_permission(int sig, struct siginfo *info,
 	    !kill_ok_by_cred(t)) {
 		switch (sig) {
 		case SIGCONT:
-			sid = task_session(t);
-			/*
-			 * We don't return the error if sid == NULL. The
-			 * task was unhashed, the caller must notice this.
-			 */
-			if (!sid || sid == task_session(current))
+			if (task_session(t) == task_session(current))
 				break;
 		default:
 			return -EPERM;
@@ -1243,16 +1237,28 @@ int zap_other_threads(struct task_struct *p)
 static
 int group_send_sig_info(int sig, struct siginfo *info, struct task_struct *p)
 {
-	int ret;
+	int ret = 0;
 
 	rcu_read_lock();
 	ret = check_kill_permission(sig, info, p);
 	rcu_read_unlock();
 
 	if (!ret && sig)
-		ret = do_send_sig_info(sig, info, p, true);
+		ret = send_signal(sig, info, p, true);
 
 	return ret;
+}
+
+static int kill_group_info(int sig, struct siginfo *info, struct task_struct *p)
+{
+	unsigned long flags;
+	int err;
+
+	spin_lock_irqsave(&p->signal->siglock, flags);
+	err = group_send_sig_info(sig, info, p);
+	spin_unlock_irqrestore(&p->signal->siglock, flags);
+
+	return err;
 }
 
 /*
@@ -1268,33 +1274,52 @@ int __kill_pgrp_info(int sig, struct siginfo *info, struct pid *pgrp)
 	success = 0;
 	retval = -ESRCH;
 	do_each_pid_task(pgrp, PIDTYPE_PGID, p) {
-		int err = group_send_sig_info(sig, info, p);
+		int err = kill_group_info(sig, info, p);
 		success |= !err;
 		retval = err;
 	} while_each_pid_task(pgrp, PIDTYPE_PGID, p);
 	return success ? 0 : retval;
 }
 
+static struct task_struct *pid_task_siglock_irqsave(
+	struct pid *pid, enum pid_type type, unsigned long *flags)
+{
+	struct task_struct *p = NULL;
+	struct signal_struct *sig;
+
+	rcu_read_lock();
+	p = pid_task(pid, type);
+	if (p) {
+		sig = p->signal;
+		spin_lock_irqsave(&sig->siglock, *flags);
+		/*
+		 * A pid struct will never be reused therefore
+		 * it will always point to tasks with the
+		 * same signal_struct.
+		 *
+		 * Holding siglock guarantees that pid_task(pid, type)
+		 * will not change.
+		 */
+		p = pid_task(pid, type);
+		if (!p)
+			spin_unlock_irqrestore(&sig->siglock, *flags);
+	}
+	rcu_read_unlock();
+	return p;
+}
+
 int kill_pid_info(int sig, struct siginfo *info, struct pid *pid)
 {
 	int error = -ESRCH;
 	struct task_struct *p;
+	unsigned long flags;
 
-	for (;;) {
-		rcu_read_lock();
-		p = pid_task(pid, PIDTYPE_PID);
-		if (p)
-			error = group_send_sig_info(sig, info, p);
-		rcu_read_unlock();
-		if (likely(!p || error != -ESRCH))
-			return error;
-
-		/*
-		 * The task was unhashed in between, try again.  If it
-		 * is dead, pid_task() will return NULL, if we race with
-		 * de_thread() it will find the new leader.
-		 */
+	p = pid_task_siglock_irqsave(pid, PIDTYPE_PID, &flags);
+	if (p) {
+		error = group_send_sig_info(sig, info, p);
+		spin_unlock_irqrestore(&p->signal->siglock, flags);
 	}
+	return error;
 }
 
 static int kill_proc_info(int sig, struct siginfo *info, pid_t pid)
@@ -1328,10 +1353,10 @@ int kill_pid_info_as_cred(int sig, struct siginfo *info, struct pid *pid,
 		return ret;
 
 	rcu_read_lock();
-	p = pid_task(pid, PIDTYPE_PID);
+	p = pid_task_siglock_irqsave(pid, PIDTYPE_PID, &flags);
 	if (!p) {
 		ret = -ESRCH;
-		goto out_unlock;
+		goto out;
 	}
 	if (si_fromuser(info) && !kill_as_cred_perm(cred, p)) {
 		ret = -EPERM;
@@ -1341,15 +1366,11 @@ int kill_pid_info_as_cred(int sig, struct siginfo *info, struct pid *pid,
 	if (ret)
 		goto out_unlock;
 
-	if (sig) {
-		if (lock_task_sighand(p, &flags)) {
-			ret = __send_signal(sig, info, p, 1, 0);
-			unlock_task_sighand(p, &flags);
-		} else
-			ret = -ESRCH;
-	}
+	if (sig)
+		ret = __send_signal(sig, info, p, 1, 0);
 out_unlock:
-	rcu_read_unlock();
+	spin_unlock_irqrestore(&p->signal->siglock, flags);
+out:
 	return ret;
 }
 EXPORT_SYMBOL_GPL(kill_pid_info_as_cred);
@@ -1383,7 +1404,7 @@ static int kill_something_info(int sig, struct siginfo *info, pid_t pid)
 		for_each_process(p) {
 			if (task_pid_vnr(p) > 1 &&
 					!same_thread_group(p, current)) {
-				int err = group_send_sig_info(sig, info, p);
+				int err = kill_group_info(sig, info, p);
 				++count;
 				if (err != -EPERM)
 					retval = err;
@@ -2896,32 +2917,31 @@ SYSCALL_DEFINE2(kill, pid_t, pid, int, sig)
 }
 
 static int
-do_send_specific(pid_t tgid, pid_t pid, int sig, struct siginfo *info)
+do_send_specific(pid_t tgid, pid_t upid, int sig, struct siginfo *info)
 {
 	struct task_struct *p;
+	struct pid *pid;
+	unsigned long flags;
 	int error = -ESRCH;
 
 	rcu_read_lock();
-	p = find_task_by_vpid(pid);
-	if (p && (tgid <= 0 || task_tgid_vnr(p) == tgid)) {
+	pid = find_vpid(upid);
+	p = pid_task_siglock_irqsave(pid, PIDTYPE_PID, &flags);
+	if (!p)
+		goto out;
+
+	if (tgid <= 0 || task_tgid_vnr(p) == tgid) {
 		error = check_kill_permission(sig, info, p);
 		/*
 		 * The null signal is a permissions and process existence
 		 * probe.  No signal is actually delivered.
 		 */
-		if (!error && sig) {
-			error = do_send_sig_info(sig, info, p, false);
-			/*
-			 * If lock_task_sighand() failed we pretend the task
-			 * dies after receiving the signal. The window is tiny,
-			 * and the signal is private anyway.
-			 */
-			if (unlikely(error == -ESRCH))
-				error = 0;
-		}
+		if (!error && sig)
+			error = send_signal(sig, info, p, false);
 	}
+	spin_unlock_irqrestore(&p->signal->siglock, flags);
+out:
 	rcu_read_unlock();
-
 	return error;
 }
 
