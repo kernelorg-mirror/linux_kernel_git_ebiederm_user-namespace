@@ -264,13 +264,8 @@ void zap_pid_ns_processes(struct pid_namespace *pid_ns, struct list_head *dead)
 	/*
 	 * There will still be reparenting among the tasks in this pid
 	 * namespace as they won't autoreap until after they have made
-	 * the init process their parent.  Ensure child_reaper points
-	 * to the last thread of the init process that will be reaped
-	 * to guarantee there is always somewhere to reparent to.
+	 * the init process their parent.
 	 */
-	pid_ns->child_reaper =
-		list_first_entry(&me->signal->thread_head,
-				 struct task_struct, thread_node);
 }
 
 #ifdef CONFIG_CHECKPOINT_RESTORE
@@ -332,15 +327,15 @@ int reboot_pid_ns(struct pid_namespace *pid_ns, int cmd)
 	}
 
 
-	read_lock(&tasklist_lock);
-	reaper = pid_ns->child_reaper;
+	rcu_read_lock();
+	reaper = pid_task(pid_ns->child_reaper, PIDTYPE_TGID);
 
 	spin_lock_irq(&reaper->signal->siglock);
 	if (!signal_group_exit(reaper->signal)) {
 		start_group_exit(reaper, reboot);
 	}
 	spin_unlock_irq(&reaper->signal->siglock);
-	read_unlock(&tasklist_lock);
+	rcu_read_unlock();
 
 	do_exit(0);
 

@@ -33,7 +33,7 @@ struct pid_namespace {
 	struct rcu_head rcu;
 	int last_pid;
 	unsigned int nr_hashed;
-	struct task_struct *child_reaper;
+	struct pid *child_reaper;
 	struct kmem_cache *pid_cachep;
 	unsigned int level;
 	struct pid_namespace *parent;

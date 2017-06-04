@@ -186,10 +186,9 @@ repeat:
 	if (list_is_singular(&p->signal->thread_head))
 		last = list_first_entry(&p->signal->thread_head,
 				       struct task_struct, thread_node);
-	/* This processes is done check the last thread in the pid namespace */
+	/* This processes is done check the last process in the pid namespace */
 	else if (list_empty(&p->signal->thread_head))
-		last = list_first_entry(&pid_ns->child_reaper->signal->thread_head,
-					struct task_struct, thread_node);
+		last = pid_task(pid_ns->child_reaper, PIDTYPE_TGID);
 	/*
 	 * If there is only one unreaped thread left and it is a
 	 * zombie notify it's parent process.
@@ -493,17 +492,12 @@ static struct task_struct *find_child_reaper(struct task_struct *father,
 	struct task_struct *next, struct list_head *dead)
 {
 	struct pid_namespace *pid_ns = task_active_pid_ns(father);
-	struct task_struct *reaper = pid_ns->child_reaper;
+	struct task_struct *reaper = pid_task(pid_ns->child_reaper, PIDTYPE_TGID);
 
 	if (likely(reaper != father))
 		return reaper;
 
-	if (next) {
-		pid_ns->child_reaper = next;
-		return reaper;
-	}
 	zap_pid_ns_processes(pid_ns, dead);
-
 	return NULL;
 }
 

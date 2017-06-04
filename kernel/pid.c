@@ -77,7 +77,7 @@ struct pid_namespace init_pid_ns = {
 	.last_pid = 0,
 	.nr_hashed = PIDNS_HASH_ADDING,
 	.level = 0,
-	.child_reaper = &init_task,
+	.child_reaper = &init_struct_pid,
 	.user_ns = &init_user_ns,
 	.ns.inum = PROC_PID_INIT_INO,
 #ifdef CONFIG_PID_NS
