@@ -74,6 +74,7 @@ static void __unhash_process(struct task_struct *p)
 	nr_threads--;
 	detach_pid(p, PIDTYPE_PID);
 	if (list_is_singular(&sig->thread_head)) {
+		detach_pid(p, PIDTYPE_TGID);
 		detach_pid(p, PIDTYPE_PGID);
 		detach_pid(p, PIDTYPE_SID);
 

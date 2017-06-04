@@ -76,9 +76,9 @@ extern struct fs_struct init_fs;
 	.signalfd_wqh	= __WAIT_QUEUE_HEAD_INITIALIZER(sig.signalfd_wqh),	\
 	INIT_POSIX_TIMERS(sig)						\
 	INIT_CPU_TIMERS(sig)						\
-	.leader_pid	= &init_struct_pid,				\
 	.pids = {							\
 		[PIDTYPE_PID]	= &init_struct_pid,			\
+		[PIDTYPE_TGID]	= &init_struct_pid,			\
 		[PIDTYPE_PGID]	= &init_struct_pid,			\
 		[PIDTYPE_SID]	= &init_struct_pid,			\
 	},								\

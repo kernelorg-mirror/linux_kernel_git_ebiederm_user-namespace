@@ -944,12 +944,8 @@ SYSCALL_DEFINE2(setpgid, pid_t, pid, pid_t, pgid)
 	write_lock_irq(&tasklist_lock);
 
 	err = -ESRCH;
-	p = find_task_by_vpid(pid);
+	p = pid_task(find_vpid(pid), PIDTYPE_TGID);
 	if (!p)
-		goto out;
-
-	err = -EINVAL;
-	if (!thread_group_leader(p))
 		goto out;
 
 	if (same_thread_group(p->real_parent, group_leader)) {
@@ -1062,7 +1058,7 @@ out:
 
 static void set_special_pids(struct pid *pid)
 {
-	struct task_struct *curr = current->group_leader;
+	struct task_struct *curr = pid_task(task_tgid(current), PIDTYPE_TGID);
 
 	if (task_session(curr) != pid)
 		change_pid(curr, PIDTYPE_SID, pid);
