@@ -222,29 +222,19 @@ void zap_pid_ns_processes(struct pid_namespace *pid_ns, struct list_head *dead)
 	spin_unlock(&me->sighand->lock);
 
 	/*
-	 * The last thread in the cgroup-init thread group is terminating.
-	 * Find remaining pid_ts in the namespace, signal and wait for them
-	 * to exit.
-	 *
-	 * Note:  This signals each threads in the namespace - even those that
-	 * 	  belong to the same thread group, To avoid this, we would have
-	 * 	  to walk the entire tasklist looking a processes in this
-	 * 	  namespace, but that could be unnecessarily expensive if the
-	 * 	  pid namespace has just a few processes. Or we need to
-	 * 	  maintain a tasklist for each pid namespace.
-	 *
+	 * Force start a group exit on every process in the pid namespace
+	 * that has not started a group exit already.
 	 */
-	nr = next_pidmap(pid_ns, 1);
-	while (nr > 0) {
+	for(nr = next_pidmap(pid_ns, 1); nr > 0; nr = next_pidmap(pid_ns, nr)) {
 		rcu_read_lock();
-
-		task = pid_task(find_vpid(nr), PIDTYPE_PID);
-		if (task && !__fatal_signal_pending(task))
-			send_sig_info(SIGKILL, SEND_SIG_FORCED, task);
-
+		task = pid_task(find_vpid(nr), PIDTYPE_TGID);
+		if (task) {
+			spin_lock(&task->signal->siglock);
+			if (!signal_group_exit(task->signal))
+				start_group_exit(task, SIGKILL);
+			spin_unlock(&task->signal->siglock);
+		}
 		rcu_read_unlock();
-
-		nr = next_pidmap(pid_ns, nr);
 	}
 
 	/*
