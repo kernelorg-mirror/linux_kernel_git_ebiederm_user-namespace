@@ -921,7 +921,7 @@ SYSCALL_DEFINE1(times, struct tms __user *, tbuf)
  * only important on a multi-user system anyway, to make sure one user
  * can't send a signal to a process owned by another.  -TYT, 12/12/91
  *
- * !PF_FORKNOEXEC check to conform completely to POSIX.
+ * SIGNAL_EXECED check to conform completely to POSIX.
  */
 SYSCALL_DEFINE2(setpgid, pid_t, pid, pid_t, pgid)
 {
@@ -957,7 +957,7 @@ SYSCALL_DEFINE2(setpgid, pid_t, pid, pid_t, pgid)
 		if (task_session(p) != task_session(group_leader))
 			goto out;
 		err = -EACCES;
-		if (!(p->flags & PF_FORKNOEXEC))
+		if (p->signal->flags & SIGNAL_EXECED)
 			goto out;
 	} else {
 		err = -ESRCH;

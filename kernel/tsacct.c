@@ -48,10 +48,8 @@ void bacct_add_tsk(struct user_namespace *user_ns,
 	stats->ac_btime = get_seconds() - delta;
 	if (tsk->signal->flags & SIGNAL_GROUP_EXIT)
 		stats->ac_exitcode = current->signal->group_exit_code;
-	if (thread_group_leader(tsk)) {
-		if (tsk->flags & PF_FORKNOEXEC)
-			stats->ac_flag |= AFORK;
-	}
+	if (!(tsk->signal->flags & SIGNAL_EXECED))
+		stats->ac_flag |= AFORK;
 	if (tsk->flags & PF_SUPERPRIV)
 		stats->ac_flag |= ASU;
 	if (tsk->flags & PF_DUMPCORE)

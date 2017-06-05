@@ -1157,6 +1157,7 @@ static int de_thread(struct task_struct *tsk)
 no_thread_group:
 	/* we have changed execution domain */
 	sig->exit_signal = SIGCHLD;
+	sig->flags |= SIGNAL_EXECED;
 
 	exit_posix_timers(sig);
 	flush_posix_timer_signals();
@@ -1250,7 +1251,7 @@ int flush_old_exec(struct linux_binprm * bprm)
 	bprm->mm = NULL;		/* We're using it now */
 
 	set_fs(USER_DS);
-	current->flags &= ~(PF_RANDOMIZE | PF_FORKNOEXEC | PF_KTHREAD |
+	current->flags &= ~(PF_RANDOMIZE | PF_KTHREAD |
 					PF_NOFREEZE | PF_NO_SETAFFINITY);
 	flush_thread();
 	current->personality &= ~bprm->per_clear;

@@ -552,10 +552,8 @@ void acct_collect(long exitcode, int group_dead)
 		pacct->ac_mem = vsize / 1024;
 	if (current->signal->flags & SIGNAL_GROUP_EXIT)
 		pacct->ac_exitcode = current->signal->group_exit_code;
-	if (thread_group_leader(current)) {
-		if (current->flags & PF_FORKNOEXEC)
-			pacct->ac_flag |= AFORK;
-	}
+	if (group_dead && !(current->signal->flags & SIGNAL_EXECED))
+		pacct->ac_flag |= AFORK;
 	if (current->flags & PF_SUPERPRIV)
 		pacct->ac_flag |= ASU;
 	if (current->flags & PF_DUMPCORE)

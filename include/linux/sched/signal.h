@@ -241,6 +241,7 @@ struct signal_struct {
 #define SIGNAL_GROUP_COREDUMP	0x00000020 /* coredump in progress */
 
 #define SIGNAL_UNKILLABLE	0x00000040 /* for init: ignore fatal signals */
+#define SIGNAL_EXECED		0x00000080 /* This thread group has called exec */
 
 #define SIGNAL_STOP_MASK (SIGNAL_CLD_CONTINUED | SIGNAL_STOP_STOPPED | \
 			  SIGNAL_STOP_CONTINUED | SIGNAL_WAKEUP_PENDING)
