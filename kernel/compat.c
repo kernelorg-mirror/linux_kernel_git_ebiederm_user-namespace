@@ -604,8 +604,6 @@ COMPAT_SYSCALL_DEFINE5(waitid,
 			return -EFAULT;
 	}
 
-	BUG_ON(info.si_code & __SI_MASK);
-	info.si_code |= __SI_CHLD;
 	return copy_siginfo_to_user32(uinfo, &info);
 }
 

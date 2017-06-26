@@ -1064,7 +1064,7 @@ static int wait_noreap_copyout(struct wait_opts *wo, struct task_struct *p,
 		if (!retval)
 			retval = put_user(0, &infop->si_errno);
 		if (!retval)
-			retval = put_user((short)why, &infop->si_code);
+			retval = put_user(why, &infop->si_code);
 		if (!retval)
 			retval = put_user(pid, &infop->si_pid);
 		if (!retval)
@@ -1203,7 +1203,7 @@ static int wait_task_zombie(struct wait_opts *wo, struct task_struct *p)
 			why = (status & 0x80) ? CLD_DUMPED : CLD_KILLED;
 			status &= 0x7f;
 		}
-		retval = put_user((short)why, &infop->si_code);
+		retval = put_user(why, &infop->si_code);
 		if (!retval)
 			retval = put_user(status, &infop->si_status);
 	}
@@ -1326,7 +1326,7 @@ unlock_sig:
 	if (!retval && infop)
 		retval = put_user(0, &infop->si_errno);
 	if (!retval && infop)
-		retval = put_user((short)why, &infop->si_code);
+		retval = put_user(why, &infop->si_code);
 	if (!retval && infop)
 		retval = put_user(exit_code, &infop->si_status);
 	if (!retval && infop)
