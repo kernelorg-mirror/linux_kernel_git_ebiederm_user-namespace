@@ -10,6 +10,11 @@
 #include <linux/string.h>
 #include <uapi/asm/siginfo.h>
 
+/*
+ * SIGFPE si_codes
+ */
+#define FPE_FIXME	(__SI_FAULT|0)	/* Broken dup of SI_USER */
+
 static inline void
 copy_siginfo (siginfo_t *to, siginfo_t *from)
 {
