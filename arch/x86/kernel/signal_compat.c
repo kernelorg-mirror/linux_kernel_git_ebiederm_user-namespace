@@ -161,6 +161,7 @@ int __copy_siginfo_to_user32(compat_siginfo_t __user *to, const siginfo_t *from,
 				}
 				break;
 			case __SI_SYS >> 16:
+				put_user_ex(ptr_to_compat(from->si_call_addr), &to->si_call_addr);
 				put_user_ex(from->si_syscall, &to->si_syscall);
 				put_user_ex(from->si_arch, &to->si_arch);
 				break;
