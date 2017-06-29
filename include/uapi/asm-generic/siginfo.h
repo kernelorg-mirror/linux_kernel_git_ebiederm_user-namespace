@@ -248,7 +248,7 @@ typedef struct siginfo {
 #define NSIGCHLD	6
 
 /*
- * SIGPOLL si_codes
+ * SIGPOLL (or any other signal without signal specific si_codes) si_codes
  */
 #define POLL_IN		(__SI_POLL|1)	/* data input available */
 #define POLL_OUT	(__SI_POLL|2)	/* output buffers available */
