@@ -6,7 +6,7 @@
 /*
  * SIGFPE si_codes
  */
-#define FPE_FIXME	(__SI_FAULT|0)	/* Broken dup of SI_USER */
+#define FPE_FIXME	0	/* Broken dup of SI_USER */
 
 #ifdef CONFIG_COMPAT
 
