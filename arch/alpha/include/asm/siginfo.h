@@ -6,6 +6,6 @@
 /*
  * SIGTRAP si_codes
  */
-#define TRAP_FIXME	(__SI_FAULT|0)	/* Broken dup of SI_USER */
+#define TRAP_FIXME	0	/* Broken dup of SI_USER */
 
 #endif /* __ASM_ALPHA_SIGINFO_H */
