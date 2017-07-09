@@ -74,9 +74,11 @@ static inline void signal_compat_build_tests(void)
 	CHECK_CSI_SIZE  (_sigchld, 5*sizeof(int));
 	CHECK_SI_SIZE   (_sigchld, 8*sizeof(int));
 
+#ifdef CONFIG_X86_X32
 	CHECK_CSI_OFFSET(_sigchld_x32);
 	CHECK_CSI_SIZE  (_sigchld_x32, 7*sizeof(int));
 	/* no _sigchld_x32 in the generic siginfo_t */
+#endif
 
 	CHECK_CSI_OFFSET(_sigfault);
 	CHECK_CSI_SIZE  (_sigfault, 4*sizeof(int));
