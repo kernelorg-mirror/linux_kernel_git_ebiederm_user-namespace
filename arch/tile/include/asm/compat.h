@@ -110,8 +110,6 @@ struct compat_flock64 {
 
 typedef u32               compat_sigset_word;
 
-#define COMPAT_SI_PAD_SIZE	(128/sizeof(int) - 3)
-
 #define COMPAT_OFF_T_MAX	0x7fffffff
 #define COMPAT_LOFF_T_MAX	0x7fffffffffffffffL
 
