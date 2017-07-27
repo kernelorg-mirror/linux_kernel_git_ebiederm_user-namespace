@@ -1205,6 +1205,25 @@ force_sig_info(int sig, struct siginfo *info, struct task_struct *t)
 	return ret;
 }
 
+int force_sig_fault(int sig, int code, void __user *addr,
+#ifdef __ARCH_SI_TRAPNO
+		    int trapno,
+#endif
+		    struct task_struct *t)
+{
+	struct siginfo info;
+
+	clear_siginfo(&info);
+	info.si_signo = sig;
+	info.si_errno = 0;
+	info.si_code  = code;
+	info.si_addr  = addr;
+#ifdef __ARCH_SI_TRAPNO
+	info.si_trapno = trapno;
+#endif
+	return force_sig_info(info.si_signo, &info, t);
+}
+
 /*
  * Nuke all other threads in the group.
  */
@@ -1447,6 +1466,25 @@ int send_sig_info(int sig, struct siginfo *info, struct task_struct *p)
 		return -EINVAL;
 
 	return do_send_sig_info(sig, info, p, false);
+}
+
+int send_sig_fault(int sig, int code, void __user *addr,
+#ifdef __ARCH_SI_TRAPNO
+		   int trapno,
+#endif
+		   struct task_struct *t)
+{
+	struct siginfo info;
+
+	clear_siginfo(&info);
+	info.si_signo = sig;
+	info.si_errno = 0;
+	info.si_code  = code;
+	info.si_addr  = addr;
+#ifdef __ARCH_SI_TRAPNO
+	info.si_trapno = trapno;
+#endif
+	return send_sig_info(info.si_signo, &info, t);
 }
 
 #define __si_special(priv) \
