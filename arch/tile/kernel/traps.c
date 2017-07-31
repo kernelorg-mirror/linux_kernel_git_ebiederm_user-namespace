@@ -256,13 +256,11 @@ static int do_bpt(struct pt_regs *regs)
 void __kprobes do_trap(struct pt_regs *regs, int fault_num,
 		       unsigned long reason)
 {
-	siginfo_t info;
-	int signo, code;
+	int signo, code, trapno = 0;
 	unsigned long address = 0;
 	tile_bundle_bits instr;
 	int is_kernel = !user_mode(regs);
 
-	clear_siginfo(&info);
 
 	/* Handle breakpoints, etc. */
 	if (is_kernel && fault_num == INT_ILL && do_bpt(regs))
@@ -385,14 +383,11 @@ void __kprobes do_trap(struct pt_regs *regs, int fault_num,
 		panic("Unexpected do_trap interrupt number %d", fault_num);
 	}
 
-	info.si_signo = signo;
-	info.si_code = code;
-	info.si_addr = (void __user *)address;
 	if (signo == SIGILL)
-		info.si_trapno = fault_num;
+		trapno = fault_num;
 	if (signo != SIGTRAP)
 		trace_unhandled_signal("trap", regs, address, signo);
-	force_sig_info(signo, &info, current);
+	force_sig_fault(signo, code, (void __user *)address, trapno, current);
 }
 
 void do_nmi(struct pt_regs *regs, int fault_num, unsigned long reason)
