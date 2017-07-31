@@ -323,7 +323,6 @@ void __kprobes do_hardwall_trap(struct pt_regs* regs, int fault_num)
 	struct hardwall_info *rect;
 	struct hardwall_type *hwt;
 	struct task_struct *p;
-	struct siginfo info;
 	int cpu = smp_processor_id();
 	int found_processes;
 	struct pt_regs *old_regs = set_irq_regs(regs);
@@ -383,9 +382,6 @@ void __kprobes do_hardwall_trap(struct pt_regs* regs, int fault_num)
 	wmb(); /* Ensure visibility of rectangle before notifying processes. */
 	pr_notice("cpu %d: detected %s hardwall violation %#lx...\n",
 		  cpu, hwt->name, (long)mfspr_XDN(hwt, DIRECTION_PROTECT));
-	info.si_signo = SIGILL;
-	info.si_errno = 0;
-	info.si_code = ILL_HARDWALL;
 	found_processes = 0;
 	list_for_each_entry(p, &rect->task_head,
 			    thread.hardwall[hwt->index].list) {
@@ -393,7 +389,8 @@ void __kprobes do_hardwall_trap(struct pt_regs* regs, int fault_num)
 		if (!(p->flags & PF_EXITING)) {
 			found_processes = 1;
 			pr_notice("hardwall: killing %d\n", p->pid);
-			do_send_sig_info(info.si_signo, &info, p, false);
+			send_sig_fault(SIGILL, ILL_HARDWALL,
+				       (void __user *)0, 0, p);
 		}
 	}
 	if (!found_processes)

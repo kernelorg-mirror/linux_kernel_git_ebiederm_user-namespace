@@ -298,15 +298,8 @@ void do_syscall_trace_exit(struct pt_regs *regs)
 
 void send_sigtrap(struct task_struct *tsk, struct pt_regs *regs)
 {
-	struct siginfo info;
-
-	memset(&info, 0, sizeof(info));
-	info.si_signo = SIGTRAP;
-	info.si_code  = TRAP_BRKPT;
-	info.si_addr  = (void __user *) regs->pc;
-
 	/* Send us the fakey SIGTRAP */
-	force_sig_info(SIGTRAP, &info, tsk);
+	force_sig_fault(SIGTRAP, TRAP_BRKPT, (void __user *)regs->pc, 0, tsk);
 }
 
 /* Handle synthetic interrupt delivered only by the simulator. */

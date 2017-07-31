@@ -980,12 +980,7 @@ void jit_bundle_gen(struct pt_regs *regs, tilegx_bundle_bits bundle,
 	}
 
 	if ((align_ctl == 0) || unexpected) {
-		siginfo_t info;
-
-		clear_siginfo(&info);
-		info.si_signo = SIGBUS;
-		info.si_code = BUS_ADRALN;
-		info.si_addr = (unsigned char __user *)0;
+		void __user *addr = (unsigned char __user *)0;
 
 		if (unaligned_printk)
 			pr_info("Unalign bundle: unexp @%llx, %llx\n",
@@ -995,14 +990,14 @@ void jit_bundle_gen(struct pt_regs *regs, tilegx_bundle_bits bundle,
 		if (ra < 56) {
 			unsigned long uaa = (unsigned long)regs->regs[ra];
 			/* Set bus Address. */
-			info.si_addr = (unsigned char __user *)uaa;
+			addr = (unsigned char __user *)uaa;
 		}
 
 		unaligned_fixup_count++;
 
 		trace_unhandled_signal("unaligned fixup trap", regs,
-				       (unsigned long)info.si_addr, SIGBUS);
-		force_sig_info(info.si_signo, &info, current);
+				       (unsigned long)addr, SIGBUS);
+		force_sig_fault(SIGBUS, BUS_ADRALN, addr, 0, current);
 		return;
 	}
 
@@ -1397,23 +1392,18 @@ void jit_bundle_gen(struct pt_regs *regs, tilegx_bundle_bits bundle,
 		status = copy_to_user((void __user *)&jit_code_area[idx],
 				      &frag, sizeof(frag));
 		if (status) {
+			void __user *addr = (void __user *)&jit_code_area[idx];
+
 			/* Fail to copy JIT into user land. send SIGSEGV. */
-			siginfo_t info;
-
-			clear_siginfo(&info);
-			info.si_signo = SIGSEGV;
-			info.si_code = SEGV_MAPERR;
-			info.si_addr = (void __user *)&jit_code_area[idx];
-
 			pr_warn("Unalign fixup: pid=%d %s jit_code_area=%llx\n",
 				current->pid, current->comm,
 				(unsigned long long)&jit_code_area[idx]);
 
 			trace_unhandled_signal("segfault in unalign fixup",
 					       regs,
-					       (unsigned long)info.si_addr,
+					       (unsigned long)addr,
 					       SIGSEGV);
-			force_sig_info(info.si_signo, &info, current);
+			force_sig_fault(SIGSEGV, SEGV_MAPERR, addr, 0, current);
 			return;
 		}
 
@@ -1514,13 +1504,6 @@ void do_unaligned(struct pt_regs *regs, int vecnum)
 	 * If so, we will trigger SIGBUS.
 	 */
 	if ((regs->sp & 0x7) || (regs->ex1) || (align_ctl < 0)) {
-		siginfo_t info;
-
-		clear_siginfo(&info);
-		info.si_signo = SIGBUS;
-		info.si_code = BUS_ADRALN;
-		info.si_addr = (unsigned char __user *)0;
-
 		if (unaligned_printk)
 			pr_info("Unalign fixup: %d %llx @%llx\n",
 				(int)unaligned_fixup,
@@ -1530,7 +1513,8 @@ void do_unaligned(struct pt_regs *regs, int vecnum)
 		unaligned_fixup_count++;
 
 		trace_unhandled_signal("unaligned fixup trap", regs, 0, SIGBUS);
-		force_sig_info(info.si_signo, &info, current);
+		force_sig_fault(SIGBUS, BUS_ADRALN,
+				(unsigned char __user *)0, 0, current);
 		return;
 	}
 
@@ -1538,18 +1522,13 @@ void do_unaligned(struct pt_regs *regs, int vecnum)
 	/* Read the bundle caused the exception! */
 	pc = (tilegx_bundle_bits __user *)(regs->pc);
 	if (get_user(bundle, pc) != 0) {
+		void __user *addr = (void __user *)pc;
+
 		/* Probably never be here since pc is valid user address.*/
-		siginfo_t info;
-
-		clear_siginfo(&info);
-		info.si_signo = SIGSEGV;
-		info.si_code = SEGV_MAPERR;
-		info.si_addr = (void __user *)pc;
-
 		pr_err("Couldn't read instruction at %p trying to step\n", pc);
 		trace_unhandled_signal("segfault in unalign fixup", regs,
-				       (unsigned long)info.si_addr, SIGSEGV);
-		force_sig_info(info.si_signo, &info, current);
+				       (unsigned long)addr, SIGSEGV);
+		force_sig_fault(SIGSEGV, SEGV_MAPERR, addr, 0, current);
 		return;
 	}
 
