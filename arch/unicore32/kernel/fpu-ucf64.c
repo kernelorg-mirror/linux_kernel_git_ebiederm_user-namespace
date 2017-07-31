@@ -54,14 +54,6 @@
  */
 void ucf64_raise_sigfpe(unsigned int sicode, struct pt_regs *regs)
 {
-	siginfo_t info;
-
-	memset(&info, 0, sizeof(info));
-
-	info.si_signo = SIGFPE;
-	info.si_code = sicode;
-	info.si_addr = (void __user *)(instruction_pointer(regs) - 4);
-
 	/*
 	 * This is the same as NWFPE, because it's not clear what
 	 * this is used for
@@ -69,7 +61,9 @@ void ucf64_raise_sigfpe(unsigned int sicode, struct pt_regs *regs)
 	current->thread.error_code = 0;
 	current->thread.trap_no = 6;
 
-	send_sig_info(SIGFPE, &info, current);
+	send_sig_fault(SIGFPE, sicode,
+		       (void __user *)(instruction_pointer(regs) - 4),
+		       current);
 }
 
 /*
