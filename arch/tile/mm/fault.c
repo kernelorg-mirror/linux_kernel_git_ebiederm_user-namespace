@@ -52,21 +52,15 @@ static noinline void force_sig_info_fault(const char *type, int si_signo,
 					  struct task_struct *tsk,
 					  struct pt_regs *regs)
 {
-	siginfo_t info;
-
 	if (unlikely(tsk->pid < 2)) {
 		panic("Signal %d (code %d) at %#lx sent to %s!",
 		      si_signo, si_code & 0xffff, address,
 		      is_idle_task(tsk) ? "the idle task" : "init");
 	}
 
-	info.si_signo = si_signo;
-	info.si_errno = 0;
-	info.si_code = si_code;
-	info.si_addr = (void __user *)address;
-	info.si_trapno = fault_num;
 	trace_unhandled_signal(type, regs, address, si_signo);
-	force_sig_info(si_signo, &info, tsk);
+	force_sig_fault(si_signo, si_code,
+			(void __user *)address, fault_num, tsk);
 }
 
 #ifndef __tilegx__
