@@ -49,10 +49,10 @@ asmlinkage void do_page_fault(struct pt_regs *regs, unsigned long write,
 	struct mm_struct *mm = tsk->mm;
 	const int field = sizeof(unsigned long) * 2;
 	unsigned long flags = 0;
-	siginfo_t info;
+	int code;
 	int fault;
 
-	info.si_code = SEGV_MAPERR;
+	code = SEGV_MAPERR;
 
 	/*
 	* We fault-in kernel-space virtual memory on-demand. The
@@ -95,7 +95,7 @@ asmlinkage void do_page_fault(struct pt_regs *regs, unsigned long write,
 	* we can handle it..
 	 */
 good_area:
-	info.si_code = SEGV_ACCERR;
+	code = SEGV_ACCERR;
 
 	if (write) {
 		if (!(vma->vm_flags & VM_WRITE))
@@ -141,11 +141,7 @@ bad_area_nosemaphore:
 	if (user_mode(regs)) {
 		tsk->thread.cp0_badvaddr = address;
 		tsk->thread.error_code = write;
-		info.si_signo = SIGSEGV;
-		info.si_errno = 0;
-		/* info.si_code has been set above */
-		info.si_addr = (void __user *) address;
-		force_sig_info(SIGSEGV, &info, tsk);
+		force_sig_fault(SIGSEGV, code, (void __user *) address, tsk);
 		return;
 	}
 
@@ -190,11 +186,7 @@ do_sigbus:
 	* or user mode.
 	*/
 	tsk->thread.cp0_badvaddr = address;
-	info.si_signo = SIGBUS;
-	info.si_errno = 0;
-	info.si_code = BUS_ADRERR;
-	info.si_addr = (void __user *) address;
-	force_sig_info(SIGBUS, &info, tsk);
+	force_sig_fault(SIGBUS, BUS_ADRERR, (void __user *) address, tsk);
 	return;
 vmalloc_fault:
 	{

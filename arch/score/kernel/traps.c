@@ -223,15 +223,9 @@ asmlinkage void do_be(struct pt_regs *regs)
 
 asmlinkage void do_ov(struct pt_regs *regs)
 {
-	siginfo_t info;
-
 	die_if_kernel("do_ov execution Exception", regs);
 
-	info.si_code = FPE_INTOVF;
-	info.si_signo = SIGFPE;
-	info.si_errno = 0;
-	info.si_addr = (void *)regs->cp0_epc;
-	force_sig_info(SIGFPE, &info, current);
+	force_sig_fault(SIGFPE, FPE_INTOVF, (void *)regs->cp0_epc, current);
 }
 
 asmlinkage void do_tr(struct pt_regs *regs)
