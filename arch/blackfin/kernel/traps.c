@@ -27,7 +27,7 @@
 
 # define CHK_DEBUGGER_TRAP() \
 	do { \
-		kgdb_handle_exception(trapnr, sig, info.si_code, fp); \
+		kgdb_handle_exception(trapnr, sig, si_code, fp); \
 	} while (0)
 # define CHK_DEBUGGER_TRAP_MAYBE() \
 	do { \
@@ -78,8 +78,7 @@ asmlinkage notrace void trap_c(struct pt_regs *fp)
 #endif
 	unsigned int cpu = raw_smp_processor_id();
 	const char *strerror = NULL;
-	int sig = 0;
-	siginfo_t info;
+	int sig = 0, si_code;
 	unsigned long trapnr = fp->seqstat & SEQSTAT_EXCAUSE;
 
 	trace_buffer_save(j);
@@ -113,7 +112,7 @@ asmlinkage notrace void trap_c(struct pt_regs *fp)
 	/* 0x00 - Linux Syscall, getting here is an error */
 	/* 0x01 - userspace gdb breakpoint, handled here */
 	case VEC_EXCPT01:
-		info.si_code = TRAP_ILLTRAP;
+		si_code = TRAP_ILLTRAP;
 		sig = SIGTRAP;
 		CHK_DEBUGGER_TRAP_MAYBE();
 		/* Check if this is a breakpoint in kernel space */
@@ -123,7 +122,7 @@ asmlinkage notrace void trap_c(struct pt_regs *fp)
 			break;
 	/* 0x03 - User Defined, userspace stack overflow */
 	case VEC_EXCPT03:
-		info.si_code = SEGV_STACKFLOW;
+		si_code = SEGV_STACKFLOW;
 		sig = SIGSEGV;
 		strerror = KERN_NOTICE EXC_0x03(KERN_NOTICE);
 		CHK_DEBUGGER_TRAP_MAYBE();
@@ -131,7 +130,7 @@ asmlinkage notrace void trap_c(struct pt_regs *fp)
 	/* 0x02 - KGDB initial connection and break signal trap */
 	case VEC_EXCPT02:
 #ifdef CONFIG_KGDB
-		info.si_code = TRAP_ILLTRAP;
+		si_code = TRAP_ILLTRAP;
 		sig = SIGTRAP;
 		CHK_DEBUGGER_TRAP();
 		goto traps_done;
@@ -152,14 +151,14 @@ asmlinkage notrace void trap_c(struct pt_regs *fp)
 	 * custom exception handler, and it is not actually installed properly
 	 */
 	case VEC_EXCPT04 ... VEC_EXCPT15:
-		info.si_code = ILL_ILLPARAOP;
+		si_code = ILL_ILLPARAOP;
 		sig = SIGILL;
 		strerror = KERN_NOTICE EXC_0x04(KERN_NOTICE);
 		CHK_DEBUGGER_TRAP_MAYBE();
 		break;
 	/* 0x10 HW Single step, handled here */
 	case VEC_STEP:
-		info.si_code = TRAP_STEP;
+		si_code = TRAP_STEP;
 		sig = SIGTRAP;
 		CHK_DEBUGGER_TRAP_MAYBE();
 		/* Check if this is a single step in kernel space */
@@ -169,7 +168,7 @@ asmlinkage notrace void trap_c(struct pt_regs *fp)
 			break;
 	/* 0x11 - Trace Buffer Full, handled here */
 	case VEC_OVFLOW:
-		info.si_code = TRAP_TRACEFLOW;
+		si_code = TRAP_TRACEFLOW;
 		sig = SIGTRAP;
 		strerror = KERN_NOTICE EXC_0x11(KERN_NOTICE);
 		CHK_DEBUGGER_TRAP_MAYBE();
@@ -221,35 +220,35 @@ asmlinkage notrace void trap_c(struct pt_regs *fp)
 				goto traps_done;
 		}
 #endif
-		info.si_code = ILL_ILLOPC;
+		si_code = ILL_ILLOPC;
 		sig = SIGILL;
 		strerror = KERN_NOTICE EXC_0x21(KERN_NOTICE);
 		CHK_DEBUGGER_TRAP_MAYBE();
 		break;
 	/* 0x22 - Illegal Instruction Combination, handled here */
 	case VEC_ILGAL_I:
-		info.si_code = ILL_ILLPARAOP;
+		si_code = ILL_ILLPARAOP;
 		sig = SIGILL;
 		strerror = KERN_NOTICE EXC_0x22(KERN_NOTICE);
 		CHK_DEBUGGER_TRAP_MAYBE();
 		break;
 	/* 0x23 - Data CPLB protection violation, handled here */
 	case VEC_CPLB_VL:
-		info.si_code = ILL_CPLB_VI;
+		si_code = ILL_CPLB_VI;
 		sig = SIGSEGV;
 		strerror = KERN_NOTICE EXC_0x23(KERN_NOTICE);
 		CHK_DEBUGGER_TRAP_MAYBE();
 		break;
 	/* 0x24 - Data access misaligned, handled here */
 	case VEC_MISALI_D:
-		info.si_code = BUS_ADRALN;
+		si_code = BUS_ADRALN;
 		sig = SIGBUS;
 		strerror = KERN_NOTICE EXC_0x24(KERN_NOTICE);
 		CHK_DEBUGGER_TRAP_MAYBE();
 		break;
 	/* 0x25 - Unrecoverable Event, handled here */
 	case VEC_UNCOV:
-		info.si_code = ILL_ILLEXCPT;
+		si_code = ILL_ILLEXCPT;
 		sig = SIGILL;
 		strerror = KERN_NOTICE EXC_0x25(KERN_NOTICE);
 		CHK_DEBUGGER_TRAP_MAYBE();
@@ -257,13 +256,13 @@ asmlinkage notrace void trap_c(struct pt_regs *fp)
 	/* 0x26 - Data CPLB Miss, normal case is handled in _cplb_hdr,
 		error case is handled here */
 	case VEC_CPLB_M:
-		info.si_code = BUS_ADRALN;
+		si_code = BUS_ADRALN;
 		sig = SIGBUS;
 		strerror = KERN_NOTICE EXC_0x26(KERN_NOTICE);
 		break;
 	/* 0x27 - Data CPLB Multiple Hits - Linux Trap Zero, handled here */
 	case VEC_CPLB_MHIT:
-		info.si_code = ILL_CPLB_MULHIT;
+		si_code = ILL_CPLB_MULHIT;
 		sig = SIGSEGV;
 #ifdef CONFIG_DEBUG_HUNT_FOR_ZERO
 		if (cpu_pda[cpu].dcplb_fault_addr < FIXED_CODE_START)
@@ -275,7 +274,7 @@ asmlinkage notrace void trap_c(struct pt_regs *fp)
 		break;
 	/* 0x28 - Emulation Watchpoint, handled here */
 	case VEC_WATCH:
-		info.si_code = TRAP_WATCHPT;
+		si_code = TRAP_WATCHPT;
 		sig = SIGTRAP;
 		pr_debug(EXC_0x28(KERN_DEBUG));
 		CHK_DEBUGGER_TRAP_MAYBE();
@@ -287,7 +286,7 @@ asmlinkage notrace void trap_c(struct pt_regs *fp)
 #ifdef CONFIG_BF535
 	/* 0x29 - Instruction fetch access error (535 only) */
 	case VEC_ISTRU_VL:      /* ADSP-BF535 only (MH) */
-		info.si_code = BUS_OPFETCH;
+		si_code = BUS_OPFETCH;
 		sig = SIGBUS;
 		strerror = KERN_NOTICE "BF535: VEC_ISTRU_VL\n";
 		CHK_DEBUGGER_TRAP_MAYBE();
@@ -297,27 +296,27 @@ asmlinkage notrace void trap_c(struct pt_regs *fp)
 #endif
 	/* 0x2A - Instruction fetch misaligned, handled here */
 	case VEC_MISALI_I:
-		info.si_code = BUS_ADRALN;
+		si_code = BUS_ADRALN;
 		sig = SIGBUS;
 		strerror = KERN_NOTICE EXC_0x2A(KERN_NOTICE);
 		CHK_DEBUGGER_TRAP_MAYBE();
 		break;
 	/* 0x2B - Instruction CPLB protection violation, handled here */
 	case VEC_CPLB_I_VL:
-		info.si_code = ILL_CPLB_VI;
+		si_code = ILL_CPLB_VI;
 		sig = SIGBUS;
 		strerror = KERN_NOTICE EXC_0x2B(KERN_NOTICE);
 		CHK_DEBUGGER_TRAP_MAYBE();
 		break;
 	/* 0x2C - Instruction CPLB miss, handled in _cplb_hdr */
 	case VEC_CPLB_I_M:
-		info.si_code = ILL_CPLB_MISS;
+		si_code = ILL_CPLB_MISS;
 		sig = SIGBUS;
 		strerror = KERN_NOTICE EXC_0x2C(KERN_NOTICE);
 		break;
 	/* 0x2D - Instruction CPLB Multiple Hits, handled here */
 	case VEC_CPLB_I_MHIT:
-		info.si_code = ILL_CPLB_MULHIT;
+		si_code = ILL_CPLB_MULHIT;
 		sig = SIGSEGV;
 #ifdef CONFIG_DEBUG_HUNT_FOR_ZERO
 		if (cpu_pda[cpu].icplb_fault_addr < FIXED_CODE_START)
@@ -329,7 +328,7 @@ asmlinkage notrace void trap_c(struct pt_regs *fp)
 		break;
 	/* 0x2E - Illegal use of Supervisor Resource, handled here */
 	case VEC_ILL_RES:
-		info.si_code = ILL_PRVOPC;
+		si_code = ILL_PRVOPC;
 		sig = SIGILL;
 		strerror = KERN_NOTICE EXC_0x2E(KERN_NOTICE);
 		CHK_DEBUGGER_TRAP_MAYBE();
@@ -352,12 +351,12 @@ asmlinkage notrace void trap_c(struct pt_regs *fp)
 	/* 0x3E - Reserved, Caught by default */
 	/* 0x3F - Reserved, Caught by default */
 	case VEC_HWERR:
-		info.si_code = BUS_ADRALN;
+		si_code = BUS_ADRALN;
 		sig = SIGBUS;
 		switch (fp->seqstat & SEQSTAT_HWERRCAUSE) {
 		/* System MMR Error */
 		case (SEQSTAT_HWERRCAUSE_SYSTEM_MMR):
-			info.si_code = BUS_ADRALN;
+			si_code = BUS_ADRALN;
 			sig = SIGBUS;
 			strerror = KERN_NOTICE HWC_x2(KERN_NOTICE);
 			break;
@@ -393,7 +392,7 @@ asmlinkage notrace void trap_c(struct pt_regs *fp)
 					anomaly_rets = 0;
 			}
 
-			info.si_code = BUS_ADRERR;
+			si_code = BUS_ADRERR;
 			sig = SIGBUS;
 			strerror = KERN_NOTICE HWC_x3(KERN_NOTICE);
 			break;
@@ -416,7 +415,7 @@ asmlinkage notrace void trap_c(struct pt_regs *fp)
 	 * if we get here we hit a reserved one, so panic
 	 */
 	default:
-		info.si_code = ILL_ILLPARAOP;
+		si_code = ILL_ILLPARAOP;
 		sig = SIGILL;
 		verbose_printk(KERN_EMERG "Caught Unhandled Exception, code = %08lx\n",
 			(fp->seqstat & SEQSTAT_EXCAUSE));
@@ -476,20 +475,20 @@ asmlinkage notrace void trap_c(struct pt_regs *fp)
 	if (!ipipe_trap_notify(fp->seqstat & 0x3f, fp))
 #endif
 	{
-		info.si_signo = sig;
-		info.si_errno = 0;
+		void __user *addr;
+
 		switch (trapnr) {
 		case VEC_CPLB_VL:
 		case VEC_MISALI_D:
 		case VEC_CPLB_M:
 		case VEC_CPLB_MHIT:
-			info.si_addr = (void __user *)cpu_pda[cpu].dcplb_fault_addr;
+			addr = (void __user *)cpu_pda[cpu].dcplb_fault_addr;
 			break;
 		default:
-			info.si_addr = (void __user *)fp->pc;
+			addr = (void __user *)fp->pc;
 			break;
 		}
-		force_sig_info(sig, &info, current);
+		force_sig_fault(sig, si_code, addr, current);
 	}
 
 	if ((ANOMALY_05000461 && trapnr == VEC_HWERR && !access_ok(VERIFY_READ, fp->pc, 8)) ||
