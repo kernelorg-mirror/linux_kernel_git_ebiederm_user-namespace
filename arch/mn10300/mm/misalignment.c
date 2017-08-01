@@ -321,7 +321,6 @@ asmlinkage void misalignment(struct pt_regs *regs, enum exception_code code)
 	unsigned long *registers = (unsigned long *) regs;
 	unsigned long data, *store, *postinc, disp, inc, sp;
 	mm_segment_t seg;
-	siginfo_t info;
 	uint32_t opcode, noc, xo, xm;
 	uint8_t *pc, byte, datasz;
 	void *address;
@@ -394,11 +393,7 @@ failed:
 		return;
 
 bus_error:
-	info.si_signo	= SIGBUS;
-	info.si_errno	= 0;
-	info.si_code	= BUS_ADRALN;
-	info.si_addr	= (void *) regs->pc;
-	force_sig_info(SIGBUS, &info, current);
+	force_sig_fault(SIGBUS, BUS_ADRALN, (void __user *) regs->pc, current);
 	return;
 
 	/* error reading opcodes */
@@ -435,11 +430,7 @@ transfer_failed:
 	if (die_if_no_fixup("misalignment fixup", regs, code))
 		return;
 
-	info.si_signo	= SIGSEGV;
-	info.si_errno	= 0;
-	info.si_code	= SEGV_MAPERR;
-	info.si_addr	= (void *) regs->pc;
-	force_sig_info(SIGSEGV, &info, current);
+	force_sig_fault(SIGSEGV, SEGV_MAPERR, (void __user *)regs->pc, current);
 	return;
 
 	/* we matched the opcode */
