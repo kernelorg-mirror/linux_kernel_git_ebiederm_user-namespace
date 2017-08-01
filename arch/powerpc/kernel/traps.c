@@ -250,7 +250,6 @@ void user_single_step_siginfo(struct task_struct *tsk,
 
 void _exception(int signr, struct pt_regs *regs, int code, unsigned long addr)
 {
-	siginfo_t info;
 	const char fmt32[] = KERN_INFO "%s[%d]: unhandled signal %d " \
 			"at %08lx nip %08lx lr %08lx code %x\n";
 	const char fmt64[] = KERN_INFO "%s[%d]: unhandled signal %d " \
@@ -271,11 +270,7 @@ void _exception(int signr, struct pt_regs *regs, int code, unsigned long addr)
 		local_irq_enable();
 
 	current->thread.trap_nr = code;
-	memset(&info, 0, sizeof(info));
-	info.si_signo = signr;
-	info.si_code = code;
-	info.si_addr = (void __user *) addr;
-	force_sig_info(signr, &info, current);
+	force_sig_fault(signr, code, (void __user *) addr, current);
 }
 
 void system_reset_exception(struct pt_regs *regs)

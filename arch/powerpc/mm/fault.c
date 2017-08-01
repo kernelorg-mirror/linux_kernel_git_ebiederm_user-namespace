@@ -117,31 +117,29 @@ static int store_updates_sp(struct pt_regs *regs)
 static int do_sigbus(struct pt_regs *regs, unsigned long address,
 		     unsigned int fault)
 {
-	siginfo_t info;
-	unsigned int lsb = 0;
 
 	if (!user_mode(regs))
 		return MM_FAULT_ERR(SIGBUS);
 
 	current->thread.trap_nr = BUS_ADRERR;
-	info.si_signo = SIGBUS;
-	info.si_errno = 0;
-	info.si_code = BUS_ADRERR;
-	info.si_addr = (void __user *)address;
 #ifdef CONFIG_MEMORY_FAILURE
 	if (fault & (VM_FAULT_HWPOISON|VM_FAULT_HWPOISON_LARGE)) {
+		unsigned int lsb;
+
 		pr_err("MCE: Killing %s:%d due to hardware memory corruption fault at %lx\n",
 			current->comm, current->pid, address);
-		info.si_code = BUS_MCEERR_AR;
+
+		if (fault & VM_FAULT_HWPOISON_LARGE)
+			lsb = hstate_index_to_shift(VM_FAULT_GET_HINDEX(fault));
+		if (fault & VM_FAULT_HWPOISON)
+			lsb = PAGE_SHIFT;
+
+		force_sig_mceerr(BUS_MCERR_AR, (void __user *)address, lsb, current);
+		return;
 	}
 
-	if (fault & VM_FAULT_HWPOISON_LARGE)
-		lsb = hstate_index_to_shift(VM_FAULT_GET_HINDEX(fault));
-	if (fault & VM_FAULT_HWPOISON)
-		lsb = PAGE_SHIFT;
 #endif
-	info.si_addr_lsb = lsb;
-	force_sig_info(SIGBUS, &info, current);
+	force_sig_fault(SIGBUS, BUS_ADRERR, (void __user *)address, current);
 	return MM_FAULT_RETURN;
 }
 
