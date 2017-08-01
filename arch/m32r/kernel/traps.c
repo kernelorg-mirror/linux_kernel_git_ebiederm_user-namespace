@@ -238,15 +238,15 @@ static __inline__ void die_if_kernel(const char * str,
 }
 
 static __inline__ void do_trap(int trapnr, int signr, const char * str,
-	struct pt_regs * regs, long error_code, siginfo_t *info)
+	struct pt_regs * regs, long error_code, int sicode, void __user *addr)
 {
 	if (user_mode(regs)) {
 		/* trap_signal */
 		struct task_struct *tsk = current;
 		tsk->thread.error_code = error_code;
 		tsk->thread.trap_no = trapnr;
-		if (info)
-			force_sig_info(signr, info, tsk);
+		if (sicode)
+			force_sig_fault(signr, sicode, addr, tsk);
 		else
 			force_sig(signr, tsk);
 		return;
@@ -261,18 +261,14 @@ static __inline__ void do_trap(int trapnr, int signr, const char * str,
 #define DO_ERROR(trapnr, signr, str, name) \
 asmlinkage void do_##name(struct pt_regs * regs, long error_code) \
 { \
-	do_trap(trapnr, signr, NULL, regs, error_code, NULL); \
+	do_trap(trapnr, signr, NULL, regs, error_code, 0, NULL); \
 }
 
 #define DO_ERROR_INFO(trapnr, signr, str, name, sicode, siaddr) \
 asmlinkage void do_##name(struct pt_regs * regs, long error_code) \
 { \
-	siginfo_t info; \
-	info.si_signo = signr; \
-	info.si_errno = 0; \
-	info.si_code = sicode; \
-	info.si_addr = (void __user *)siaddr; \
-	do_trap(trapnr, signr, str, regs, error_code, &info); \
+	do_trap(trapnr, signr, str, regs, error_code, sicode, \
+		(void __user *)siaddr);			      \
 }
 
 DO_ERROR( 1, SIGTRAP, "debug trap", debug_trap)
