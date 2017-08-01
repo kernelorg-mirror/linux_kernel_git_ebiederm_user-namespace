@@ -201,18 +201,15 @@ int die_if_no_fixup(const char *str, struct pt_regs *regs,
  */
 asmlinkage void handle_exception(struct pt_regs *regs, u32 intcode)
 {
-	siginfo_t info;
-
 	/* deal with kernel exceptions here */
 	if (die_if_no_fixup(NULL, regs, intcode))
 		return;
 
 	/* otherwise it's a userspace exception */
-	info.si_signo = exception_to_signal_map[intcode >> 3].signo;
-	info.si_code = exception_to_signal_map[intcode >> 3].si_code;
-	info.si_errno = 0;
-	info.si_addr = (void *) regs->pc;
-	force_sig_info(info.si_signo, &info, current);
+	force_sig_fault(exception_to_signal_map[intcode >> 3].signo,
+			exception_to_signal_map[intcode >> 3].si_code,
+			(void __user *) regs->pc,
+			current);
 }
 
 /*
