@@ -80,7 +80,7 @@ asmlinkage void do_page_fault(struct pt_regs *regs, unsigned long error_code,
 	unsigned long page, addr;
 	unsigned long flags = 0;
 	int fault;
-	siginfo_t info;
+	int si_code;
 
 	/*
 	 * If BPSW IE bit enable --> set PSW IE bit
@@ -90,7 +90,7 @@ asmlinkage void do_page_fault(struct pt_regs *regs, unsigned long error_code,
 
 	tsk = current;
 
-	info.si_code = SEGV_MAPERR;
+	si_code = SEGV_MAPERR;
 
 	/*
 	 * We fault-in kernel-space virtual memory on-demand. The
@@ -168,7 +168,7 @@ asmlinkage void do_page_fault(struct pt_regs *regs, unsigned long error_code,
  * we can handle it..
  */
 good_area:
-	info.si_code = SEGV_ACCERR;
+	si_code = SEGV_ACCERR;
 	switch (error_code & (ACE_WRITE|ACE_PROTECTION)) {
 		default:	/* 3: write, present */
 			/* fall through */
@@ -227,11 +227,7 @@ bad_area_nosemaphore:
 		tsk->thread.address = address;
 		tsk->thread.error_code = error_code | (address >= TASK_SIZE);
 		tsk->thread.trap_no = 14;
-		info.si_signo = SIGSEGV;
-		info.si_errno = 0;
-		/* info.si_code has been set above */
-		info.si_addr = (void __user *)address;
-		force_sig_info(SIGSEGV, &info, tsk);
+		force_sig_fault(SIGSEGV, si_code, (void __user *)address, tsk);
 		return;
 	}
 
@@ -288,11 +284,7 @@ do_sigbus:
 	tsk->thread.address = address;
 	tsk->thread.error_code = error_code;
 	tsk->thread.trap_no = 14;
-	info.si_signo = SIGBUS;
-	info.si_errno = 0;
-	info.si_code = BUS_ADRERR;
-	info.si_addr = (void __user *)address;
-	force_sig_info(SIGBUS, &info, tsk);
+	force_sig_fault(SIGBUS, BUS_ADRERR, (void __user *)address, tsk);
 	return;
 
 vmalloc_fault:
