@@ -110,21 +110,20 @@ static const struct file_operations proc_status_fops = {
  */
 static void set_segfault(struct pt_regs *regs, unsigned long addr)
 {
-	siginfo_t info;
+	int si_code;
 
 	down_read(&current->mm->mmap_sem);
 	if (find_vma(current->mm, addr) == NULL)
-		info.si_code = SEGV_MAPERR;
+		si_code = SEGV_MAPERR;
 	else
-		info.si_code = SEGV_ACCERR;
+		si_code = SEGV_ACCERR;
 	up_read(&current->mm->mmap_sem);
 
-	info.si_signo = SIGSEGV;
-	info.si_errno = 0;
-	info.si_addr  = (void *) instruction_pointer(regs);
-
 	pr_debug("SWP{B} emulation: access caused memory abort!\n");
-	arm_notify_die("Illegal memory access", regs, &info, 0, 0);
+	arm_notify_die("Illegal memory access", regs,
+		       SIGSEGV, si_code,
+		       (void __user *)instruction_pointer(regs),
+		       0, 0);
 
 	abtcounter++;
 }
