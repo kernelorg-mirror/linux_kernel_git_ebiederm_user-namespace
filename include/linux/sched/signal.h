@@ -290,6 +290,7 @@ extern int send_sig_fault(int sig, int code, void __user *addr,
 			  int trapno,
 #endif
 			  struct task_struct *t);
+extern int send_sig_mceerr(int code, void __user *, short, struct task_struct *);
 extern int force_sigsegv(int, struct task_struct *);
 extern int force_sig_info(int, struct siginfo *, struct task_struct *);
 extern int force_sig_fault(int sig, int code, void __user *addr,
@@ -297,6 +298,7 @@ extern int force_sig_fault(int sig, int code, void __user *addr,
 			   int trapno,
 #endif
 			   struct task_struct *t);
+extern int force_sig_mceerr(int code, void __user *, short, struct task_struct *);
 extern int __kill_pgrp_info(int sig, struct siginfo *info, struct pid *pgrp);
 extern int kill_pid_info(int sig, struct siginfo *info, struct pid *pid);
 extern int kill_pid_info_as_cred(int, struct siginfo *, struct pid *,
