@@ -35,7 +35,7 @@ asmlinkage void do_page_fault(int datammu, unsigned long esr0, unsigned long ear
 	struct mm_struct *mm;
 	unsigned long _pme, lrai, lrad;
 	unsigned long flags = 0;
-	siginfo_t info;
+	int si_code;
 	pgd_t *pge;
 	pud_t *pue;
 	pte_t *pte;
@@ -72,7 +72,7 @@ asmlinkage void do_page_fault(int datammu, unsigned long esr0, unsigned long ear
 			goto kernel_pte_fault;
 	}
 
-	info.si_code = SEGV_MAPERR;
+	si_code = SEGV_MAPERR;
 
 	/*
 	 * If we're in an interrupt or have no user
@@ -131,7 +131,7 @@ asmlinkage void do_page_fault(int datammu, unsigned long esr0, unsigned long ear
  * we can handle it..
  */
  good_area:
-	info.si_code = SEGV_ACCERR;
+	si_code = SEGV_ACCERR;
 	switch (esr0 & ESR0_ATXC) {
 	default:
 		/* handle write to write protected page */
@@ -191,11 +191,7 @@ asmlinkage void do_page_fault(int datammu, unsigned long esr0, unsigned long ear
 
 	/* User mode accesses just cause a SIGSEGV */
 	if (user_mode(__frame)) {
-		info.si_signo = SIGSEGV;
-		info.si_errno = 0;
-		/* info.si_code has been set above */
-		info.si_addr = (void *) ear0;
-		force_sig_info(SIGSEGV, &info, current);
+		force_sig_fault(SIGSEGV, si_code, (void __user *) ear0, current);
 		return;
 	}
 
@@ -270,11 +266,7 @@ asmlinkage void do_page_fault(int datammu, unsigned long esr0, unsigned long ear
 	 * Send a sigbus, regardless of whether we were in kernel
 	 * or user mode.
 	 */
-	info.si_signo = SIGBUS;
-	info.si_errno = 0;
-	info.si_code = BUS_ADRERR;
-	info.si_addr = (void *) ear0;
-	force_sig_info(SIGBUS, &info, current);
+	force_sig_fault(SIGBUS, BUS_ADRERR, (void __user *) ear0, current);
 
 	/* Kernel mode? Handle exceptions or die */
 	if (!user_mode(__frame))
