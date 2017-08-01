@@ -39,19 +39,14 @@ extern asmlinkage void __break_hijack_kernel_event(void);
  */
 asmlinkage void insn_access_error(unsigned long esfr1, unsigned long epcr0, unsigned long esr0)
 {
-	siginfo_t info;
-
 	die_if_kernel("-- Insn Access Error --\n"
 		      "EPCR0 : %08lx\n"
 		      "ESR0  : %08lx\n",
 		      epcr0, esr0);
 
-	info.si_signo	= SIGSEGV;
-	info.si_code	= SEGV_ACCERR;
-	info.si_errno	= 0;
-	info.si_addr	= (void __user *) ((epcr0 & EPCR0_V) ? (epcr0 & EPCR0_PC) : __frame->pc);
-
-	force_sig_info(info.si_signo, &info, current);
+	force_sig_fault(SIGSEGV, SEGV_ACCERR,
+		(void __user *) ((epcr0 & EPCR0_V) ? (epcr0 & EPCR0_PC) : __frame->pc),
+		current);
 } /* end insn_access_error() */
 
 /*****************************************************************************/
@@ -64,7 +59,7 @@ asmlinkage void insn_access_error(unsigned long esfr1, unsigned long epcr0, unsi
  */
 asmlinkage void illegal_instruction(unsigned long esfr1, unsigned long epcr0, unsigned long esr0)
 {
-	siginfo_t info;
+	int signo, si_code;
 
 	die_if_kernel("-- Illegal Instruction --\n"
 		      "EPCR0 : %08lx\n"
@@ -72,32 +67,31 @@ asmlinkage void illegal_instruction(unsigned long esfr1, unsigned long epcr0, un
 		      "ESFR1 : %08lx\n",
 		      epcr0, esr0, esfr1);
 
-	info.si_errno	= 0;
-	info.si_addr	= (void __user *) ((epcr0 & EPCR0_V) ? (epcr0 & EPCR0_PC) : __frame->pc);
-
 	switch (__frame->tbr & TBR_TT) {
 	case TBR_TT_ILLEGAL_INSTR:
-		info.si_signo	= SIGILL;
-		info.si_code	= ILL_ILLOPC;
+		signo	= SIGILL;
+		si_code	= ILL_ILLOPC;
 		break;
 	case TBR_TT_PRIV_INSTR:
-		info.si_signo	= SIGILL;
-		info.si_code	= ILL_PRVOPC;
+		signo	= SIGILL;
+		si_code	= ILL_PRVOPC;
 		break;
 	case TBR_TT_TRAP2 ... TBR_TT_TRAP126:
-		info.si_signo	= SIGILL;
-		info.si_code	= ILL_ILLTRP;
+		signo	= SIGILL;
+		si_code	= ILL_ILLTRP;
 		break;
 	/* GDB uses "tira gr0, #1" as a breakpoint instruction.  */
 	case TBR_TT_TRAP1:
 	case TBR_TT_BREAK:
-		info.si_signo	= SIGTRAP;
-		info.si_code	=
+		signo	= SIGTRAP;
+		si_code	=
 			(__frame->__status & REG__STATUS_STEPPED) ? TRAP_TRACE : TRAP_BRKPT;
 		break;
 	}
 
-	force_sig_info(info.si_signo, &info, current);
+	force_sig_fault(signo, si_code,
+		(void __user *) ((epcr0 & EPCR0_V) ? (epcr0 & EPCR0_PC) : __frame->pc),
+			current);
 } /* end illegal_instruction() */
 
 /*****************************************************************************/
@@ -114,7 +108,6 @@ asmlinkage void atomic_operation(unsigned long esfr1, unsigned long epcr0,
 	unsigned long x, y, z;
 	unsigned long __user *p;
 	mm_segment_t oldfs;
-	siginfo_t info;
 	int ret;
 
 	y = 0;
@@ -320,12 +313,8 @@ error:
 
 	die_if_kernel("-- Atomic Op Error --\n");
 
-	info.si_signo	= SIGSEGV;
-	info.si_code	= SEGV_ACCERR;
-	info.si_errno	= 0;
-	info.si_addr	= (void __user *) __frame->pc;
-
-	force_sig_info(info.si_signo, &info, current);
+	force_sig_fault(SIGSEGV, SEGV_ACCERR, (void __user *) __frame->pc,
+			current);
 }
 
 /*****************************************************************************/
@@ -334,19 +323,13 @@ error:
  */
 asmlinkage void media_exception(unsigned long msr0, unsigned long msr1)
 {
-	siginfo_t info;
-
 	die_if_kernel("-- Media Exception --\n"
 		      "MSR0 : %08lx\n"
 		      "MSR1 : %08lx\n",
 		      msr0, msr1);
 
-	info.si_signo	= SIGFPE;
-	info.si_code	= FPE_MDAOVF;
-	info.si_errno	= 0;
-	info.si_addr	= (void __user *) __frame->pc;
-
-	force_sig_info(info.si_signo, &info, current);
+	force_sig_fault(SIGFPE, FPE_MDAOVF, (void __user *) __frame->pc,
+			current);
 } /* end media_exception() */
 
 /*****************************************************************************/
@@ -357,7 +340,7 @@ asmlinkage void memory_access_exception(unsigned long esr0,
 					unsigned long ear0,
 					unsigned long epcr0)
 {
-	siginfo_t info;
+	void __user *addr;
 
 #ifdef CONFIG_MMU
 	if (fixup_exception(__frame))
@@ -370,15 +353,11 @@ asmlinkage void memory_access_exception(unsigned long esr0,
 		      "EPCR0 : %08lx\n",
 		      esr0, ear0, epcr0);
 
-	info.si_signo	= SIGSEGV;
-	info.si_code	= SEGV_ACCERR;
-	info.si_errno	= 0;
-	info.si_addr	= NULL;
-
+	addr = (void __user *) NULL;
 	if ((esr0 & (ESRx_VALID | ESR0_EAV)) == (ESRx_VALID | ESR0_EAV))
-		info.si_addr = (void __user *) ear0;
+		addr = (void __user *) ear0;
 
-	force_sig_info(info.si_signo, &info, current);
+	force_sig_fault(SIGSEGV, SEGV_ACCERR, addr, current);
 
 } /* end memory_access_exception() */
 
@@ -395,20 +374,15 @@ asmlinkage void memory_access_exception(unsigned long esr0,
  */
 asmlinkage void data_access_error(unsigned long esfr1, unsigned long esr15, unsigned long ear15)
 {
-	siginfo_t info;
-
 	die_if_kernel("-- Data Access Error --\n"
 		      "ESR15 : %08lx\n"
 		      "EAR15 : %08lx\n",
 		      esr15, ear15);
 
-	info.si_signo	= SIGSEGV;
-	info.si_code	= SEGV_ACCERR;
-	info.si_errno	= 0;
-	info.si_addr	= (void __user *)
-		(((esr15 & (ESRx_VALID|ESR15_EAV)) == (ESRx_VALID|ESR15_EAV)) ? ear15 : 0);
-
-	force_sig_info(info.si_signo, &info, current);
+	force_sig_fault(SIGSEGV, SEGV_ACCERR,
+		(void __user *)
+		(((esr15 & (ESRx_VALID|ESR15_EAV)) == (ESRx_VALID|ESR15_EAV)) ? ear15 : 0),
+		current);
 } /* end data_access_error() */
 
 /*****************************************************************************/
@@ -429,19 +403,13 @@ asmlinkage void data_store_error(unsigned long esfr1, unsigned long esr15)
  */
 asmlinkage void division_exception(unsigned long esfr1, unsigned long esr0, unsigned long isr)
 {
-	siginfo_t info;
-
 	die_if_kernel("-- Division Exception --\n"
 		      "ESR0 : %08lx\n"
 		      "ISR  : %08lx\n",
 		      esr0, isr);
 
-	info.si_signo	= SIGFPE;
-	info.si_code	= FPE_INTDIV;
-	info.si_errno	= 0;
-	info.si_addr	= (void __user *) __frame->pc;
-
-	force_sig_info(info.si_signo, &info, current);
+	force_sig_fault(SIGFPE, FPE_INTDIV, (void __user *) __frame->pc,
+			current);
 } /* end division_exception() */
 
 /*****************************************************************************/
