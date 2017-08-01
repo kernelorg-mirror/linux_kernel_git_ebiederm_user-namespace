@@ -36,7 +36,8 @@ asmlinkage void fpu_disabled_in_kernel(struct pt_regs *regs)
 asmlinkage void fpu_exception(struct pt_regs *regs, enum exception_code code)
 {
 	struct task_struct *tsk = current;
-	siginfo_t info;
+	void __user *addr;
+	int si_code;
 	u32 fpcr;
 
 	if (!user_mode(regs))
@@ -49,25 +50,23 @@ asmlinkage void fpu_exception(struct pt_regs *regs, enum exception_code code)
 				" but the FPU is not in use",
 				regs, code);
 
-	info.si_signo = SIGFPE;
-	info.si_errno = 0;
-	info.si_addr = (void *) tsk->thread.uregs->pc;
-	info.si_code = FPE_FLTINV;
+	addr = (void *) tsk->thread.uregs->pc;
+	si_code = FPE_FLTINV;
 
 	unlazy_fpu(tsk);
 
 	fpcr = tsk->thread.fpu_state.fpcr;
 
 	if (fpcr & FPCR_EC_Z)
-		info.si_code = FPE_FLTDIV;
+		si_code = FPE_FLTDIV;
 	else if	(fpcr & FPCR_EC_O)
-		info.si_code = FPE_FLTOVF;
+		si_code = FPE_FLTOVF;
 	else if	(fpcr & FPCR_EC_U)
-		info.si_code = FPE_FLTUND;
+		si_code = FPE_FLTUND;
 	else if	(fpcr & FPCR_EC_I)
-		info.si_code = FPE_FLTRES;
+		si_code = FPE_FLTRES;
 
-	force_sig_info(SIGFPE, &info, tsk);
+	force_sig_fault(SIGFPE, si_code, addr, tsk);
 }
 
 /*
