@@ -57,7 +57,7 @@ do_page_fault(unsigned long address, struct pt_regs *regs,
 	struct task_struct *tsk;
 	struct mm_struct *mm;
 	struct vm_area_struct * vma;
-	siginfo_t info;
+	int si_code;
 	int fault;
 	unsigned int flags = FAULT_FLAG_ALLOW_RETRY | FAULT_FLAG_KILLABLE;
 
@@ -107,7 +107,7 @@ do_page_fault(unsigned long address, struct pt_regs *regs,
 	local_irq_enable();
 
 	mm = tsk->mm;
-	info.si_code = SEGV_MAPERR;
+	si_code = SEGV_MAPERR;
 
 	/*
 	 * If we're in an interrupt, have pagefaults disabled or have no
@@ -147,7 +147,7 @@ retry:
 	 */
 
  good_area:
-	info.si_code = SEGV_ACCERR;
+	si_code = SEGV_ACCERR;
 
 	/* first do some preliminary protection checks */
 
@@ -235,11 +235,7 @@ retry:
 #ifdef CONFIG_NO_SEGFAULT_TERMINATION
 		wait_event_interruptible(wq, 0 == 1);
 #else
-		info.si_signo = SIGSEGV;
-		info.si_errno = 0;
-		/* info.si_code has been set above */
-		info.si_addr = (void *)address;
-		force_sig_info(SIGSEGV, &info, tsk);
+		force_sig_fault(SIGSEGV, si_code, (void __user *)address, tsk);
 #endif
 		return;
 	}
@@ -297,11 +293,7 @@ retry:
 	 * Send a sigbus, regardless of whether we were in kernel
 	 * or user mode.
 	 */
-	info.si_signo = SIGBUS;
-	info.si_errno = 0;
-	info.si_code = BUS_ADRERR;
-	info.si_addr = (void *)address;
-	force_sig_info(SIGBUS, &info, tsk);
+	force_sig_fault(SIGBUS, BUS_ADRERR, (void __user *)address, tsk);
 
 	/* Kernel mode? Handle exceptions or die */
 	if (!user_mode(regs))
