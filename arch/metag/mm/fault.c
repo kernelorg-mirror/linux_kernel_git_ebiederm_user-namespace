@@ -52,7 +52,6 @@ int do_page_fault(struct pt_regs *regs, unsigned long address,
 	struct task_struct *tsk;
 	struct mm_struct *mm;
 	struct vm_area_struct *vma, *prev_vma;
-	siginfo_t info;
 	int fault;
 	unsigned int flags = FAULT_FLAG_ALLOW_RETRY | FAULT_FLAG_KILLABLE;
 
@@ -180,12 +179,6 @@ bad_area:
 
 bad_area_nosemaphore:
 	if (user_mode(regs)) {
-		info.si_signo = SIGSEGV;
-		info.si_errno = 0;
-		info.si_code = SEGV_MAPERR;
-		info.si_addr = (__force void __user *)address;
-		info.si_trapno = trapno;
-
 		if (show_unhandled_signals && unhandled_signal(tsk, SIGSEGV) &&
 		    printk_ratelimit()) {
 			printk("%s%s[%d]: segfault at %lx pc %08x sp %08x write %d trap %#x (%s)",
@@ -198,7 +191,8 @@ bad_area_nosemaphore:
 			printk("\n");
 			show_regs(regs);
 		}
-		force_sig_info(SIGSEGV, &info, tsk);
+		force_sig_fault(SIGSEGV, SEGV_MAPERR,
+				(__force void __user *)address, trapno,	tsk);
 		return 1;
 	}
 	goto no_context;
@@ -210,12 +204,8 @@ do_sigbus:
 	 * Send a sigbus, regardless of whether we were in kernel
 	 * or user mode.
 	 */
-	info.si_signo = SIGBUS;
-	info.si_errno = 0;
-	info.si_code = BUS_ADRERR;
-	info.si_addr = (__force void __user *)address;
-	info.si_trapno = trapno;
-	force_sig_info(SIGBUS, &info, tsk);
+	force_sig_fault(SIGBUS, BUS_ADRERR,
+			(__force void __user *)address, trapno, tsk);
 
 	/* Kernel mode? Handle exceptions or die */
 	if (!user_mode(regs))

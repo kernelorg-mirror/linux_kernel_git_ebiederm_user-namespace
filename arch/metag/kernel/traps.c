@@ -499,8 +499,6 @@ static void unhandled_fault(struct pt_regs *regs, unsigned long addr,
 			    int signo, int code, int trapno)
 {
 	if (user_mode(regs)) {
-		siginfo_t info;
-
 		if (show_unhandled_signals && unhandled_signal(current, signo)
 		    && printk_ratelimit()) {
 
@@ -513,12 +511,8 @@ static void unhandled_fault(struct pt_regs *regs, unsigned long addr,
 			show_regs(regs);
 		}
 
-		info.si_signo = signo;
-		info.si_errno = 0;
-		info.si_code = code;
-		info.si_addr = (__force void __user *)addr;
-		info.si_trapno = trapno;
-		force_sig_info(signo, &info, current);
+		force_sig_fault(signo, code, (__force void __user *)addr,
+				trapno, current);
 	} else {
 		die("Oops", regs, trapno, addr);
 	}
@@ -716,29 +710,27 @@ TBIRES fpe_handler(TBIRES State, int SigNum, int Triggers, int Inst, PTBI pTBI)
 {
 	struct pt_regs *regs = (struct pt_regs *)State.Sig.pCtx;
 	unsigned int error_state = Triggers;
-	siginfo_t info;
+	int si_code;
 
 	head_end(State, ~INTS_OFF_MASK);
 
 	local_irq_enable();
 
-	info.si_signo = SIGFPE;
-
 	if (error_state & TXSTAT_FPE_INVALID_BIT)
-		info.si_code = FPE_FLTINV;
+		si_code = FPE_FLTINV;
 	else if (error_state & TXSTAT_FPE_DIVBYZERO_BIT)
-		info.si_code = FPE_FLTDIV;
+		si_code = FPE_FLTDIV;
 	else if (error_state & TXSTAT_FPE_OVERFLOW_BIT)
-		info.si_code = FPE_FLTOVF;
+		si_code = FPE_FLTOVF;
 	else if (error_state & TXSTAT_FPE_UNDERFLOW_BIT)
-		info.si_code = FPE_FLTUND;
+		si_code = FPE_FLTUND;
 	else if (error_state & TXSTAT_FPE_INEXACT_BIT)
-		info.si_code = FPE_FLTRES;
+		si_code = FPE_FLTRES;
 	else
-		info.si_code = FPE_FIXME;
-	info.si_errno = 0;
-	info.si_addr = (__force void __user *)regs->ctx.CurrPC;
-	force_sig_info(SIGFPE, &info, current);
+		si_code = FPE_FIXME;
+	force_sig_fault(SIGFPE, si_code,
+			(__force void __user *)regs->ctx.CurrPC,
+			0, current);
 
 	return tail_end(State);
 }
