@@ -1209,6 +1209,9 @@ int force_sig_fault(int sig, int code, void __user *addr,
 #ifdef __ARCH_SI_TRAPNO
 		    int trapno,
 #endif
+#ifdef __ia64__
+		    int imm, unsigned int flags, unsigned long isr,
+#endif
 		    struct task_struct *t)
 {
 	struct siginfo info;
@@ -1220,6 +1223,11 @@ int force_sig_fault(int sig, int code, void __user *addr,
 	info.si_addr  = addr;
 #ifdef __ARCH_SI_TRAPNO
 	info.si_trapno = trapno;
+#endif
+#ifdef __ia64__
+	info.si_imm = imm;
+	info.si_flags = flags;
+	info.si_isr = isr;
 #endif
 	return force_sig_info(info.si_signo, &info, t);
 }
@@ -1501,6 +1509,9 @@ int send_sig_fault(int sig, int code, void __user *addr,
 #ifdef __ARCH_SI_TRAPNO
 		   int trapno,
 #endif
+#ifdef __ia64__
+		   int imm, unsigned int flags, unsigned long isr,
+#endif
 		   struct task_struct *t)
 {
 	struct siginfo info;
@@ -1512,6 +1523,11 @@ int send_sig_fault(int sig, int code, void __user *addr,
 	info.si_addr  = addr;
 #ifdef __ARCH_SI_TRAPNO
 	info.si_trapno = trapno;
+#endif
+#ifdef __ia64__
+	info.si_imm = imm;
+	info.si_flags = flags;
+	info.si_isr = isr;
 #endif
 	return send_sig_info(info.si_signo, &info, t);
 }

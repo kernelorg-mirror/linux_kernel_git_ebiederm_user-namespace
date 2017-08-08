@@ -289,6 +289,9 @@ extern int send_sig_fault(int sig, int code, void __user *addr,
 #ifdef __ARCH_SI_TRAPNO
 			  int trapno,
 #endif
+#ifdef __ia64__
+			  int imm, unsigned int flags, unsigned long isr,
+#endif
 			  struct task_struct *t);
 extern int send_sig_mceerr(int code, void __user *, short, struct task_struct *);
 extern int force_sigsegv(int, struct task_struct *);
@@ -296,6 +299,9 @@ extern int force_sig_info(int, struct siginfo *, struct task_struct *);
 extern int force_sig_fault(int sig, int code, void __user *addr,
 #ifdef __ARCH_SI_TRAPNO
 			   int trapno,
+#endif
+#ifdef __ia64__
+			   int imm, unsigned int flags, unsigned long isr,
 #endif
 			   struct task_struct *t);
 extern int force_sig_mceerr(int code, void __user *, short, struct task_struct *);
