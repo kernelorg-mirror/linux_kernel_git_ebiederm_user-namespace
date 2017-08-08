@@ -1238,6 +1238,21 @@ int force_sig_mceerr(int code, void __user *addr, short lsb, struct task_struct 
 	return force_sig_info(info.si_signo, &info, t);
 }
 
+int force_sig_bnderr(void __user *addr, void __user *lower, void __user *upper,
+		     struct task_struct *t)
+{
+	struct siginfo info;
+
+	clear_siginfo(&info);
+	info.si_signo = SIGSEGV;
+	info.si_errno = 0;
+	info.si_code  = SEGV_BNDERR;
+	info.si_addr  = addr;
+	info.si_lower = lower;
+	info.si_upper = upper;
+	return force_sig_info(info.si_signo, &info, t);
+}
+
 /*
  * Nuke all other threads in the group.
  */
