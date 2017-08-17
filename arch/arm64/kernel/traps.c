@@ -299,12 +299,13 @@ void die(const char *str, struct pt_regs *regs, int err)
 }
 
 void arm64_notify_die(const char *str, struct pt_regs *regs,
-		      struct siginfo *info, int err)
+		      int signo, int sicode, void __user *addr,
+		      int err)
 {
 	if (user_mode(regs)) {
 		current->thread.fault_address = 0;
 		current->thread.fault_code = err;
-		force_sig_info(info->si_signo, info, current);
+		force_sig_fault(signo, sicode, addr, current);
 	} else {
 		die(str, regs, err);
 	}
@@ -378,7 +379,6 @@ exit:
 static void force_signal_inject(int signal, int code, struct pt_regs *regs,
 				unsigned long address)
 {
-	siginfo_t info;
 	void __user *pc = (void __user *)instruction_pointer(regs);
 	const char *desc;
 
@@ -401,12 +401,7 @@ static void force_signal_inject(int signal, int code, struct pt_regs *regs,
 		dump_instr(KERN_INFO, regs);
 	}
 
-	info.si_signo = signal;
-	info.si_errno = 0;
-	info.si_code  = code;
-	info.si_addr  = pc;
-
-	arm64_notify_die(desc, regs, &info, 0);
+	arm64_notify_die(desc, regs, signal, code, pc, 0);
 }
 
 /*
