@@ -103,7 +103,6 @@ void do_fpsimd_acc(unsigned int esr, struct pt_regs *regs)
  */
 void do_fpsimd_exc(unsigned int esr, struct pt_regs *regs)
 {
-	siginfo_t info;
 	unsigned int si_code = FPE_FIXME;
 
 	if (esr & FPEXC_IOF)
@@ -117,12 +116,9 @@ void do_fpsimd_exc(unsigned int esr, struct pt_regs *regs)
 	else if (esr & FPEXC_IXF)
 		si_code = FPE_FLTRES;
 
-	memset(&info, 0, sizeof(info));
-	info.si_signo = SIGFPE;
-	info.si_code = si_code;
-	info.si_addr = (void __user *)instruction_pointer(regs);
-
-	send_sig_info(SIGFPE, &info, current);
+	send_sig_fault(SIGFPE, si_code,
+		       (void __user *)instruction_pointer(regs),
+		       current);
 }
 
 void fpsimd_thread_switch(struct task_struct *next)
