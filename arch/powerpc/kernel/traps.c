@@ -239,13 +239,9 @@ void die(const char *str, struct pt_regs *regs, long err)
 }
 NOKPROBE_SYMBOL(die);
 
-void user_single_step_siginfo(struct task_struct *tsk,
-				struct pt_regs *regs, siginfo_t *info)
+void user_single_step_report(struct pt_regs *regs)
 {
-	memset(info, 0, sizeof(*info));
-	info->si_signo = SIGTRAP;
-	info->si_code = TRAP_TRACE;
-	info->si_addr = (void __user *)regs->nip;
+	force_sig_fault(SIGTRAP, TRAP_TRACE, (void __user *)regs->nip, current);
 }
 
 void _exception(int signr, struct pt_regs *regs, int code, unsigned long addr)
