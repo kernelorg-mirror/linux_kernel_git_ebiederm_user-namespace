@@ -261,7 +261,6 @@ static void __do_user_fault(struct task_struct *tsk, unsigned long addr,
 			    unsigned int esr, unsigned int sig, int code,
 			    struct pt_regs *regs, int fault)
 {
-	struct siginfo si;
 	const struct fault_info *inf;
 
 	if (unhandled_signal(tsk, sig) && show_unhandled_signals_ratelimited()) {
@@ -276,10 +275,6 @@ static void __do_user_fault(struct task_struct *tsk, unsigned long addr,
 
 	tsk->thread.fault_address = addr;
 	tsk->thread.fault_code = esr;
-	si.si_signo = sig;
-	si.si_errno = 0;
-	si.si_code = code;
-	si.si_addr = (void __user *)addr;
 	/*
 	 * Either small page or large page may be poisoned.
 	 * In other words, VM_FAULT_HWPOISON_LARGE and
@@ -295,7 +290,7 @@ static void __do_user_fault(struct task_struct *tsk, unsigned long addr,
 		return;
 	}
 
-	force_sig_info(sig, &si, tsk);
+	force_sig_fault(sig, code, (void __user *)addr, tsk);
 }
 
 static void do_bad_area(unsigned long addr, unsigned int esr, struct pt_regs *regs)

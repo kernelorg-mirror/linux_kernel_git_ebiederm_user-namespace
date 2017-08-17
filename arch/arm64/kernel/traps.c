@@ -661,7 +661,6 @@ asmlinkage void bad_mode(struct pt_regs *regs, int reason, unsigned int esr)
  */
 asmlinkage void bad_el0_sync(struct pt_regs *regs, int reason, unsigned int esr)
 {
-	siginfo_t info;
 	void __user *pc = (void __user *)instruction_pointer(regs);
 	console_verbose();
 
@@ -669,15 +668,10 @@ asmlinkage void bad_el0_sync(struct pt_regs *regs, int reason, unsigned int esr)
 		smp_processor_id(), esr, esr_get_class_string(esr));
 	__show_regs(regs);
 
-	info.si_signo = SIGILL;
-	info.si_errno = 0;
-	info.si_code  = ILL_ILLOPC;
-	info.si_addr  = pc;
-
 	current->thread.fault_address = 0;
 	current->thread.fault_code = 0;
 
-	force_sig_info(info.si_signo, &info, current);
+	force_sig_fault(SIGILL, ILL_ILLOPC, pc, current);
 }
 
 void __pte_error(const char *file, int line, unsigned long val)
