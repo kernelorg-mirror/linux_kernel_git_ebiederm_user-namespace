@@ -263,7 +263,6 @@ static void __do_user_fault(struct task_struct *tsk, unsigned long addr,
 {
 	struct siginfo si;
 	const struct fault_info *inf;
-	unsigned int lsb = 0;
 
 	if (unhandled_signal(tsk, sig) && show_unhandled_signals_ratelimited()) {
 		inf = esr_to_fault_info(esr);
@@ -286,11 +285,15 @@ static void __do_user_fault(struct task_struct *tsk, unsigned long addr,
 	 * In other words, VM_FAULT_HWPOISON_LARGE and
 	 * VM_FAULT_HWPOISON are mutually exclusive.
 	 */
-	if (fault & VM_FAULT_HWPOISON_LARGE)
-		lsb = hstate_index_to_shift(VM_FAULT_GET_HINDEX(fault));
-	else if (fault & VM_FAULT_HWPOISON)
-		lsb = PAGE_SHIFT;
-	si.si_addr_lsb = lsb;
+	if (fault & (VM_FAULT_HWPOISON_LARGE | VM_FAULT_HWPOISON)) {
+		unsigned int lsb = 0;
+		if (fault & VM_FAULT_HWPOISON_LARGE)
+			lsb = hstate_index_to_shift(VM_FAULT_GET_HINDEX(fault));
+		else if (fault & VM_FAULT_HWPOISON)
+			lsb = PAGE_SHIFT;
+		force_sig_mceerr(code, (void __user *)addr, lsb, tsk);
+		return;
+	}
 
 	force_sig_info(sig, &si, tsk);
 }
