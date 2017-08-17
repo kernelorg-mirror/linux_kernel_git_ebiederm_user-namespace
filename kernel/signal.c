@@ -1261,6 +1261,21 @@ int force_sig_bnderr(void __user *addr, void __user *lower, void __user *upper,
 	return force_sig_info(info.si_signo, &info, t);
 }
 
+/* For the crazy architectures that include trap information in
+ * the errno field, instead of an actual errno value.
+ */
+int force_sig_ptrace(int errno, void __user *addr)
+{
+	struct siginfo info;
+
+	clear_siginfo(&info);
+	info.si_signo = SIGTRAP;
+	info.si_errno = errno;
+	info.si_code  = TRAP_HWBKPT;
+	info.si_addr  = addr;
+	return force_sig_info(info.si_signo, &info, current);
+}
+
 /*
  * Nuke all other threads in the group.
  */

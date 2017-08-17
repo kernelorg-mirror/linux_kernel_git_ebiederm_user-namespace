@@ -180,30 +180,24 @@ static void ptrace_hbptriggered(struct perf_event *bp,
 
 #ifdef CONFIG_COMPAT
 	if (is_compat_task()) {
-		struct siginfo info;
+		int si_errno = 0;
 		int i;
-
-		clear_siginfo(&info);
-		info.si_signo	= SIGTRAP;
-		info.si_errno	= 0;
-		info.si_code	= TRAP_HWBKPT;
-		info.si_addr	= (void __user *)(bkpt->trigger);
 
 		for (i = 0; i < ARM_MAX_BRP; ++i) {
 			if (current->thread.debug.hbp_break[i] == bp) {
-				info.si_errno = (i << 1) + 1;
+				si_errno = (i << 1) + 1;
 				break;
 			}
 		}
 
 		for (i = 0; i < ARM_MAX_WRP; ++i) {
 			if (current->thread.debug.hbp_watch[i] == bp) {
-				info.si_errno = -((i << 1) + 1);
+				si_errno = -((i << 1) + 1);
 				break;
 			}
 		}
 
-		force_sig_info(SIGTRAP, &info, current);
+		force_sig_ptrace(si_errno, (void __user *)bkpt->trigger);
 	}
 #endif
 	force_sig_fault(SIGTRAP, TRAP_HWBKPT, (void __user *)(bkpt->trigger),

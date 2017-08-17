@@ -293,12 +293,7 @@ static void ptrace_hbptriggered(struct perf_event *bp,
 		i = (i << 1) | 1;
 	}
 
-	info.si_signo = SIGTRAP;
-	info.si_errno = i;
-	info.si_code = TRAP_HWBKPT;
-	info.si_addr = (void __user *)bkpt->address;
-
-	force_sig_info(SIGTRAP, &info, current);
+	force_sig_ptrace(i, (void __user *)bktp->address);
 }
 
 static struct perf_event *ptrace_hbp_create(struct task_struct *tsk, int type)
