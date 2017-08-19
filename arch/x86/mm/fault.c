@@ -192,16 +192,18 @@ is_prefetch(struct pt_regs *regs, unsigned long error_code, unsigned long addr)
  * 6. T1   : reaches here, sees vma_pkey(vma)=5, when we really
  *	     faulted on a pte with its pkey=4.
  */
-static void fill_sig_info_pkey(int si_signo, int si_code, siginfo_t *info,
-		struct vm_area_struct *vma)
+static bool force_sig_info_pkey(int si_signo, int si_code, unsigned long address,
+		struct vm_area_struct *vma, struct task_struct *tsk)
 {
+	u32 pkey;
+
 	/* This is effectively an #ifdef */
 	if (!boot_cpu_has(X86_FEATURE_OSPKE))
-		return;
+		return false;
 
 	/* Fault not from Protection Keys: nothing to do */
 	if ((si_code != SEGV_PKUERR) || (si_signo != SIGSEGV))
-		return;
+		return false;
 	/*
 	 * force_sig_info_fault() is called from a number of
 	 * contexts, some of which have a VMA and some of which
@@ -211,15 +213,18 @@ static void fill_sig_info_pkey(int si_signo, int si_code, siginfo_t *info,
 	 */
 	if (!vma) {
 		WARN_ONCE(1, "PKU fault with no VMA passed in");
-		info->si_pkey = 0;
-		return;
+		pkey = 0;
+	} else {
+		pkey = vma_pkey(vma);
 	}
+
 	/*
 	 * si_pkey should be thought of as a strong hint, but not
 	 * absolutely guranteed to be 100% accurate because of
 	 * the race explained above.
 	 */
-	info->si_pkey = vma_pkey(vma);
+	force_sig_pkuerr((void __user *)address, pkey, tsk);
+	return true;
 }
 
 static void
@@ -233,7 +238,8 @@ force_sig_info_fault(int si_signo, int si_code, unsigned long address,
 	info.si_code	= si_code;
 	info.si_addr	= (void __user *)address;
 
-	fill_sig_info_pkey(si_signo, si_code, &info, vma);
+	if (force_sig_info_pkey(si_signo, si_code, address, vma, tsk))
+		return;
 
 	force_sig_info(si_signo, &info, tsk);
 }

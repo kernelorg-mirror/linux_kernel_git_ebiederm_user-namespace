@@ -1261,6 +1261,18 @@ int force_sig_bnderr(void __user *addr, void __user *lower, void __user *upper,
 	return force_sig_info(info.si_signo, &info, t);
 }
 
+int force_sig_pkuerr(void __user *addr, u32 pkey, struct task_struct *t)
+{
+       struct siginfo info;
+
+       clear_siginfo(&info);
+       info.si_signo = SIGSEGV;
+       info.si_errno = 0;
+       info.si_code  = SEGV_PKUERR;
+       info.si_pkey  = pkey;
+       return force_sig_info(info.si_signo, &info, t);
+}
+
 /* For the crazy architectures that include trap information in
  * the errno field, instead of an actual errno value.
  */

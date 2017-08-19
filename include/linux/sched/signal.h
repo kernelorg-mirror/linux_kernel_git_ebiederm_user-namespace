@@ -308,6 +308,7 @@ extern int force_sig_mceerr(int code, void __user *, short, struct task_struct *
 extern int force_sig_bnderr(void __user *addr,
 			    void __user *lower, void __user *upper,
 			    struct task_struct *tsk);
+extern int force_sig_pkuerr(void __user *addr, u32 pkey, struct task_struct *);
 extern int force_sig_ptrace(int errno, void __user *addr);
 extern int __kill_pgrp_info(int sig, struct siginfo *info, struct pid *pgrp);
 extern int kill_pid_info(int sig, struct siginfo *info, struct pid *pid);
