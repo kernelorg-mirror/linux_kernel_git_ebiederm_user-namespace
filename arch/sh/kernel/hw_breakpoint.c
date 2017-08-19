@@ -349,6 +349,7 @@ static int __kprobes hw_breakpoint_handler(struct die_args *args)
 		if (!arch_check_bp_in_kernelspace(bp)) {
 			siginfo_t info;
 
+			clear_siginfo(&info);
 			info.si_signo = args->signr;
 			info.si_errno = notifier_to_errno(rc);
 			info.si_code = TRAP_HWBKPT;

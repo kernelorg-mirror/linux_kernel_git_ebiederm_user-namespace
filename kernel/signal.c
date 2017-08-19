@@ -547,6 +547,7 @@ still_pending:
 		 * a fast-pathed signal or we must have been
 		 * out of queue space.  So zero out the info.
 		 */
+		clear_siginfo(info);
 		info->si_signo = sig;
 		info->si_errno = 0;
 		info->si_code = SI_USER;
@@ -1045,6 +1046,7 @@ static int __send_signal(int sig, struct siginfo *info, struct task_struct *t,
 		list_add_tail(&q->list, &pending->list);
 		switch ((unsigned long) info) {
 		case (unsigned long) SEND_SIG_NOINFO:
+			clear_siginfo(&q->info);
 			q->info.si_signo = sig;
 			q->info.si_errno = 0;
 			q->info.si_code = SI_USER;
@@ -1053,6 +1055,7 @@ static int __send_signal(int sig, struct siginfo *info, struct task_struct *t,
 			q->info.si_uid = from_kuid_munged(current_user_ns(), current_uid());
 			break;
 		case (unsigned long) SEND_SIG_PRIV:
+			clear_siginfo(&q->info);
 			q->info.si_signo = sig;
 			q->info.si_errno = 0;
 			q->info.si_code = SI_KERNEL;
@@ -1746,6 +1749,7 @@ bool do_notify_parent(struct task_struct *tsk, int sig)
 			sig = SIGCHLD;
 	}
 
+	clear_siginfo(&info);
 	info.si_signo = sig;
 	info.si_errno = 0;
 	/*
@@ -1840,6 +1844,7 @@ static void do_notify_parent_cldstop(struct task_struct *tsk,
 		parent = tsk->real_parent;
 	}
 
+	clear_siginfo(&info);
 	info.si_signo = SIGCHLD;
 	info.si_errno = 0;
 	/*
@@ -2259,6 +2264,7 @@ static int ptrace_signal(int signr, siginfo_t *info)
 	 * have updated *info via PTRACE_SETSIGINFO.
 	 */
 	if (signr != info->si_signo) {
+		clear_siginfo(info);
 		info->si_signo = signr;
 		info->si_errno = 0;
 		info->si_code = SI_USER;
@@ -3239,6 +3245,7 @@ SYSCALL_DEFINE2(kill, pid_t, pid, int, sig)
 {
 	struct siginfo info;
 
+	clear_siginfo(&info);
 	info.si_signo = sig;
 	info.si_errno = 0;
 	info.si_code = SI_USER;
