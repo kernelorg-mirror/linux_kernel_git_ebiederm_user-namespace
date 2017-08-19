@@ -720,7 +720,7 @@ void unknown_exception(struct pt_regs *regs)
 	printk("Bad trap at PC: %lx, SR: %lx, vector=%lx\n",
 	       regs->nip, regs->msr, regs->trap);
 
-	_exception(SIGTRAP, regs, 0, 0);
+	_exception(SIGTRAP, regs, TRAP_FIXME, 0);
 
 	exception_exit(prev_state);
 }
@@ -742,7 +742,7 @@ bail:
 
 void RunModeException(struct pt_regs *regs)
 {
-	_exception(SIGTRAP, regs, 0, 0);
+	_exception(SIGTRAP, regs, TRAP_FIXME, 0);
 }
 
 void single_step_exception(struct pt_regs *regs)
@@ -781,7 +781,7 @@ static void emulate_single_step(struct pt_regs *regs)
 
 static inline int __parse_fpscr(unsigned long fpscr)
 {
-	int ret = 0;
+	int ret = FPE_FIXME;
 
 	/* Invalid operation */
 	if ((fpscr & FPSCR_VE) && (fpscr & FPSCR_VX))
@@ -1838,7 +1838,7 @@ void SPEFloatingPointRoundException(struct pt_regs *regs)
 		printk(KERN_ERR "unrecognized spe instruction "
 		       "in %s at %lx\n", current->comm, regs->nip);
 	} else {
-		_exception(SIGFPE, regs, 0, regs->nip);
+		_exception(SIGFPE, regs, FPE_FIXME, regs->nip);
 		return;
 	}
 }
