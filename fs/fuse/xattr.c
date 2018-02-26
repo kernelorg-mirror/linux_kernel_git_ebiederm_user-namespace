@@ -82,6 +82,7 @@ ssize_t fuse_getxattr(struct inode *inode, const char *name, void *value,
 		ret = min_t(ssize_t, outarg.size, XATTR_SIZE_MAX);
 	if (ret == -ENOSYS) {
 		fc->no_getxattr = 1;
+		cache_no_acl(inode);
 		ret = -EOPNOTSUPP;
 	}
 	return ret;
