@@ -619,7 +619,7 @@ struct fuse_conn {
 	unsigned no_lseek:1;
 
 	/** Does the filesystem support posix acls? */
-	unsigned posix_acl:1;
+	unsigned cached_posix_acl:1;
 
 	/** Check permissions based on the file mode or not? */
 	unsigned default_permissions:1;
@@ -913,6 +913,8 @@ void fuse_release_nowrite(struct inode *inode);
 
 u64 fuse_get_attr_version(struct fuse_conn *fc);
 
+void fuse_forget_cached_acls(struct inode *inode);
+
 /**
  * File-system tells the kernel to invalidate cache for the given node id.
  */
@@ -974,7 +976,6 @@ ssize_t fuse_getxattr(struct inode *inode, const char *name, void *value,
 ssize_t fuse_listxattr(struct dentry *entry, char *list, size_t size);
 int fuse_removexattr(struct inode *inode, const char *name);
 extern const struct xattr_handler *fuse_xattr_handlers[];
-extern const struct xattr_handler *fuse_acl_xattr_handlers[];
 
 struct posix_acl;
 struct posix_acl *fuse_get_acl(struct inode *inode, int type);
