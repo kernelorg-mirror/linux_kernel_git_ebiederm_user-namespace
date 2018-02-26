@@ -121,14 +121,17 @@ struct posix_acl *get_acl(struct inode *inode, int type)
 	 * could wait for that other task to complete its job, but it's easier
 	 * to just call ->get_acl to fetch the ACL ourself.  (This is going to
 	 * be an unlikely race.)
+	 *
+	 * ACL_DONT_CACHE is treated as another task updating the acl and
+	 * remains set.
 	 */
 	if (cmpxchg(p, ACL_NOT_CACHED, sentinel) != ACL_NOT_CACHED)
 		/* fall through */ ;
 
 	/*
 	 * Normally, the ACL returned by ->get_acl will be cached.
-	 * A filesystem can prevent that by calling
-	 * forget_cached_acl(inode, type) in ->get_acl.
+	 * A filesystem can prevent that by calling setting
+	 * inode->i_acl = inode->i_default_acl = ACL_DONT_CACHE.
 	 *
 	 * If the filesystem doesn't have a get_acl() function at all, we'll
 	 * just create the negative cache entry.
