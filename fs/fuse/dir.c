@@ -1764,7 +1764,7 @@ static int fuse_setattr(struct dentry *entry, struct iattr *attr)
 		 * If filesystem supports acls it may have updated acl xattrs in
 		 * the filesystem, so forget cached acls for the inode.
 		 */
-		if (fc->posix_acl)
+		if (fc->cached_posix_acl)
 			forget_all_cached_acls(inode);
 
 		/* Directory mode changed, may need to revalidate access */

@@ -19,7 +19,7 @@ struct posix_acl *fuse_get_acl(struct inode *inode, int type)
 	void *value = NULL;
 	struct posix_acl *acl;
 
-	if (!fc->posix_acl || fc->no_getxattr)
+	if (fc->no_getxattr)
 		return NULL;
 
 	if (type == ACL_TYPE_ACCESS)
@@ -44,6 +44,8 @@ struct posix_acl *fuse_get_acl(struct inode *inode, int type)
 		acl = ERR_PTR(size);
 
 	kfree(value);
+	if (!IS_ERR(acl) && !fc->cached_posix_acl)
+		acl = to_uncacheable_acl(acl);
 	return acl;
 }
 
@@ -53,7 +55,7 @@ int fuse_set_acl(struct inode *inode, struct posix_acl *acl, int type)
 	const char *name;
 	int ret;
 
-	if (!fc->posix_acl || fc->no_setxattr)
+	if (fc->no_setxattr)
 		return -EOPNOTSUPP;
 
 	if (type == ACL_TYPE_ACCESS)
