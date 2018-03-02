@@ -56,6 +56,23 @@ posix_acl_release(struct posix_acl *acl)
 		kfree_rcu(acl, a_rcu);
 }
 
+/*
+ * Allow for acls returned from ->get_acl() to not be cached.
+ */
+static inline bool is_uncacheable_acl(struct posix_acl *acl)
+{
+	return ((unsigned long)acl) & 1UL;
+}
+
+static inline struct posix_acl *to_uncacheable_acl(struct posix_acl *acl)
+{
+	return (struct posix_acl *)(((unsigned long)acl) | 1UL);
+}
+
+static inline struct posix_acl *to_cacheable_acl(struct posix_acl *acl)
+{
+	return (struct posix_acl *)(((unsigned long)acl) & ~1UL);
+}
 
 /* posix_acl.c */
 
