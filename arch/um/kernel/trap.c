@@ -296,9 +296,6 @@ out:
 
 void relay_signal(int sig, struct siginfo *si, struct uml_pt_regs *regs)
 {
-	struct faultinfo *fi;
-	struct siginfo clean_si;
-
 	if (!UPT_IS_USER(regs)) {
 		if (sig == SIGBUS)
 			printk(KERN_ERR "Bus error - the host /dev/shm or /tmp "
@@ -308,29 +305,30 @@ void relay_signal(int sig, struct siginfo *si, struct uml_pt_regs *regs)
 
 	arch_examine_signal(sig, regs);
 
-	clear_siginfo(&clean_si);
-	clean_si.si_signo = si->si_signo;
-	clean_si.si_errno = si->si_errno;
-	clean_si.si_code = si->si_code;
+	if (unlikely(si->si_errno)) {
+		printk(KERN_ERR "Attempted to relay signal %d (si_code = %d) with errno %d\n",
+		       sig, si->si_code, si->si_errno);
+	}
 	switch (sig) {
 	case SIGILL:
 	case SIGFPE:
 	case SIGSEGV:
 	case SIGBUS:
 	case SIGTRAP:
-		fi = UPT_FAULTINFO(regs);
-		clean_si.si_addr = (void __user *) FAULT_ADDRESS(*fi);
-		current->thread.arch.faultinfo = *fi;
-#ifdef __ARCH_SI_TRAPNO
-		clean_si.si_trapno = si->si_trapno;
-#endif
-		break;
+		if ((si->si_code > SI_USER) && (si->si_code < SI_KERNEL)) {
+			struct faultinfo *fi = UPT_FAULTINFO(regs);
+			current->thread.arch.faultinfo = *fi;
+			force_sig_fault(sig, si->si_code,
+					(void __user *)FAULT_ADDRESS(*fi),
+					current);
+			break;
+		}
 	default:
 		printk(KERN_ERR "Attempted to relay unknown signal %d (si_code = %d)\n",
 			sig, si->si_code);
 	}
 
-	force_sig_info(sig, &clean_si, current);
+	force_sig(sig, current);
 }
 
 void bus_handler(int sig, struct siginfo *si, struct uml_pt_regs *regs)
