@@ -231,6 +231,7 @@ int security_sb_pivotroot(const struct path *old_path, const struct path *new_pa
 int security_sb_set_mnt_opts(struct super_block *sb,const char *optv[]);
 int security_sb_clone_mnt_opts(const struct super_block *oldsb,
 				struct super_block *newsb);
+int security_move_mount(const struct path *from_path, const struct path *to_path);
 int security_dentry_init_security(struct dentry *dentry, int mode,
 					const struct qstr *name, void **ctx,
 					u32 *ctxlen);
@@ -568,6 +569,12 @@ static inline int security_sb_set_mnt_opts(struct super_block *sb,
 
 static inline int security_sb_clone_mnt_opts(const struct super_block *oldsb,
 					      struct super_block *newsb)
+{
+	return 0;
+}
+
+static inline int security_move_mount(const struct path *from_path,
+				      const struct path *to_path)
 {
 	return 0;
 }
