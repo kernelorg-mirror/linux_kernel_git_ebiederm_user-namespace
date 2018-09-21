@@ -57,6 +57,11 @@ extern void __init chrdev_init(void);
 extern int validate_fc(struct fs_context *fc);
 
 /*
+ * fsopen.c
+ */
+extern void vfs_clean_context(struct fs_context *fc);
+
+/*
  * namei.c
  */
 extern int filename_lookup(int dfd, struct filename *name, unsigned flags,
