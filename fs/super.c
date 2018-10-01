@@ -35,6 +35,7 @@
 #include <linux/fsnotify.h>
 #include <linux/lockdep.h>
 #include <linux/user_namespace.h>
+#include <linux/fs_context.h>
 #include <uapi/linux/mount.h>
 #include "internal.h"
 
@@ -133,7 +134,7 @@ static unsigned long super_cache_count(struct shrinker *shrink,
 	 * filesystem might be in a state of partial construction and hence it
 	 * is dangerous to access it.  trylock_super() uses a SB_BORN check to
 	 * avoid this situation, so do the same here. The memory barrier is
-	 * matched with the one in mount_fs() as we don't hold locks here.
+	 * matched with the one in vfs_get_super() as we don't hold locks here.
 	 */
 	if (!(sb->s_flags & SB_BORN))
 		return 0;
@@ -835,28 +836,30 @@ rescan:
 }
 
 /**
- *	do_remount_sb - asks filesystem to change mount options.
- *	@sb:	superblock in question
- *	@sb_flags: revised superblock flags
- *	@data:	the rest of options
- *      @force: whether or not to force the change
+ * reconfigure_super - asks filesystem to change mount options.
+ * @fc: The superblock and configuration
  *
- *	Alters the mount options of a mounted file system.
+ * Alters the configuration parameters of a live superblock.
  */
-int do_remount_sb(struct super_block *sb, int sb_flags, void *data, int force)
+int reconfigure_super(struct fs_context *fc)
 {
+	struct super_block *sb = fc->root->d_sb;
+	int remount_ro = false;
 	int retval;
-	int remount_ro;
 
+	if (fc->sb_flags_mask & ~MS_RMT_MASK)
+		return -EINVAL;
 	if (sb->s_writers.frozen != SB_UNFROZEN)
 		return -EBUSY;
 
+	if (fc->sb_flags_mask & SB_RDONLY) {
 #ifdef CONFIG_BLOCK
-	if (!(sb_flags & SB_RDONLY) && bdev_read_only(sb->s_bdev))
-		return -EACCES;
+		if (!(fc->sb_flags & SB_RDONLY) && bdev_read_only(sb->s_bdev))
+			return -EACCES;
 #endif
 
-	remount_ro = (sb_flags & SB_RDONLY) && !sb_rdonly(sb);
+		remount_ro = (fc->sb_flags & SB_RDONLY) && !sb_rdonly(sb);
+	}
 
 	if (remount_ro) {
 		if (!hlist_empty(&sb->s_pins)) {
@@ -867,15 +870,16 @@ int do_remount_sb(struct super_block *sb, int sb_flags, void *data, int force)
 				return 0;
 			if (sb->s_writers.frozen != SB_UNFROZEN)
 				return -EBUSY;
-			remount_ro = (sb_flags & SB_RDONLY) && !sb_rdonly(sb);
+			remount_ro = !sb_rdonly(sb);
 		}
 	}
 	shrink_dcache_sb(sb);
 
-	/* If we are remounting RDONLY and current sb is read/write,
-	   make sure there are no rw files opened */
+	/* If we are reconfiguring to RDONLY and current sb is read/write,
+	 * make sure there are no files open for writing.
+	 */
 	if (remount_ro) {
-		if (force) {
+		if (fc->purpose == FS_CONTEXT_FOR_EMERGENCY_RO) {
 			sb->s_readonly_remount = 1;
 			smp_wmb();
 		} else {
@@ -885,17 +889,20 @@ int do_remount_sb(struct super_block *sb, int sb_flags, void *data, int force)
 		}
 	}
 
-	if (sb->s_op->remount_fs) {
-		retval = sb->s_op->remount_fs(sb, &sb_flags, data);
-		if (retval) {
-			if (!force)
+	if (fc->ops->reconfigure) {
+		retval = fc->ops->reconfigure(fc);
+		if (retval == 0) {
+			security_sb_reconfigure(fc);
+		} else if (retval != -EOPNOTSUPP) {
+			if (fc->purpose != FS_CONTEXT_FOR_EMERGENCY_RO)
 				goto cancel_readonly;
 			/* If forced remount, go ahead despite any errors */
 			WARN(1, "forced remount of a %s fs returned %i\n",
 			     sb->s_type->name, retval);
 		}
 	}
-	sb->s_flags = (sb->s_flags & ~MS_RMT_MASK) | (sb_flags & MS_RMT_MASK);
+	WRITE_ONCE(sb->s_flags, ((sb->s_flags & ~fc->sb_flags_mask) |
+				 (fc->sb_flags & fc->sb_flags_mask)));
 	/* Needs to be ordered wrt mnt_is_readonly() */
 	smp_wmb();
 	sb->s_readonly_remount = 0;
@@ -917,17 +924,37 @@ cancel_readonly:
 	return retval;
 }
 
+int reconfigure_super_rdonly(struct super_block *sb,
+			     enum fs_context_purpose purpose)
+{
+	struct fs_context *fc;
+	int ret = 0;
+
+	down_write(&sb->s_umount);
+	if ((sb->s_flags & SB_BORN) && sb->s_root && !sb_rdonly(sb)) {
+		fc = vfs_new_fs_context(sb->s_type, sb->s_root,
+					SB_RDONLY, SB_RDONLY,
+					purpose);
+		ret = PTR_ERR(fc);
+		if (!IS_ERR(fc)) {
+			ret = reconfigure_super(fc);
+			put_fs_context(fc);
+		} else if (ret == -EOPNOTSUPP) {
+			ret = 0;
+		}
+	}
+	up_write(&sb->s_umount);
+	return ret;
+}
+
 static void do_emergency_remount_callback(struct super_block *sb)
 {
-	down_write(&sb->s_umount);
-	if (sb->s_root && sb->s_bdev && (sb->s_flags & SB_BORN) &&
-	    !sb_rdonly(sb)) {
+	if (sb->s_bdev) {
 		/*
 		 * What lock protects sb->s_flags??
 		 */
-		do_remount_sb(sb, SB_RDONLY, NULL, 1);
+		reconfigure_super_rdonly(sb, FS_CONTEXT_FOR_EMERGENCY_RO);
 	}
-	up_write(&sb->s_umount);
 }
 
 static void do_emergency_remount(struct work_struct *work)
@@ -1212,6 +1239,46 @@ struct dentry *mount_nodev(struct file_system_type *fs_type,
 }
 EXPORT_SYMBOL(mount_nodev);
 
+static int validate_fc_new(struct fs_context *fc)
+{
+	if (fc->fs_type->fs_flags & FS_REQUIRES_DEV && !fc->source)
+		return -ENOENT;
+
+	if (fc->root)
+		return -EBUSY;
+
+	return validate_fc(fc);
+}
+
+static int reconfigure_single(struct super_block *s, int flags, void *data)
+{
+	struct fs_context *fc;
+	int ret;
+
+	/* The caller really need to be passing fc down into mount_single(),
+	 * then a chunk of this can be removed.  Better yet, reconfiguration
+	 * shouldn't happen, but rather the second mount should be rejected if
+	 * the parameters are not compatible.
+	 */
+	fc = vfs_new_fs_context(s->s_type, s->s_root, flags, MS_RMT_MASK,
+                               FS_CONTEXT_FOR_RECONFIGURE);
+	if (IS_ERR(fc))
+		return PTR_ERR(fc);
+
+	ret = parse_monolithic_mount_data(fc, data);
+	if (ret < 0)
+		goto out;
+
+	ret = validate_fc(fc);
+	if (ret)
+		goto out;
+
+	ret = reconfigure_super(fc);
+out:
+	put_fs_context(fc);
+	return ret;
+}
+
 static int compare_single(struct super_block *s, void *p)
 {
 	return 1;
@@ -1229,78 +1296,20 @@ struct dentry *mount_single(struct file_system_type *fs_type,
 		return ERR_CAST(s);
 	if (!s->s_root) {
 		error = fill_super(s, data, flags & SB_SILENT ? 1 : 0);
-		if (error) {
-			deactivate_locked_super(s);
-			return ERR_PTR(error);
-		}
+		if (error)
+			goto error;
 		s->s_flags |= SB_ACTIVE;
 	} else {
-		do_remount_sb(s, flags, data, 0);
+		error = reconfigure_single(s, flags, data);
+		if (error)
+			goto error;
 	}
 	return dget(s->s_root);
-}
-EXPORT_SYMBOL(mount_single);
-
-struct dentry *
-mount_fs(struct file_system_type *type, int flags, const char *name, void *data)
-{
-	struct dentry *root;
-	struct super_block *sb;
-	char *secdata = NULL;
-	int error = -ENOMEM;
-
-	if (data && !(type->fs_flags & FS_BINARY_MOUNTDATA)) {
-		secdata = alloc_secdata();
-		if (!secdata)
-			goto out;
-
-		error = security_sb_copy_data(data, secdata);
-		if (error)
-			goto out_free_secdata;
-	}
-
-	root = type->mount(type, flags, name, data);
-	if (IS_ERR(root)) {
-		error = PTR_ERR(root);
-		goto out_free_secdata;
-	}
-	sb = root->d_sb;
-	BUG_ON(!sb);
-	WARN_ON(!sb->s_bdi);
-
-	/*
-	 * Write barrier is for super_cache_count(). We place it before setting
-	 * SB_BORN as the data dependency between the two functions is the
-	 * superblock structure contents that we just set up, not the SB_BORN
-	 * flag.
-	 */
-	smp_wmb();
-	sb->s_flags |= SB_BORN;
-
-	error = security_sb_kern_mount(sb, flags, secdata);
-	if (error)
-		goto out_sb;
-
-	/*
-	 * filesystems should never set s_maxbytes larger than MAX_LFS_FILESIZE
-	 * but s_maxbytes was an unsigned long long for many releases. Throw
-	 * this warning for a little while to try and catch filesystems that
-	 * violate this rule.
-	 */
-	WARN((sb->s_maxbytes < 0), "%s set sb->s_maxbytes to "
-		"negative value (%lld)\n", type->name, sb->s_maxbytes);
-
-	up_write(&sb->s_umount);
-	free_secdata(secdata);
-	return root;
-out_sb:
-	dput(root);
-	deactivate_locked_super(sb);
-out_free_secdata:
-	free_secdata(secdata);
-out:
+error:
+	deactivate_locked_super(s);
 	return ERR_PTR(error);
 }
+EXPORT_SYMBOL(mount_single);
 
 /*
  * Setup private BDI for given superblock. It gets automatically cleaned up
@@ -1581,3 +1590,104 @@ int thaw_super(struct super_block *sb)
 	return thaw_super_locked(sb);
 }
 EXPORT_SYMBOL(thaw_super);
+
+/**
+ * vfs_get_tree - Get the mountable root
+ * @fc: The superblock configuration context.
+ *
+ * The filesystem is invoked to get or create a superblock which can then later
+ * be used for mounting.  The filesystem places a pointer to the root to be
+ * used for mounting in @fc->root.
+ */
+int vfs_get_tree(struct fs_context *fc)
+{
+	struct super_block *sb;
+	int ret;
+
+	ret = validate_fc_new(fc);
+	if (ret)
+		return ret;
+
+	/* Get the mountable root in fc->root, with a ref on the root and a ref
+	 * on the superblock.
+	 */
+	ret = fc->ops->get_tree(fc);
+	if (ret < 0)
+		return ret;
+
+	sb = fc->root->d_sb;
+	WARN_ON(!sb->s_bdi);
+
+	ret = security_sb_get_tree(fc);
+	if (ret < 0)
+		goto err_sb;
+
+	ret = -ENOMEM;
+	if (fc->subtype && !sb->s_subtype) {
+		sb->s_subtype = kstrdup(fc->subtype, GFP_KERNEL);
+		if (!sb->s_subtype)
+			goto err_sb;
+	}
+
+	/* Write barrier is for super_cache_count(). We place it before setting
+	 * SB_BORN as the data dependency between the two functions is the
+	 * superblock structure contents that we just set up, not the SB_BORN
+	 * flag.
+        */
+	smp_wmb();
+	sb->s_flags |= SB_BORN;
+
+	/* Filesystems should never set s_maxbytes larger than MAX_LFS_FILESIZE
+	 * but s_maxbytes was an unsigned long long for many releases.  Throw
+	 * this warning for a little while to try and catch filesystems that
+	 * violate this rule.
+	 */
+	WARN(sb->s_maxbytes < 0,
+	     "%s set sb->s_maxbytes to negative value (%lld)\n",
+	     fc->fs_type->name, sb->s_maxbytes);
+
+	up_write(&sb->s_umount);
+	return 0;
+
+err_sb:
+	dput(fc->root);
+	fc->root = NULL;
+	deactivate_locked_super(sb);
+	return ret;
+}
+EXPORT_SYMBOL(vfs_get_tree);
+
+/**
+ * vfs_pick_tree - Pick an existing mountable root
+ * @fc: The superblock configuration context.
+ *
+ * The filesystem is invoked to get or create a superblock which can then later
+ * be used for mounting.  The filesystem places a pointer to the root to be
+ * used for mounting in @fc->root.
+ */
+int vfs_pick_tree(struct fs_context *fc)
+{
+	struct super_block *sb;
+	int ret;
+
+	ret = validate_fc_new(fc);
+	if (ret)
+		return ret;
+
+	if (!fc->ops->pick_tree)
+		return -ENOENT;
+
+	/* Get the mountable root in fc->root, with a ref on the root and a ref
+	 * on the superblock.
+	 */
+	ret = fc->ops->pick_tree(fc);
+	if (ret < 0)
+		return ret;
+
+	sb = fc->root->d_sb;
+	WARN_ON(!sb->s_bdi);
+	WARN_ON(!(sb->s_flags & SB_BORN));
+
+	up_write(&sb->s_umount);
+	return 0;
+}

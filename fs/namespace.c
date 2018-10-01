@@ -27,6 +27,7 @@
 #include <linux/bootmem.h>
 #include <linux/task_work.h>
 #include <linux/sched/task.h>
+#include <linux/fs_context.h>
 #include <uapi/linux/mount.h>
 
 #include "pnode.h"
@@ -941,37 +942,85 @@ static struct mount *skip_mnt_tree(struct mount *p)
 	return p;
 }
 
+/**
+ * vfs_create_mount - Create a mount for a configured superblock
+ * @fc: The configuration context with the superblock attached
+ * @mnt_flags: The mount flags to apply
+ *
+ * Create a mount to an already configured superblock.  If necessary, the
+ * caller should invoke vfs_get_tree() before calling this.
+ *
+ * Note that this does not attach the mount to anything.
+ */
+struct vfsmount *vfs_create_mount(struct fs_context *fc, unsigned int mnt_flags)
+{
+	struct mount *mnt;
+
+	if (!fc->root)
+		return ERR_PTR(-EINVAL);
+
+	mnt = alloc_vfsmnt(fc->source ?: "none");
+	if (!mnt)
+		return ERR_PTR(-ENOMEM);
+
+	if (fc->purpose == FS_CONTEXT_FOR_KERNEL_MOUNT)
+		/* It's a longterm mount, don't release mnt until we unmount
+		 * before file sys is unregistered
+		 */
+		mnt_flags |= MNT_INTERNAL;
+
+	atomic_inc(&fc->root->d_sb->s_active);
+	mnt->mnt.mnt_flags      = mnt_flags;
+	mnt->mnt.mnt_sb         = fc->root->d_sb;
+	mnt->mnt.mnt_root       = dget(fc->root);
+	mnt->mnt_mountpoint     = mnt->mnt.mnt_root;
+	mnt->mnt_parent         = mnt;
+
+	lock_mount_hash();
+	list_add_tail(&mnt->mnt_instance, &mnt->mnt.mnt_sb->s_mounts);
+	unlock_mount_hash();
+	return &mnt->mnt;
+}
+EXPORT_SYMBOL(vfs_create_mount);
+
 struct vfsmount *
 vfs_kern_mount(struct file_system_type *type, int flags, const char *name, void *data)
 {
-	struct mount *mnt;
-	struct dentry *root;
+	struct fs_context *fc;
+	struct vfsmount *mnt;
+	int ret;
 
 	if (!type)
 		return ERR_PTR(-ENODEV);
 
-	mnt = alloc_vfsmnt(name);
-	if (!mnt)
-		return ERR_PTR(-ENOMEM);
+	fc = vfs_new_fs_context(type, NULL, flags, flags,
+				flags & SB_KERNMOUNT ?
+				FS_CONTEXT_FOR_KERNEL_MOUNT :
+				FS_CONTEXT_FOR_USER_MOUNT);
+	if (IS_ERR(fc))
+		return ERR_CAST(fc);
 
-	if (flags & SB_KERNMOUNT)
-		mnt->mnt.mnt_flags = MNT_INTERNAL;
-
-	root = mount_fs(type, flags, name, data);
-	if (IS_ERR(root)) {
-		mnt_free_id(mnt);
-		free_vfsmnt(mnt);
-		return ERR_CAST(root);
+	if (name) {
+		ret = vfs_parse_fs_string(fc, "source", name, strlen(name));
+		if (ret)
+			goto err_fc;
 	}
 
-	mnt->mnt.mnt_root = root;
-	mnt->mnt.mnt_sb = root->d_sb;
-	mnt->mnt_mountpoint = mnt->mnt.mnt_root;
-	mnt->mnt_parent = mnt;
-	lock_mount_hash();
-	list_add_tail(&mnt->mnt_instance, &root->d_sb->s_mounts);
-	unlock_mount_hash();
-	return &mnt->mnt;
+	ret = parse_monolithic_mount_data(fc, data);
+	if (ret)
+		goto err_fc;
+
+	ret = vfs_get_tree(fc);
+	if (ret)
+		goto err_fc;
+
+	mnt = vfs_create_mount(fc, 0);
+out:
+	put_fs_context(fc);
+	return mnt;
+err_fc:
+	mnt = ERR_PTR(ret);
+	goto out;
 }
 EXPORT_SYMBOL_GPL(vfs_kern_mount);
 
@@ -1530,11 +1579,7 @@ static int do_umount(struct mount *mnt, int flags)
 		 */
 		if (!ns_capable(sb->s_user_ns, CAP_SYS_ADMIN))
 			return -EPERM;
-		down_write(&sb->s_umount);
-		if (!sb_rdonly(sb))
-			retval = do_remount_sb(sb, SB_RDONLY, NULL, 0);
-		up_write(&sb->s_umount);
-		return retval;
+		return reconfigure_super_rdonly(sb, FS_CONTEXT_FOR_UMOUNT);
 	}
 
 	namespace_lock();
@@ -2378,6 +2423,20 @@ static int do_reconfigure_mnt(struct path *path, unsigned int mnt_flags)
 }
 
 /*
+ * Parse the monolithic page of mount data given by sys_mount().
+ */
+int parse_monolithic_mount_data(struct fs_context *fc, void *data)
+{
+	int (*parse)(struct fs_context *fc, void *);
+
+	parse = fc->ops->parse_monolithic;
+	if (!parse)
+		parse = generic_parse_monolithic;
+
+	return parse(fc, data);
+}
+
+/*
  * change filesystem flags. dir should be a physical root of filesystem.
  * If you've mounted a non-root directory somewhere and want to do remount
  * on it - tough luck.
@@ -2388,28 +2447,46 @@ static int do_remount(struct path *path, int ms_flags, int sb_flags,
 	int err;
 	struct super_block *sb = path->mnt->mnt_sb;
 	struct mount *mnt = real_mount(path->mnt);
+	struct fs_context *fc;
 
+	err = -EINVAL;
 	if (!check_mnt(mnt))
-		return -EINVAL;
+		goto err;
 
+	err = -EINVAL;
 	if (path->dentry != path->mnt->mnt_root)
-		return -EINVAL;
+		goto err;
 
+	err = -EPERM;
 	if (!can_change_locked_flags(mnt, mnt_flags))
-		return -EPERM;
+		goto err;
 
-	err = security_sb_remount(sb, data);
+	fc = vfs_new_fs_context(path->dentry->d_sb->s_type,
+				path->dentry, sb_flags, MS_RMT_MASK,
+				FS_CONTEXT_FOR_RECONFIGURE);
+	err = PTR_ERR(fc);
+	if (IS_ERR(fc))
+		goto err;
+
+	err = parse_monolithic_mount_data(fc, data);
 	if (err)
-		return err;
+		goto err_fc;
+
+	err = validate_fc(fc);
+	if (err)
+		goto err_fc;
 
 	down_write(&sb->s_umount);
 	err = -EPERM;
 	if (ns_capable(sb->s_user_ns, CAP_SYS_ADMIN)) {
-		err = do_remount_sb(sb, sb_flags, data, 0);
+		err = reconfigure_super(fc);
 		if (!err)
 			set_mount_attributes(mnt, mnt_flags);
 	}
 	up_write(&sb->s_umount);
+err_fc:
+	put_fs_context(fc);
+err:
 	return err;
 }
 
@@ -2514,27 +2591,22 @@ static int do_move_mount_old(struct path *path, const char *old_name)
 	return err;
 }
 
-static struct vfsmount *fs_set_subtype(struct vfsmount *mnt, const char *fstype)
+static const char *fs_subtype(struct file_system_type *type, const char *fstype)
 {
-	int err;
-	const char *subtype = strchr(fstype, '.');
+	const char *subtype;
+
+	if (!(type->fs_flags & FS_HAS_SUBTYPE))
+		return NULL;
+
+	subtype = strchr(fstype, '.');
 	if (subtype) {
 		subtype++;
-		err = -EINVAL;
 		if (!subtype[0])
-			goto err;
+			return ERR_PTR(-EINVAL);
 	} else
 		subtype = "";
 
-	mnt->mnt_sb->s_subtype = kstrdup(subtype, GFP_KERNEL);
-	err = -ENOMEM;
-	if (!mnt->mnt_sb->s_subtype)
-		goto err;
-	return mnt;
-
- err:
-	mntput(mnt);
-	return ERR_PTR(err);
+	return subtype;
 }
 
 /*
@@ -2591,6 +2663,8 @@ static int do_new_mount(struct path *path, const char *fstype, int sb_flags,
 			int mnt_flags, const char *name, void *data)
 {
 	struct file_system_type *type;
+	const char *subtype = NULL;
+	struct fs_context *fc;
 	struct vfsmount *mnt;
 	int err;
 
@@ -2601,24 +2675,65 @@ static int do_new_mount(struct path *path, const char *fstype, int sb_flags,
 	if (!type)
 		return -ENODEV;
 
-	mnt = vfs_kern_mount(type, sb_flags, name, data);
-	if (!IS_ERR(mnt) && (type->fs_flags & FS_HAS_SUBTYPE) &&
-	    !mnt->mnt_sb->s_subtype)
-		mnt = fs_set_subtype(mnt, fstype);
-
-	put_filesystem(type);
-	if (IS_ERR(mnt))
-		return PTR_ERR(mnt);
-
-	if (mount_too_revealing(mnt, &mnt_flags)) {
-		mntput(mnt);
-		return -EPERM;
+	subtype = fs_subtype(type, fstype);
+	if (IS_ERR(subtype)) {
+		put_filesystem(type);
+		return -EINVAL;
 	}
+
+	fc = vfs_new_fs_context(type, NULL, sb_flags, sb_flags,
+				FS_CONTEXT_FOR_USER_MOUNT);
+	put_filesystem(type);
+	err = PTR_ERR(fc);
+	if (IS_ERR(fc))
+		goto out;
+
+	if (subtype) {
+		err = vfs_parse_fs_string(fc, "subtype", subtype, strlen(subtype));
+		if (err < 0)
+			goto out_fc;
+	}
+
+	if (name) {
+		err = vfs_parse_fs_string(fc, "source", name, strlen(name));
+		if (err < 0)
+			goto out_fc;
+	}
+
+	err = parse_monolithic_mount_data(fc, data);
+	if (err)
+		goto out_fc;
+
+	err = vfs_get_tree(fc);
+	if (err == -EEXIST)
+		err = vfs_pick_tree(fc);
+	if (err)
+		goto out_fc;
+
+	err = security_sb_mountpoint(fc, path,
+				     mnt_flags & ~MNT_INTERNAL_FLAGS);
+	if (err < 0)
+		goto out_fc;
+
+	mnt = vfs_create_mount(fc, mnt_flags);
+	err = PTR_ERR(mnt);
+	if (IS_ERR(mnt))
+		goto out_fc;
+
+	err = -EPERM;
+	if (mount_too_revealing(mnt, &mnt_flags))
+		goto out_mntput;
 
 	err = do_add_mount(real_mount(mnt), path, mnt_flags);
 	if (err)
-		mntput(mnt);
+		goto out_mntput;
+out_fc:
+	put_fs_context(fc);
+out:
 	return err;
+out_mntput:
+	mntput(mnt);
+	goto out_fc;
 }
 
 int finish_automount(struct vfsmount *m, struct path *path)
@@ -3445,16 +3560,7 @@ void put_mnt_ns(struct mnt_namespace *ns)
 
 struct vfsmount *kern_mount_data(struct file_system_type *type, void *data)
 {
-	struct vfsmount *mnt;
-	mnt = vfs_kern_mount(type, SB_KERNMOUNT, type->name, data);
-	if (!IS_ERR(mnt)) {
-		/*
-		 * it is a longterm mount, don't release mnt until
-		 * we unmount before file sys is unregistered
-		*/
-		real_mount(mnt)->mnt_ns = MNT_NS_INTERNAL;
-	}
-	return mnt;
+	return vfs_kern_mount(type, SB_KERNMOUNT, type->name, data);
 }
 EXPORT_SYMBOL_GPL(kern_mount_data);
 

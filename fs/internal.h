@@ -52,6 +52,11 @@ int __generic_write_end(struct inode *inode, loff_t pos, unsigned copied,
 extern void __init chrdev_init(void);
 
 /*
+ * fs_context.c
+ */
+extern int validate_fc(struct fs_context *fc);
+
+/*
  * namei.c
  */
 extern int filename_lookup(int dfd, struct filename *name, unsigned flags,
@@ -74,6 +79,7 @@ int do_linkat(int olddfd, const char __user *oldname, int newdfd,
  */
 extern void *copy_mount_options(const void __user *);
 extern char *copy_mount_string(const void __user *);
+extern int parse_monolithic_mount_data(struct fs_context *, void *);
 
 extern struct vfsmount *lookup_mnt(const struct path *);
 extern int finish_automount(struct vfsmount *, struct path *);
@@ -102,10 +108,11 @@ extern struct file *alloc_empty_file_noaccount(int, const struct cred *);
 /*
  * super.c
  */
-extern int do_remount_sb(struct super_block *, int, void *, int);
+enum fs_context_purpose;
+extern int reconfigure_super(struct fs_context *fc);
+extern int reconfigure_super_rdonly(struct super_block *sb,
+				    enum fs_context_purpose purpose);
 extern bool trylock_super(struct super_block *sb);
-extern struct dentry *mount_fs(struct file_system_type *,
-			       int, const char *, void *);
 extern struct super_block *user_get_super(dev_t);
 
 /*

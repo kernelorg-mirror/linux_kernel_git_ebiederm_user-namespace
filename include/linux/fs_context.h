@@ -100,12 +100,30 @@ struct fs_context_operations {
 	void (*free)(struct fs_context *fc);
 	int (*dup)(struct fs_context *fc, struct fs_context *src_fc);
 	int (*parse_param)(struct fs_context *fc, struct fs_parameter *param);
-	int (*parse_monolithic)(struct fs_context *fc, void *data, size_t data_size);
+	int (*parse_monolithic)(struct fs_context *fc, void *data);
 	int (*validate)(struct fs_context *fc);
 	int (*get_tree)(struct fs_context *fc);
 	int (*pick_tree)(struct fs_context *fc);
 	int (*reconfigure)(struct fs_context *fc);
 };
+
+/*
+ * fs_context manipulation functions.
+ */
+extern struct fs_context *vfs_new_fs_context(struct file_system_type *fs_type,
+					     struct dentry *reference,
+					     unsigned int sb_flags,
+					     unsigned int sb_flags_mask,
+					     enum fs_context_purpose purpose);
+extern struct fs_context *vfs_dup_fs_context(struct fs_context *src,
+					     enum fs_context_purpose purpose);
+extern int vfs_parse_fs_param(struct fs_context *fc, struct fs_parameter *param);
+extern int vfs_parse_fs_string(struct fs_context *fc, const char *key,
+			       const char *value, size_t v_size);
+extern int generic_parse_monolithic(struct fs_context *fc, void *data);
+extern int vfs_get_tree(struct fs_context *fc);
+extern int vfs_pick_tree(struct fs_context *fc);
+extern void put_fs_context(struct fs_context *fc);
 
 #define logfc(FC, FMT, ...) pr_notice(FMT, ## __VA_ARGS__)
 
