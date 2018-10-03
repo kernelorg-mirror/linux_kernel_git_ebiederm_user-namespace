@@ -358,6 +358,14 @@ static int mqueue_get_tree(struct fs_context *fc)
 	return vfs_get_super(fc, vfs_get_keyed_super, mqueue_fill_super);
 }
 
+static int mqueue_pick_tree(struct fs_context *fc)
+{
+	struct mqueue_fs_context *ctx = fc->fs_private;
+
+	fc->s_fs_info = ctx->ipc_ns;
+	return vfs_pick_super(fc, vfs_get_keyed_super);
+}
+
 static void mqueue_fs_context_free(struct fs_context *fc)
 {
 	struct mqueue_fs_context *ctx = fc->fs_private;
@@ -1599,6 +1607,7 @@ static const struct super_operations mqueue_super_ops = {
 static const struct fs_context_operations mqueue_fs_context_ops = {
 	.free		= mqueue_fs_context_free,
 	.get_tree	= mqueue_get_tree,
+	.pick_tree	= mqueue_pick_tree,
 };
 
 static struct file_system_type mqueue_fs_type = {
