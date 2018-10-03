@@ -79,7 +79,6 @@ int do_linkat(int olddfd, const char __user *oldname, int newdfd,
  */
 extern void *copy_mount_options(const void __user *);
 extern char *copy_mount_string(const void __user *);
-extern int parse_monolithic_mount_data(struct fs_context *, void *);
 
 extern struct vfsmount *lookup_mnt(const struct path *);
 extern int finish_automount(struct vfsmount *, struct path *);

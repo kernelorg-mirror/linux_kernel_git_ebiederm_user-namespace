@@ -240,6 +240,20 @@ int generic_parse_monolithic(struct fs_context *fc, void *data)
 }
 EXPORT_SYMBOL(generic_parse_monolithic);
 
+/*
+ * Parse the monolithic page of mount data given by sys_mount().
+ */
+int vfs_parse_monolithic(struct fs_context *fc, void *data)
+{
+	int (*parse)(struct fs_context *fc, void *);
+
+	parse = fc->ops->parse_monolithic;
+	if (!parse)
+		parse = generic_parse_monolithic;
+
+	return parse(fc, data);
+}
+
 /**
  * vfs_new_fs_context - Create a filesystem context.
  * @fs_type: The filesystem type.

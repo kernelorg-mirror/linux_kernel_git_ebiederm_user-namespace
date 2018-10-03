@@ -1006,7 +1006,7 @@ vfs_kern_mount(struct file_system_type *type, int flags, const char *name, void 
 			goto err_fc;
 	}
 
-	ret = parse_monolithic_mount_data(fc, data);
+	ret = vfs_parse_monolithic(fc, data);
 	if (ret)
 		goto err_fc;
 
@@ -2423,20 +2423,6 @@ static int do_reconfigure_mnt(struct path *path, unsigned int mnt_flags)
 }
 
 /*
- * Parse the monolithic page of mount data given by sys_mount().
- */
-int parse_monolithic_mount_data(struct fs_context *fc, void *data)
-{
-	int (*parse)(struct fs_context *fc, void *);
-
-	parse = fc->ops->parse_monolithic;
-	if (!parse)
-		parse = generic_parse_monolithic;
-
-	return parse(fc, data);
-}
-
-/*
  * change filesystem flags. dir should be a physical root of filesystem.
  * If you've mounted a non-root directory somewhere and want to do remount
  * on it - tough luck.
@@ -2468,7 +2454,7 @@ static int do_remount(struct path *path, int ms_flags, int sb_flags,
 	if (IS_ERR(fc))
 		goto err;
 
-	err = parse_monolithic_mount_data(fc, data);
+	err = vfs_parse_monolithic(fc, data);
 	if (err)
 		goto err_fc;
 
@@ -2700,7 +2686,7 @@ static int do_new_mount(struct path *path, const char *fstype, int sb_flags,
 			goto out_fc;
 	}
 
-	err = parse_monolithic_mount_data(fc, data);
+	err = vfs_parse_monolithic(fc, data);
 	if (err)
 		goto out_fc;
 

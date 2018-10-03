@@ -117,6 +117,7 @@ extern struct fs_context *vfs_new_fs_context(struct file_system_type *fs_type,
 					     enum fs_context_purpose purpose);
 extern struct fs_context *vfs_dup_fs_context(struct fs_context *src,
 					     enum fs_context_purpose purpose);
+extern int vfs_parse_monolithic(struct fs_context *, void *);
 extern int vfs_parse_fs_param(struct fs_context *fc, struct fs_parameter *param);
 extern int vfs_parse_fs_string(struct fs_context *fc, const char *key,
 			       const char *value, size_t v_size);

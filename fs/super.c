@@ -1481,7 +1481,7 @@ static int reconfigure_single(struct super_block *s, int flags, void *data)
 	if (IS_ERR(fc))
 		return PTR_ERR(fc);
 
-	ret = parse_monolithic_mount_data(fc, data);
+	ret = vfs_parse_monolithic(fc, data);
 	if (ret < 0)
 		goto out;
 
