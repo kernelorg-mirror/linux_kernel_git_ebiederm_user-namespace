@@ -1299,34 +1299,34 @@ EXPORT_SYMBOL(vfs_get_super);
  * for a kernel-internal mount or a submount.
  */
 int vfs_pick_super(struct fs_context *fc,
-                  enum vfs_get_super_keying keying)
+		   enum vfs_get_super_keying keying)
 {
-       int (*test)(struct super_block *, struct fs_context *);
-       struct super_block *sb;
+	int (*test)(struct super_block *, struct fs_context *);
+	struct super_block *sb;
 
-       switch (keying) {
-       case vfs_get_single_super:
-               test = test_single_super;
-               break;
-       case vfs_get_keyed_super:
-               test = test_keyed_super;
-               break;
-       default:
-               BUG();
-       }
+	switch (keying) {
+	case vfs_get_single_super:
+		test = test_single_super;
+		break;
+	case vfs_get_keyed_super:
+		test = test_keyed_super;
+		break;
+	default:
+		BUG();
+	}
 
-       sb = sget_fc(fc, test, set_anon_super_fc);
-       if (IS_ERR(sb))
-               return PTR_ERR(sb);
+	sb = sget_fc(fc, test, set_anon_super_fc);
+	if (IS_ERR(sb))
+		return PTR_ERR(sb);
 
-       if (!sb->s_root) {
-               deactivate_locked_super(sb);
-               return -ENOENT;
-       }
+	if (!sb->s_root) {
+		deactivate_locked_super(sb);
+		return -ENOENT;
+	}
 
-       BUG_ON(fc->root);
-       fc->root = dget(sb->s_root);
-       return 0;
+	BUG_ON(fc->root);
+	fc->root = dget(sb->s_root);
+	return 0;
 }
 EXPORT_SYMBOL(vfs_pick_super);
 

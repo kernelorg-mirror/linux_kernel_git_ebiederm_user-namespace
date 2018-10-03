@@ -585,6 +585,8 @@ static int afs_get_tree(struct fs_context *fc)
 	} else {
 		_debug("reuse");
 		ASSERTCMP(sb->s_flags, &, SB_ACTIVE);
+		ret = -EEXIST;
+		goto error_sb;
 	}
 
 	fc->root = dget(sb->s_root);

@@ -362,8 +362,20 @@ static int mqueue_pick_tree(struct fs_context *fc)
 {
 	struct mqueue_fs_context *ctx = fc->fs_private;
 
-	fc->s_fs_info = ctx->ipc_ns;
-	return vfs_pick_super(fc, vfs_get_keyed_super);
+	/* As a shortcut, if the namespace already has a superblock created,
+	 * use the root from that directly rather than invoking sget() again.
+	 */
+	spin_lock(&mq_lock);
+	if (ctx->ipc_ns->mq_mnt) {
+		fc->root = dget(ctx->ipc_ns->mq_mnt->mnt_sb->s_root);
+		atomic_inc(&fc->root->d_sb->s_active);
+	}
+	spin_unlock(&mq_lock);
+	if (fc->root) {
+		down_write(&fc->root->d_sb->s_umount);
+		return 0;
+	}
+	return -ENOENT;
 }
 
 static void mqueue_fs_context_free(struct fs_context *fc)

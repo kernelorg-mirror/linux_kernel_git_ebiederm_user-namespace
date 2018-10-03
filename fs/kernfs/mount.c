@@ -328,6 +328,9 @@ int kernfs_get_tree(struct fs_context *fc)
 		mutex_lock(&kernfs_mutex);
 		list_add(&info->node, &info->root->supers);
 		mutex_unlock(&kernfs_mutex);
+	} else {
+		deactivate_locked_super(sb);
+		return -EEXIST;
 	}
 
 	fc->root = dget(sb->s_root);

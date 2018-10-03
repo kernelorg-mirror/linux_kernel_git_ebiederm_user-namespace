@@ -315,17 +315,31 @@ static int vfs_fsconfig_action(struct fs_context *fc, enum fsconfig_command cmd)
 	int ret = -EINVAL;
 
 	switch (cmd) {
-	case FSCONFIG_CMD_CREATE:
+	case FSCONFIG_CMD_INSTANCE:
 		if (fc->phase != FS_CONTEXT_CREATE_PARAMS)
 			return -EBUSY;
 		fc->phase = FS_CONTEXT_CREATING;
 		ret = vfs_get_tree(fc);
 		if (ret == 0)
 			fc->phase = FS_CONTEXT_AWAITING_MOUNT;
+		else if (ret == -EEXIST)
+			fc->phase = FS_CONTEXT_CREATE_PARAMS;
 		else
 			fc->phase = FS_CONTEXT_FAILED;
 		return ret;
 
+	case FSCONFIG_CMD_PICK:
+		if (fc->phase != FS_CONTEXT_CREATE_PARAMS)
+			return -EBUSY;
+		fc->phase = FS_CONTEXT_CREATING;
+		ret = vfs_pick_tree(fc);
+		if (ret == 0)
+			fc->phase = FS_CONTEXT_AWAITING_RECONF;
+		else
+			fc->phase = FS_CONTEXT_FAILED;
+		return ret;
+
+#if 0
 	case FSCONFIG_CMD_RECONFIGURE:
 		if (fc->phase == FS_CONTEXT_AWAITING_RECONF) {
 			/* This is probably pointless, since no changes have
@@ -349,6 +363,7 @@ static int vfs_fsconfig_action(struct fs_context *fc, enum fsconfig_command cmd)
 		else
 			fc->phase = FS_CONTEXT_FAILED;
 		return ret;
+#endif
 
 	default:
 		return -EOPNOTSUPP;
@@ -438,8 +453,8 @@ SYSCALL_DEFINE5(fsconfig,
 		if (!_key || _value || aux < 0)
 			return -EINVAL;
 		break;
-	case FSCONFIG_CMD_CREATE:
-	case FSCONFIG_CMD_RECONFIGURE:
+	case FSCONFIG_CMD_INSTANCE:
+	case FSCONFIG_CMD_PICK:
 		if (_key || _value || aux)
 			return -EINVAL;
 		break;
@@ -527,8 +542,8 @@ SYSCALL_DEFINE5(fsconfig,
 	ret = mutex_lock_interruptible(&fc->uapi_mutex);
 	if (ret == 0) {
 		switch (cmd) {
-		case FSCONFIG_CMD_CREATE:
-		case FSCONFIG_CMD_RECONFIGURE:
+		case FSCONFIG_CMD_INSTANCE:
+		case FSCONFIG_CMD_PICK:
 			ret = vfs_fsconfig_action(fc, cmd);
 			break;
 		default:

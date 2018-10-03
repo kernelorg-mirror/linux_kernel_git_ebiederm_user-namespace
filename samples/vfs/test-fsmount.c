@@ -101,7 +101,7 @@ int main(int argc, char *argv[])
 	}
 
 	E_fsconfig(fsfd, FSCONFIG_SET_STRING, "source", "#grand.central.org:root.cell.", 0);
-	E_fsconfig(fsfd, FSCONFIG_CMD_CREATE, NULL, NULL, 0);
+	E_fsconfig(fsfd, FSCONFIG_CMD_INSTANCE, NULL, NULL, 0);
 
 	mfd = fsmount(fsfd, 0, MS_RDONLY);
 	if (mfd < 0)
