@@ -1457,8 +1457,10 @@ EXPORT_SYMBOL(mount_nodev);
 
 static int validate_fc_new(struct fs_context *fc)
 {
-	if (fc->fs_type->fs_flags & FS_REQUIRES_DEV && !fc->source)
+	if (fc->fs_type->fs_flags & FS_REQUIRES_DEV && !fc->source) {
+		errorf(fc, "Filesystem requires source device");
 		return -ENOENT;
+	}
 
 	if (fc->root)
 		return -EBUSY;
