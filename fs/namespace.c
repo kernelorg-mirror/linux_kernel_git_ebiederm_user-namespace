@@ -2704,6 +2704,10 @@ static int do_new_mount(struct path *path, const char *fstype, int sb_flags,
 	if (err)
 		goto out_fc;
 
+	err = vfs_super_permission(fc);
+	if (err)
+		goto out_fc;
+
 	err = vfs_get_tree(fc);
 	if (err == -EEXIST)
 		err = vfs_pick_tree(fc);

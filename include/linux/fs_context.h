@@ -124,6 +124,7 @@ extern int generic_parse_monolithic(struct fs_context *fc, void *data);
 extern int vfs_get_tree(struct fs_context *fc);
 extern int vfs_pick_tree(struct fs_context *fc);
 extern void put_fs_context(struct fs_context *fc);
+extern int vfs_super_permission(struct fs_context *fc);
 
 #define logfc(FC, FMT, ...) pr_notice(FMT, ## __VA_ARGS__)
 

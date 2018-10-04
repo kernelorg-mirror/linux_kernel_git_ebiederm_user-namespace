@@ -406,6 +406,19 @@ int validate_fc(struct fs_context *fc)
 	return security_fs_context_validate(fc);
 }
 
+int vfs_super_permission(struct fs_context *fc)
+{
+	/* Verify the caller is allowed to access the target superblock */
+	struct user_namespace *cap_user_ns = &init_user_ns;
+	if (!fc->fs_type->init_fs_context)
+		return 0;
+	if (fc->fs_type->fs_flags & FS_USERNS_MOUNT)
+		cap_user_ns = fc->user_ns;
+	if (!ns_capable(cap_user_ns, CAP_SYS_ADMIN))
+		return -EPERM;
+	return 0;
+}
+
 /*
  * Add monolithic mount data.
  */
