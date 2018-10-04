@@ -451,10 +451,10 @@ enum {
 #define NUM_SEL_MNT_OPTS	(Opt_nextmntopt - 1)
 
 static const match_table_t tokens = {
-	{Opt_context, CONTEXT_STR "%s"},
-	{Opt_fscontext, FSCONTEXT_STR "%s"},
-	{Opt_defcontext, DEFCONTEXT_STR "%s"},
-	{Opt_rootcontext, ROOTCONTEXT_STR "%s"},
+	{Opt_context, CONTEXT_STR "=%s"},
+	{Opt_fscontext, FSCONTEXT_STR "=%s"},
+	{Opt_defcontext, DEFCONTEXT_STR "=%s"},
+	{Opt_rootcontext, ROOTCONTEXT_STR "=%s"},
 	{Opt_labelsupport, LABELSUPP_STR},
 	{Opt_error, NULL},
 };
@@ -1268,6 +1268,7 @@ static void selinux_write_opts(struct seq_file *m,
 		/* we need a comma before each option */
 		seq_putc(m, ',');
 		seq_puts(m, prefix);
+		seq_putc(m, '=');
 		if (has_comma)
 			seq_putc(m, '\"');
 		seq_escape(m, opts->mnt_opts[i], "\"\n\\");
@@ -2753,10 +2754,10 @@ static inline int match_prefix(char *prefix, int plen, char *option, int olen)
 
 static inline int selinux_option(char *option, int len)
 {
-	return (match_prefix(CONTEXT_STR, sizeof(CONTEXT_STR)-1, option, len) ||
-		match_prefix(FSCONTEXT_STR, sizeof(FSCONTEXT_STR)-1, option, len) ||
-		match_prefix(DEFCONTEXT_STR, sizeof(DEFCONTEXT_STR)-1, option, len) ||
-		match_prefix(ROOTCONTEXT_STR, sizeof(ROOTCONTEXT_STR)-1, option, len) ||
+	return (match_prefix(CONTEXT_STR"=", sizeof(CONTEXT_STR)-1+1, option, len) ||
+		match_prefix(FSCONTEXT_STR"=", sizeof(FSCONTEXT_STR)-1+1, option, len) ||
+		match_prefix(DEFCONTEXT_STR"=", sizeof(DEFCONTEXT_STR)-1+1, option, len) ||
+		match_prefix(ROOTCONTEXT_STR"=", sizeof(ROOTCONTEXT_STR)-1+1, option, len) ||
 		match_prefix(LABELSUPP_STR, sizeof(LABELSUPP_STR)-1, option, len));
 }
 
