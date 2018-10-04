@@ -440,15 +440,15 @@ static inline int inode_doinit(struct inode *inode)
 
 enum {
 	Opt_error = -1,
-	Opt_context = 1,
-	Opt_fscontext = 2,
-	Opt_defcontext = 3,
-	Opt_rootcontext = 4,
-	Opt_labelsupport = 5,
-	Opt_nextmntopt = 6,
+	Opt_context = 0,
+	Opt_fscontext = 1,
+	Opt_defcontext = 2,
+	Opt_rootcontext = 3,
+	Opt_labelsupport = 4,
+	Opt_nextmntopt = 5,
 };
 
-#define NUM_SEL_MNT_OPTS	(Opt_nextmntopt - 1)
+#define NUM_SEL_MNT_OPTS	(Opt_nextmntopt)
 
 static const match_table_t tokens = {
 	{Opt_context, CONTEXT_STR "=%s"},
