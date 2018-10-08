@@ -205,11 +205,11 @@ enum {
 /*
  * Mount options
  */
-#define SMK_FSDEFAULT	"smackfsdef="
-#define SMK_FSFLOOR	"smackfsfloor="
-#define SMK_FSHAT	"smackfshat="
-#define SMK_FSROOT	"smackfsroot="
-#define SMK_FSTRANS	"smackfstransmute="
+#define SMK_FSDEFAULT	"smackfsdef"
+#define SMK_FSFLOOR	"smackfsfloor"
+#define SMK_FSHAT	"smackfshat"
+#define SMK_FSROOT	"smackfsroot"
+#define SMK_FSTRANS	"smackfstransmute"
 
 #define SMACK_DELETE_OPTION	"-DELETE"
 #define SMACK_CIPSO_OPTION 	"-CIPSO"

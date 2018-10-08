@@ -60,11 +60,11 @@ static struct kmem_cache *smack_inode_cache;
 int smack_enabled;
 
 static const match_table_t smk_mount_tokens = {
-	{Opt_fsdefault, SMK_FSDEFAULT "%s"},
-	{Opt_fsfloor, SMK_FSFLOOR "%s"},
-	{Opt_fshat, SMK_FSHAT "%s"},
-	{Opt_fsroot, SMK_FSROOT "%s"},
-	{Opt_fstransmute, SMK_FSTRANS "%s"},
+	{Opt_fsdefault, SMK_FSDEFAULT "=%s"},
+	{Opt_fsfloor, SMK_FSFLOOR "=%s"},
+	{Opt_fshat, SMK_FSHAT "=%s"},
+	{Opt_fsroot, SMK_FSROOT "=%s"},
+	{Opt_fstransmute, SMK_FSTRANS "=%s"},
 	{Opt_error, NULL},
 };
 
@@ -584,15 +584,15 @@ static int smack_sb_copy_data(char *orig, char *smackopts)
 		return -ENOMEM;
 
 	for (cp = orig, commap = orig; commap != NULL; cp = commap + 1) {
-		if (strstr(cp, SMK_FSDEFAULT) == cp)
+		if (strstr(cp, SMK_FSDEFAULT"=") == cp)
 			dp = smackopts;
-		else if (strstr(cp, SMK_FSFLOOR) == cp)
+		else if (strstr(cp, SMK_FSFLOOR"=") == cp)
 			dp = smackopts;
-		else if (strstr(cp, SMK_FSHAT) == cp)
+		else if (strstr(cp, SMK_FSHAT"=") == cp)
 			dp = smackopts;
-		else if (strstr(cp, SMK_FSROOT) == cp)
+		else if (strstr(cp, SMK_FSROOT"=") == cp)
 			dp = smackopts;
-		else if (strstr(cp, SMK_FSTRANS) == cp)
+		else if (strstr(cp, SMK_FSTRANS"=") == cp)
 			dp = smackopts;
 		else
 			dp = otheropts;
