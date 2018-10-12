@@ -2304,7 +2304,7 @@ static int do_reconfigure_mnt(struct path *path, unsigned int mnt_flags)
  * If you've mounted a non-root directory somewhere and want to do remount
  * on it - tough luck.
  */
-static int do_remount(struct path *path, int ms_flags, int sb_flags,
+static int do_remount(struct path *path, int sb_flags,
 		      int mnt_flags, void *data)
 {
 	int err;
@@ -2859,8 +2859,7 @@ long do_mount(const char *dev_name, const char __user *dir_name,
 	if ((flags & (MS_REMOUNT | MS_BIND)) == (MS_REMOUNT | MS_BIND))
 		retval = do_reconfigure_mnt(&path, mnt_flags);
 	else if (flags & MS_REMOUNT)
-		retval = do_remount(&path, flags, sb_flags, mnt_flags,
-				    data_page);
+		retval = do_remount(&path, sb_flags, mnt_flags, data_page);
 	else if (flags & MS_BIND)
 		retval = do_loopback(&path, dev_name, flags & MS_REC);
 	else if (flags & (MS_SHARED | MS_PRIVATE | MS_SLAVE | MS_UNBINDABLE))
