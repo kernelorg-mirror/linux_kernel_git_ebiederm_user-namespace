@@ -38,7 +38,7 @@ int i915_gemfs_init(struct drm_i915_private *i915)
 	if (!type)
 		return -ENODEV;
 
-	gemfs = kern_mount(type);
+	gemfs = kern_mount_data(type, SB_NOUSER, NULL);
 	if (IS_ERR(gemfs))
 		return PTR_ERR(gemfs);
 

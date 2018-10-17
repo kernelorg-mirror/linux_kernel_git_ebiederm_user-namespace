@@ -3455,20 +3455,16 @@ int shmem_fill_super(struct super_block *sb, void *data, int silent)
 	 * tmpfs instance, limiting inodes to one per page of lowmem;
 	 * but the internal instance is left unlimited.
 	 */
-	if (!(sb->s_flags & SB_KERNMOUNT)) {
+	if (!(sb->s_flags & SB_NOUSER)) {
 		sbinfo->max_blocks = shmem_default_max_blocks();
 		sbinfo->max_inodes = shmem_default_max_inodes();
 		if (shmem_parse_options(data, sbinfo, false)) {
 			err = -EINVAL;
 			goto failed;
 		}
-	} else {
-		sb->s_flags |= SB_NOUSER;
 	}
 	sb->s_export_op = &shmem_export_ops;
 	sb->s_flags |= SB_NOSEC;
-#else
-	sb->s_flags |= SB_NOUSER;
 #endif
 
 	spin_lock_init(&sbinfo->stat_lock);
@@ -3675,7 +3671,7 @@ int __init shmem_init(void)
 		goto out2;
 	}
 
-	shm_mnt = kern_mount(&shmem_fs_type);
+	shm_mnt = kern_mount_data(&shmem_fs_type, SB_NOUSER, NULL);
 	if (IS_ERR(shm_mnt)) {
 		error = PTR_ERR(shm_mnt);
 		pr_err("Could not kern_mount tmpfs\n");
@@ -3806,9 +3802,10 @@ static struct file_system_type shmem_fs_type = {
 
 int __init shmem_init(void)
 {
+
 	BUG_ON(register_filesystem(&shmem_fs_type) != 0);
 
-	shm_mnt = kern_mount(&shmem_fs_type);
+	shm_mnt = kern_mount_data(&shmem_fs_type, SB_NOUSER, NULL);
 	BUG_ON(IS_ERR(shm_mnt));
 
 	return 0;
