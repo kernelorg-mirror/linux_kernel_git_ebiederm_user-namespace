@@ -400,3 +400,12 @@
 386	i386	rseq			sys_rseq			__ia32_sys_rseq
 387	i386	open_tree		sys_open_tree			__ia32_sys_open_tree
 388	i386	move_mount		sys_move_mount			__ia32_sys_move_mount
+389	i386	fsopen			sys_fsopen			__ia32_sys_fsopen
+390	i386	fsspecifiers		sys_fsspecifiers		__ia32_sys_fsspecifiers
+391	i386	fsinstance		sys_fsinstance			__ia32_sys_fsinstance
+392	i386	fspick			sys_fspick			__ia32_sys_fspick
+393	i386	fsset			sys_fsset			__ia32_sys_fsset
+394	i386	fsmount			sys_fsmount			__ia32_sys_fsmount
+395	i386	fsoptions		sys_fsoptions			__ia32_sys_fsoptions
+396	i386	fsname			sys_fsname			__ia32_sys_fsname
+397	i386	fstype			sys_fstype			__ia32_sys_fstype
