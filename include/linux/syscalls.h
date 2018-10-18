@@ -911,7 +911,15 @@ asmlinkage long sys_open_tree(int dfd, const char __user *path, unsigned flags);
 asmlinkage long sys_move_mount(int from_dfd, const char __user *from_path,
 			       int to_dfd, const char __user *to_path,
 			       unsigned int ms_flags);
-
+asmlinkage long sys_fsopen(const char __user *fs_type_name,
+			   const char __user *fs_name,
+			   const char __user *fs_specifiers);
+asmlinkage long sys_fspick(int dfd, const char __user *path, unsigned int flags);
+asmlinkage long sys_fsset(int instancefd, const char __user *options);
+asmlinkage long sys_fsmount(int instancefd, const char __user *options);
+asmlinkage long sys_fsoptions(int instancefd, char __user *options, size_t options_len);
+asmlinkage long sys_fsname(int instancefd, char __user *name, size_t name_len);
+asmlinkage long sys_fstype(int instancefd, char __user *fstype, size_t fstype_len);
 /*
  * Architecture-specific system calls
  */

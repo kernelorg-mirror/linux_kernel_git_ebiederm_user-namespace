@@ -345,6 +345,13 @@
 334	common	rseq			__x64_sys_rseq
 335	common	open_tree		__x64_sys_open_tree
 336	common	move_mount		__x64_sys_move_mount
+337	common	fsopen			__x64_sys_fsopen
+338	common	fspick			__x64_sys_fspick
+339	common	fsset			__x64_sys_fsset
+340	common	fsmount			__x64_sys_fsmount
+341	common	fsoptions		__x64_sys_fsoptions
+342	common	fsname			__x64_sys_fsname
+343	common	fstype			__x64_sys_fstype
 
 #
 # x32-specific system call numbers start at 512 to avoid cache impact
