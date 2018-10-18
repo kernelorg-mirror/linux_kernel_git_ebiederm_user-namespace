@@ -250,7 +250,13 @@ static inline int check_net(const struct net *net)
 	return refcount_read(&net->count) != 0;
 }
 
-void net_drop_ns(void *);
+static inline struct net *hold_net(struct net *net)
+{
+	refcount_inc(&net->passive);
+	return net;
+}
+
+void drop_net(struct net *net);
 
 #else
 
@@ -279,7 +285,14 @@ static inline int check_net(const struct net *net)
 	return 1;
 }
 
-#define net_drop_ns NULL
+static inline struct net *hold_net(struct net *net)
+{
+	return net;
+}
+
+static inline void drop_net(struct net *net)
+{
+}
 #endif
 
 

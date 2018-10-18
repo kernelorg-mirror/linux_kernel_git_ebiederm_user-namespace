@@ -400,12 +400,12 @@ static void net_free(struct net *net)
 	kmem_cache_free(net_cachep, net);
 }
 
-void net_drop_ns(void *p)
+void drop_net(struct net *net)
 {
-	struct net *ns = p;
-	if (ns && refcount_dec_and_test(&ns->passive))
-		net_free(ns);
+	if (refcount_dec_and_test(&net->passive))
+		net_free(net);
 }
+EXPORT_SYMBOL_GPL(drop_net);
 
 struct net *copy_net_ns(unsigned long flags,
 			struct user_namespace *user_ns, struct net *old_net)
@@ -441,7 +441,7 @@ struct net *copy_net_ns(unsigned long flags,
 	if (rv < 0) {
 put_userns:
 		put_user_ns(user_ns);
-		net_drop_ns(net);
+		drop_net(net);
 dec_ucounts:
 		dec_net_namespaces(ucounts);
 		return ERR_PTR(rv);
@@ -566,7 +566,7 @@ static void cleanup_net(struct work_struct *work)
 		list_del_init(&net->exit_list);
 		dec_net_namespaces(net->ucounts);
 		put_user_ns(net->user_ns);
-		net_drop_ns(net);
+		drop_net(net);
 	}
 }
 
