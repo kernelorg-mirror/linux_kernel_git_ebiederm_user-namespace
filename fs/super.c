@@ -1279,10 +1279,6 @@ mount_fs(struct file_system_type *type, int flags, const char *name, void *data)
 	if (error)
 		goto out_sb;
 
-	error = security_sb_kern_mount(sb, flags);
-	if (error)
-		goto out_sb;
-
 	up_write(&sb->s_umount);
 	free_secdata(secdata);
 	security_free_mnt_opts(&lsm_opts);

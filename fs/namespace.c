@@ -2501,6 +2501,12 @@ static int do_new_mount(struct path *path, const char *fstype, int sb_flags,
 	if (IS_ERR(mnt))
 		return PTR_ERR(mnt);
 
+	err = security_sb_may_mount(mnt->mnt_sb);
+	if (err) {
+		mntput(mnt);
+		return err;
+	}
+
 	if (mount_too_revealing(mnt, &mnt_flags)) {
 		mntput(mnt);
 		return -EPERM;
