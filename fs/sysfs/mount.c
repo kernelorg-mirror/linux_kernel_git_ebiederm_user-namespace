@@ -14,6 +14,7 @@
 #include <linux/mount.h>
 #include <linux/init.h>
 #include <linux/user_namespace.h>
+#include <net/net_namespace.h>
 
 #include "sysfs.h"
 
@@ -23,20 +24,20 @@ struct kernfs_node *sysfs_root_kn;
 static struct dentry *sysfs_mount(struct file_system_type *fs_type,
 	int flags, const char *dev_name, void *data)
 {
+	struct net *net = current->nsproxy->net_ns;
 	struct dentry *root;
-	void *ns;
 	bool new_sb = false;
 
 	if (!(flags & SB_KERNMOUNT)) {
-		if (!kobj_ns_current_may_mount(KOBJ_NS_TYPE_NET))
+		if (!ns_capable(net->user_ns, CAP_SYS_ADMIN))
 			return ERR_PTR(-EPERM);
 	}
 
-	ns = kobj_ns_grab_current(KOBJ_NS_TYPE_NET);
+	net = hold_net(net);
 	root = kernfs_mount_ns(fs_type, flags, sysfs_root,
-				SYSFS_MAGIC, &new_sb, ns);
+				SYSFS_MAGIC, &new_sb, net);
 	if (!new_sb)
-		kobj_ns_drop(KOBJ_NS_TYPE_NET, ns);
+		drop_net(net);
 	else if (!IS_ERR(root))
 		root->d_sb->s_iflags |= SB_I_USERNS_VISIBLE;
 
@@ -48,7 +49,7 @@ static void sysfs_kill_sb(struct super_block *sb)
 	void *ns = (void *)kernfs_super_ns(sb);
 
 	kernfs_kill_sb(sb);
-	kobj_ns_drop(KOBJ_NS_TYPE_NET, ns);
+	drop_net(ns);
 }
 
 static struct file_system_type sysfs_fs_type = {

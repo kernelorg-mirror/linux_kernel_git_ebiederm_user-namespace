@@ -1034,33 +1034,6 @@ const struct kobj_ns_type_operations *kobj_ns_ops(struct kobject *kobj)
 	return kobj_child_ns_ops(kobj->parent);
 }
 
-bool kobj_ns_current_may_mount(enum kobj_ns_type type)
-{
-	bool may_mount = true;
-
-	spin_lock(&kobj_ns_type_lock);
-	if ((type > KOBJ_NS_TYPE_NONE) && (type < KOBJ_NS_TYPES) &&
-	    kobj_ns_ops_tbl[type])
-		may_mount = kobj_ns_ops_tbl[type]->current_may_mount();
-	spin_unlock(&kobj_ns_type_lock);
-
-	return may_mount;
-}
-
-void *kobj_ns_grab_current(enum kobj_ns_type type)
-{
-	void *ns = NULL;
-
-	spin_lock(&kobj_ns_type_lock);
-	if ((type > KOBJ_NS_TYPE_NONE) && (type < KOBJ_NS_TYPES) &&
-	    kobj_ns_ops_tbl[type])
-		ns = kobj_ns_ops_tbl[type]->grab_current_ns();
-	spin_unlock(&kobj_ns_type_lock);
-
-	return ns;
-}
-EXPORT_SYMBOL_GPL(kobj_ns_grab_current);
-
 const void *kobj_ns_netlink(enum kobj_ns_type type, struct sock *sk)
 {
 	const void *ns = NULL;
@@ -1087,12 +1060,3 @@ const void *kobj_ns_initial(enum kobj_ns_type type)
 	return ns;
 }
 
-void kobj_ns_drop(enum kobj_ns_type type, void *ns)
-{
-	spin_lock(&kobj_ns_type_lock);
-	if ((type > KOBJ_NS_TYPE_NONE) && (type < KOBJ_NS_TYPES) &&
-	    kobj_ns_ops_tbl[type] && kobj_ns_ops_tbl[type]->drop_ns)
-		kobj_ns_ops_tbl[type]->drop_ns(ns);
-	spin_unlock(&kobj_ns_type_lock);
-}
-EXPORT_SYMBOL_GPL(kobj_ns_drop);
