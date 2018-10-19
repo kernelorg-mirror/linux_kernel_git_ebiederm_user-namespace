@@ -952,9 +952,6 @@ static struct vfsmount *sb_mount(struct dentry *root, const char *name,
 	if (!mnt)
 		goto fail;
 
-	if (sb->s_flags & SB_KERNMOUNT)
-		mnt->mnt.mnt_flags = MNT_INTERNAL;
-
 	mnt->mnt.mnt_root = root;
 	mnt->mnt.mnt_sb = sb;
 	mnt->mnt_mountpoint = mnt->mnt.mnt_root;
@@ -3339,6 +3336,7 @@ struct vfsmount *kern_mount_data(struct file_system_type *type, void *data)
 		 * we unmount before file sys is unregistered
 		*/
 		real_mount(mnt)->mnt_ns = MNT_NS_INTERNAL;
+		mnt->mnt_flags = MNT_INTERNAL;
 	}
 	return mnt;
 }
