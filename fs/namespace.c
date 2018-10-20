@@ -2482,7 +2482,7 @@ unlock:
 	return err;
 }
 
-static bool mount_too_revealing(struct vfsmount *mnt, int *new_mnt_flags);
+static bool mount_too_revealing(struct dentry *root, int *new_mnt_flags);
 
 static int new_mount_permission(struct file_system_type *type)
 {
@@ -2543,7 +2543,7 @@ static int do_new_mount(struct path *path, const char *fstype, int sb_flags,
 		return err;
 	}
 
-	if (mount_too_revealing(mnt, &mnt_flags)) {
+	if (mount_too_revealing(mnt->mnt_root, &mnt_flags)) {
 		mntput(mnt);
 		return -EPERM;
 	}
@@ -3393,8 +3393,8 @@ bool current_chrooted(void)
 	return chrooted;
 }
 
-static bool mnt_already_visible(struct mnt_namespace *ns, struct vfsmount *new,
-				int *new_mnt_flags)
+static bool mount_already_visible(struct mnt_namespace *ns, struct dentry *root,
+				  int *new_mnt_flags)
 {
 	int new_flags = *new_mnt_flags;
 	struct mount *mnt;
@@ -3405,7 +3405,7 @@ static bool mnt_already_visible(struct mnt_namespace *ns, struct vfsmount *new,
 		struct mount *child;
 		int mnt_flags;
 
-		if (mnt->mnt.mnt_sb->s_type != new->mnt_sb->s_type)
+		if (mnt->mnt.mnt_sb->s_type != root->d_sb->s_type)
 			continue;
 
 		/* This mount is not fully visible if it's root directory
@@ -3456,7 +3456,7 @@ found:
 	return visible;
 }
 
-static bool mount_too_revealing(struct vfsmount *mnt, int *new_mnt_flags)
+static bool mount_too_revealing(struct dentry *root, int *new_mnt_flags)
 {
 	const unsigned long required_iflags = SB_I_NOEXEC | SB_I_NODEV;
 	struct mnt_namespace *ns = current->nsproxy->mnt_ns;
@@ -3466,7 +3466,7 @@ static bool mount_too_revealing(struct vfsmount *mnt, int *new_mnt_flags)
 		return false;
 
 	/* Can this filesystem be too revealing? */
-	s_iflags = mnt->mnt_sb->s_iflags;
+	s_iflags = root->d_sb->s_iflags;
 	if (!(s_iflags & SB_I_USERNS_VISIBLE))
 		return false;
 
@@ -3476,7 +3476,7 @@ static bool mount_too_revealing(struct vfsmount *mnt, int *new_mnt_flags)
 		return true;
 	}
 
-	return !mnt_already_visible(ns, mnt, new_mnt_flags);
+	return !mount_already_visible(ns, root, new_mnt_flags);
 }
 
 bool mnt_may_suid(struct vfsmount *mnt)
