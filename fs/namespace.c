@@ -2460,8 +2460,6 @@ unlock:
 	return err;
 }
 
-static bool mount_too_revealing(struct dentry *root, int *new_mnt_flags);
-
 static int new_mount_permission(struct file_system_type *type)
 {
 	int err = 0;
@@ -3439,7 +3437,7 @@ found:
 	return visible;
 }
 
-static bool mount_too_revealing(struct dentry *root, int *new_mnt_flags)
+bool mount_too_revealing(struct dentry *root, int *new_mnt_flags)
 {
 	const unsigned long required_iflags = SB_I_NOEXEC | SB_I_NODEV;
 	struct mnt_namespace *ns = current->nsproxy->mnt_ns;

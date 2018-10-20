@@ -146,3 +146,5 @@ static inline bool is_local_mountpoint(struct dentry *dentry)
 
 	return __is_local_mountpoint(dentry);
 }
+
+bool mount_too_revealing(struct dentry *root, int *new_mnt_flags);
