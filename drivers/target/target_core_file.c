@@ -713,15 +713,15 @@ fd_execute_rw(struct se_cmd *cmd, struct scatterlist *sgl, u32 sgl_nents,
 
 enum {
 	Opt_fd_dev_name, Opt_fd_dev_size, Opt_fd_buffered_io,
-	Opt_fd_async_io, Opt_err
+	Opt_fd_async_io
 };
 
-static match_table_t tokens = {
+static const struct match_table tokens[] = {
 	{Opt_fd_dev_name, "fd_dev_name=%s"},
 	{Opt_fd_dev_size, "fd_dev_size=%s"},
 	{Opt_fd_buffered_io, "fd_buffered_io=%d"},
 	{Opt_fd_async_io, "fd_async_io=%d"},
-	{Opt_err, NULL}
+	{ }
 };
 
 static ssize_t fd_set_configfs_dev_params(struct se_device *dev,

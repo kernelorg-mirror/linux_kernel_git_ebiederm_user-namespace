@@ -194,10 +194,9 @@ enum {
 	opt_uid, opt_gid, opt_umask, opt_file_umask, opt_dir_umask,
 	opt_part, opt_session, opt_type, opt_creator, opt_quiet,
 	opt_codepage, opt_iocharset,
-	opt_err
 };
 
-static const match_table_t tokens = {
+static const struct match_table tokens[] = {
 	{ opt_uid, "uid=%u" },
 	{ opt_gid, "gid=%u" },
 	{ opt_umask, "umask=%o" },
@@ -210,7 +209,7 @@ static const match_table_t tokens = {
 	{ opt_quiet, "quiet" },
 	{ opt_codepage, "codepage=%s" },
 	{ opt_iocharset, "iocharset=%s" },
-	{ opt_err, NULL }
+	{ }
 };
 
 static inline int match_fourchar(substring_t *arg, u32 *result)

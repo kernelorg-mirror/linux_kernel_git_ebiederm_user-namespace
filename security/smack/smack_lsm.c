@@ -59,13 +59,13 @@ static LIST_HEAD(smk_ipv6_port_list);
 static struct kmem_cache *smack_inode_cache;
 int smack_enabled;
 
-static const match_table_t smk_mount_tokens = {
+static const struct match_table smk_mount_tokens[] = {
 	{Opt_fsdefault, SMK_FSDEFAULT "%s"},
 	{Opt_fsfloor, SMK_FSFLOOR "%s"},
 	{Opt_fshat, SMK_FSHAT "%s"},
 	{Opt_fsroot, SMK_FSROOT "%s"},
 	{Opt_fstransmute, SMK_FSTRANS "%s"},
-	{Opt_error, NULL},
+	{ }
 };
 
 #ifdef CONFIG_SECURITY_SMACK_BRINGUP

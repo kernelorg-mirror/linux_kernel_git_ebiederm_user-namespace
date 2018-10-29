@@ -428,11 +428,11 @@ enum {
 	Opt_gid, Opt_uid, Opt_umask, Opt_session, Opt_lastblock,
 	Opt_anchor, Opt_volume, Opt_partition, Opt_fileset,
 	Opt_rootdir, Opt_utf8, Opt_iocharset,
-	Opt_err, Opt_uforget, Opt_uignore, Opt_gforget, Opt_gignore,
+	Opt_uforget, Opt_uignore, Opt_gforget, Opt_gignore,
 	Opt_fmode, Opt_dmode
 };
 
-static const match_table_t tokens = {
+static const struct match_table tokens[] = {
 	{Opt_novrs,	"novrs"},
 	{Opt_nostrict,	"nostrict"},
 	{Opt_bs,	"bs=%u"},
@@ -460,7 +460,7 @@ static const match_table_t tokens = {
 	{Opt_iocharset,	"iocharset=%s"},
 	{Opt_fmode,     "mode=%o"},
 	{Opt_dmode,     "dmode=%o"},
-	{Opt_err,	NULL}
+	{ }
 };
 
 static int udf_parse_options(char *options, struct udf_options *uopt,

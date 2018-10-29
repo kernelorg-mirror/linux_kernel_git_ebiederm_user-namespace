@@ -137,10 +137,9 @@ enum {
 	Opt_fsync,
 	Opt_test_dummy_encryption,
 	Opt_checkpoint,
-	Opt_err,
 };
 
-static match_table_t f2fs_tokens = {
+static const struct match_table f2fs_tokens[] = {
 	{Opt_gc_background, "background_gc=%s"},
 	{Opt_disable_roll_forward, "disable_roll_forward"},
 	{Opt_norecovery, "norecovery"},
@@ -196,7 +195,7 @@ static match_table_t f2fs_tokens = {
 	{Opt_fsync, "fsync_mode=%s"},
 	{Opt_test_dummy_encryption, "test_dummy_encryption"},
 	{Opt_checkpoint, "checkpoint=%s"},
-	{Opt_err, NULL},
+	{ },
 };
 
 void f2fs_msg(struct super_block *sb, const char *level, const char *fmt, ...)

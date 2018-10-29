@@ -453,10 +453,9 @@ enum {
 	OPT_ALLOW_OTHER,
 	OPT_MAX_READ,
 	OPT_BLKSIZE,
-	OPT_ERR
 };
 
-static const match_table_t tokens = {
+static const struct match_table tokens[] = {
 	{OPT_FD,			"fd=%u"},
 	{OPT_ROOTMODE,			"rootmode=%o"},
 	{OPT_USER_ID,			"user_id=%u"},
@@ -465,7 +464,7 @@ static const match_table_t tokens = {
 	{OPT_ALLOW_OTHER,		"allow_other"},
 	{OPT_MAX_READ,			"max_read=%u"},
 	{OPT_BLKSIZE,			"blksize=%u"},
-	{OPT_ERR,			NULL}
+	{ }
 };
 
 static int fuse_match_uint(substring_t *s, unsigned int *res)

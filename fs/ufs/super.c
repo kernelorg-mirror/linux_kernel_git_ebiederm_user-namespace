@@ -356,10 +356,9 @@ enum {
        Opt_onerror_lock = UFS_MOUNT_ONERROR_LOCK,
        Opt_onerror_umount = UFS_MOUNT_ONERROR_UMOUNT,
        Opt_onerror_repair = UFS_MOUNT_ONERROR_REPAIR,
-       Opt_err
 };
 
-static const match_table_t tokens = {
+static const struct match_table tokens[] = {
 	{Opt_type_old, "ufstype=old"},
 	{Opt_type_sunx86, "ufstype=sunx86"},
 	{Opt_type_sun, "ufstype=sun"},
@@ -376,7 +375,7 @@ static const match_table_t tokens = {
 	{Opt_onerror_lock, "onerror=lock"},
 	{Opt_onerror_umount, "onerror=umount"},
 	{Opt_onerror_repair, "onerror=repair"},
-	{Opt_err, NULL}
+	{ }
 };
 
 static int ufs_parse_options (char * options, unsigned * mount_options)
@@ -1385,7 +1384,7 @@ static int ufs_show_options(struct seq_file *seq, struct dentry *root)
 {
 	struct ufs_sb_info *sbi = UFS_SB(root->d_sb);
 	unsigned mval = sbi->s_mount_opt & UFS_MOUNT_UFSTYPE;
-	const struct match_token *tp = tokens;
+	const struct match_table *tp = tokens;
 
 	while (tp->token != Opt_onerror_panic && tp->token != mval)
 		++tp;
@@ -1393,9 +1392,9 @@ static int ufs_show_options(struct seq_file *seq, struct dentry *root)
 	seq_printf(seq, ",%s", tp->pattern);
 
 	mval = sbi->s_mount_opt & UFS_MOUNT_ONERROR;
-	while (tp->token != Opt_err && tp->token != mval)
+	while (tp->pattern && tp->token != mval)
 		++tp;
-	BUG_ON(tp->token == Opt_err);
+	BUG_ON(!tp->pattern);
 	seq_printf(seq, ",%s", tp->pattern);
 
 	return 0;

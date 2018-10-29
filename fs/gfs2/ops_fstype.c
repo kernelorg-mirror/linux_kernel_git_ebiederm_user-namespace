@@ -902,15 +902,15 @@ fail:
 	return error;
 }
 
-static const match_table_t nolock_tokens = {
+static const struct match_table nolock_tokens[] = {
 	{ Opt_jid, "jid=%d\n", },
-	{ Opt_err, NULL },
+	{ }
 };
 
 static const struct lm_lockops nolock_ops = {
 	.lm_proto_name = "lock_nolock",
 	.lm_put_lock = gfs2_glock_free,
-	.lm_tokens = &nolock_tokens,
+	.lm_tokens = nolock_tokens,
 };
 
 /**
@@ -956,7 +956,7 @@ static int gfs2_lm_mount(struct gfs2_sbd *sdp, int silent)
 		if (!o || !*o)
 			continue;
 
-		token = match_token(o, *lm->lm_tokens, tmp);
+		token = match_token(o, lm->lm_tokens, tmp);
 		switch (token) {
 		case Opt_jid:
 			ret = match_int(&tmp[0], &option);
@@ -975,7 +975,6 @@ static int gfs2_lm_mount(struct gfs2_sbd *sdp, int silent)
 				goto hostdata_error;
 			ls->ls_first = option;
 			break;
-		case Opt_err:
 		default:
 hostdata_error:
 			fs_info(sdp, "unknown hostdata (%s)\n", o);

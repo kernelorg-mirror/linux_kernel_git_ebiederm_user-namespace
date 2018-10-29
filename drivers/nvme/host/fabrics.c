@@ -593,7 +593,7 @@ bool __nvmf_check_ready(struct nvme_ctrl *ctrl, struct request *rq,
 }
 EXPORT_SYMBOL_GPL(__nvmf_check_ready);
 
-static const match_table_t opt_tokens = {
+static const struct match_table opt_tokens[] = {
 	{ NVMF_OPT_TRANSPORT,		"transport=%s"		},
 	{ NVMF_OPT_TRADDR,		"traddr=%s"		},
 	{ NVMF_OPT_TRSVCID,		"trsvcid=%s"		},
@@ -607,7 +607,7 @@ static const match_table_t opt_tokens = {
 	{ NVMF_OPT_HOST_TRADDR,		"host_traddr=%s"	},
 	{ NVMF_OPT_HOST_ID,		"hostid=%s"		},
 	{ NVMF_OPT_DUP_CONNECT,		"duplicate_connect"	},
-	{ NVMF_OPT_ERR,			NULL			}
+	{ }
 };
 
 static int nvmf_parse_options(struct nvmf_ctrl_options *opts,
@@ -638,7 +638,6 @@ static int nvmf_parse_options(struct nvmf_ctrl_options *opts,
 			continue;
 
 		token = match_token(p, opt_tokens, args);
-		opts->mask |= token;
 		switch (token) {
 		case NVMF_OPT_TRANSPORT:
 			p = match_strdup(args);
@@ -823,6 +822,8 @@ static int nvmf_parse_options(struct nvmf_ctrl_options *opts,
 			ret = -EINVAL;
 			goto out;
 		}
+		opts->mask |= token;
+
 	}
 
 	if (opts->discovery_nqn) {

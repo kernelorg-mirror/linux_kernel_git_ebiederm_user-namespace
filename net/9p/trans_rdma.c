@@ -150,16 +150,15 @@ enum {
 	Opt_port, Opt_rq_depth, Opt_sq_depth, Opt_timeout,
 	/* Options that take no argument */
 	Opt_privport,
-	Opt_err,
 };
 
-static match_table_t tokens = {
+static const struct match_table tokens[] = {
 	{Opt_port, "port=%u"},
 	{Opt_sq_depth, "sq=%u"},
 	{Opt_rq_depth, "rq=%u"},
 	{Opt_timeout, "timeout=%u"},
 	{Opt_privport, "privport"},
-	{Opt_err, NULL},
+	{ }
 };
 
 static int p9_rdma_show_options(struct seq_file *m, struct p9_client *clnt)
@@ -216,7 +215,7 @@ static int parse_opts(char *params, struct p9_rdma_opts *opts)
 		if (!*p)
 			continue;
 		token = match_token(p, tokens, args);
-		if ((token != Opt_err) && (token != Opt_privport)) {
+		if ((token != MATCH_FAILURE) && (token != Opt_privport)) {
 			r = match_int(&args[0], &option);
 			if (r < 0) {
 				p9_debug(P9_DEBUG_ERROR,

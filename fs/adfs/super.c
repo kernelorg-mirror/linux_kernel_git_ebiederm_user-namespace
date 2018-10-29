@@ -144,15 +144,15 @@ static int adfs_show_options(struct seq_file *seq, struct dentry *root)
 	return 0;
 }
 
-enum {Opt_uid, Opt_gid, Opt_ownmask, Opt_othmask, Opt_ftsuffix, Opt_err};
+enum {Opt_uid, Opt_gid, Opt_ownmask, Opt_othmask, Opt_ftsuffix, };
 
-static const match_table_t tokens = {
+static const struct match_table tokens[] = {
 	{Opt_uid, "uid=%u"},
 	{Opt_gid, "gid=%u"},
 	{Opt_ownmask, "ownmask=%o"},
 	{Opt_othmask, "othmask=%o"},
 	{Opt_ftsuffix, "ftsuffix=%u"},
-	{Opt_err, NULL}
+	{ }
 };
 
 static int parse_options(struct super_block *sb, char *options)

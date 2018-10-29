@@ -77,17 +77,17 @@ struct p9_fd_opts {
 
 enum {
 	/* Options that take integer arguments */
-	Opt_port, Opt_rfdno, Opt_wfdno, Opt_err,
+	Opt_port, Opt_rfdno, Opt_wfdno,
 	/* Options that take no arguments */
 	Opt_privport,
 };
 
-static const match_table_t tokens = {
+static const struct match_table tokens[] = {
 	{Opt_port, "port=%u"},
 	{Opt_rfdno, "rfdno=%u"},
 	{Opt_wfdno, "wfdno=%u"},
 	{Opt_privport, "privport"},
-	{Opt_err, NULL},
+	{ }
 };
 
 enum {
@@ -780,7 +780,7 @@ static int parse_opts(char *params, struct p9_fd_opts *opts)
 		if (!*p)
 			continue;
 		token = match_token(p, tokens, args);
-		if ((token != Opt_err) && (token != Opt_privport)) {
+		if ((token != MATCH_FAILURE) && (token != Opt_privport)) {
 			r = match_int(&args[0], &option);
 			if (r < 0) {
 				p9_debug(P9_DEBUG_ERROR,

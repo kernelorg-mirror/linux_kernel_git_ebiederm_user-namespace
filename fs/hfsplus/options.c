@@ -25,10 +25,10 @@ enum {
 	opt_part, opt_session, opt_nls,
 	opt_nodecompose, opt_decompose,
 	opt_barrier, opt_nobarrier,
-	opt_force, opt_err
+	opt_force,
 };
 
-static const match_table_t tokens = {
+static const struct match_table tokens[] = {
 	{ opt_creator, "creator=%s" },
 	{ opt_type, "type=%s" },
 	{ opt_umask, "umask=%o" },
@@ -42,7 +42,7 @@ static const match_table_t tokens = {
 	{ opt_barrier, "barrier" },
 	{ opt_nobarrier, "nobarrier" },
 	{ opt_force, "force" },
-	{ opt_err, NULL }
+	{ }
 };
 
 /* Initialize an options object to reasonable defaults */

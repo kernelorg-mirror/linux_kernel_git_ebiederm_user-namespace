@@ -8865,7 +8865,6 @@ restart:
  * address; not valid for ACTION=="filter".
  */
 enum {
-	IF_ACT_NONE = -1,
 	IF_ACT_FILTER,
 	IF_ACT_START,
 	IF_ACT_STOP,
@@ -8881,7 +8880,7 @@ enum {
 	IF_STATE_END,
 };
 
-static const match_table_t if_tokens = {
+static const struct match_table if_tokens[] = {
 	{ IF_ACT_FILTER,	"filter" },
 	{ IF_ACT_START,		"start" },
 	{ IF_ACT_STOP,		"stop" },
@@ -8889,7 +8888,7 @@ static const match_table_t if_tokens = {
 	{ IF_SRC_KERNEL,	"%u/%u" },
 	{ IF_SRC_FILEADDR,	"%u@%s" },
 	{ IF_SRC_KERNELADDR,	"%u" },
-	{ IF_ACT_NONE,		NULL },
+	{ }
 };
 
 /*

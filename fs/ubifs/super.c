@@ -953,10 +953,9 @@ enum {
 	Opt_auth_key,
 	Opt_auth_hash_name,
 	Opt_ignore,
-	Opt_err,
 };
 
-static const match_table_t tokens = {
+static const struct match_table tokens[] = {
 	{Opt_fast_unmount, "fast_unmount"},
 	{Opt_norm_unmount, "norm_unmount"},
 	{Opt_bulk_read, "bulk_read"},
@@ -969,7 +968,7 @@ static const match_table_t tokens = {
 	{Opt_ignore, "ubi=%s"},
 	{Opt_ignore, "vol=%s"},
 	{Opt_assert, "assert=%s"},
-	{Opt_err, NULL},
+	{ }
 };
 
 /**

@@ -93,9 +93,9 @@ static int match_one(char *s, const char *p, substring_t args[])
 /**
  * match_token: - Find a token (and optional args) in a string
  * @s: the string to examine for token/argument pairs
- * @table: match_table_t describing the set of allowed option tokens and the
- * arguments that may be associated with them. Must be terminated with a
- * &struct match_token whose pattern is set to the NULL pointer.
+ * @table: &struct match_table pointer describing the set of allowed option
+ * tokens and the arguments that may be associated with them. Must be terminated
+ * with a &struct match_table whose pattern is set to the NULL pointer.
  * @args: array of %MAX_OPT_ARGS &substring_t elements. Used to return match
  * locations.
  *
@@ -104,14 +104,14 @@ static int match_one(char *s, const char *p, substring_t args[])
  * format identifiers which will be taken into account when matching the
  * tokens, and whose locations will be returned in the @args array.
  */
-int match_token(char *s, const match_table_t table, substring_t args[])
+int match_token(char *s, const struct match_table table[], substring_t args[])
 {
-	const struct match_token *p;
+	const struct match_table *p;
 
 	for (p = table; !match_one(s, p->pattern, args) ; p++)
 		;
 
-	return p->token;
+	return p->pattern ? p->token : MATCH_FAILURE;
 }
 EXPORT_SYMBOL(match_token);
 

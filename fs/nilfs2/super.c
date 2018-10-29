@@ -701,10 +701,10 @@ static const struct super_operations nilfs_sops = {
 enum {
 	Opt_err_cont, Opt_err_panic, Opt_err_ro,
 	Opt_barrier, Opt_nobarrier, Opt_snapshot, Opt_order, Opt_norecovery,
-	Opt_discard, Opt_nodiscard, Opt_err,
+	Opt_discard, Opt_nodiscard,
 };
 
-static match_table_t tokens = {
+static const struct match_table tokens[] = {
 	{Opt_err_cont, "errors=continue"},
 	{Opt_err_panic, "errors=panic"},
 	{Opt_err_ro, "errors=remount-ro"},
@@ -715,7 +715,7 @@ static match_table_t tokens = {
 	{Opt_norecovery, "norecovery"},
 	{Opt_discard, "discard"},
 	{Opt_nodiscard, "nodiscard"},
-	{Opt_err, NULL}
+	{ }
 };
 
 static int parse_options(char *options, struct super_block *sb, int is_remount)

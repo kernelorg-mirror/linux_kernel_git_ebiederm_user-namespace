@@ -1407,7 +1407,7 @@ enum {
 	Opt_data_err_abort, Opt_data_err_ignore, Opt_test_dummy_encryption,
 	Opt_usrjquota, Opt_grpjquota, Opt_offusrjquota, Opt_offgrpjquota,
 	Opt_jqfmt_vfsold, Opt_jqfmt_vfsv0, Opt_jqfmt_vfsv1, Opt_quota,
-	Opt_noquota, Opt_barrier, Opt_nobarrier, Opt_err,
+	Opt_noquota, Opt_barrier, Opt_nobarrier,
 	Opt_usrquota, Opt_grpquota, Opt_prjquota, Opt_i_version, Opt_dax,
 	Opt_stripe, Opt_delalloc, Opt_nodelalloc, Opt_warn_on_error,
 	Opt_nowarn_on_error, Opt_mblk_io_submit,
@@ -1419,7 +1419,7 @@ enum {
 	Opt_max_dir_size_kb, Opt_nojournal_checksum, Opt_nombcache,
 };
 
-static const match_table_t tokens = {
+static const struct match_table tokens[] = {
 	{Opt_bsd_df, "bsddf"},
 	{Opt_minix_df, "minixdf"},
 	{Opt_grpid, "grpid"},
@@ -1508,7 +1508,7 @@ static const match_table_t tokens = {
 	{Opt_removed, "reservation"},	/* mount option from ext2/3 */
 	{Opt_removed, "noreservation"}, /* mount option from ext2/3 */
 	{Opt_removed, "journal=%u"},	/* mount option from ext2/3 */
-	{Opt_err, NULL},
+	{ }
 };
 
 static ext4_fsblk_t get_sb_block(void **data)
@@ -1713,7 +1713,7 @@ static const struct mount_opts {
 	{Opt_max_dir_size_kb, 0, MOPT_GTE0},
 	{Opt_test_dummy_encryption, 0, MOPT_GTE0},
 	{Opt_nombcache, EXT4_MOUNT_NO_MBCACHE, MOPT_SET},
-	{Opt_err, 0, 0}
+	{MATCH_FAILURE, 0, 0}
 };
 
 static int handle_mount_opt(struct super_block *sb, char *opt, int token,
@@ -1760,11 +1760,11 @@ static int handle_mount_opt(struct super_block *sb, char *opt, int token,
 		return 1;
 	}
 
-	for (m = ext4_mount_opts; m->token != Opt_err; m++)
+	for (m = ext4_mount_opts; m->token != MATCH_FAILURE; m++)
 		if (token == m->token)
 			break;
 
-	if (m->token == Opt_err) {
+	if (m->token == MATCH_FAILURE) {
 		ext4_msg(sb, KERN_ERR, "Unrecognized mount option \"%s\" "
 			 "or missing value", opt);
 		return -1;
@@ -2076,9 +2076,9 @@ static inline void ext4_show_quota_options(struct seq_file *seq,
 
 static const char *token2str(int token)
 {
-	const struct match_token *t;
+	const struct match_table *t;
 
-	for (t = tokens; t->token != Opt_err; t++)
+	for (t = tokens; t->pattern; t++)
 		if (t->token == token && !strchr(t->pattern, '='))
 			break;
 	return t->pattern;
@@ -2104,7 +2104,7 @@ static int _ext4_show_options(struct seq_file *seq, struct super_block *sb,
 	if (sbi->s_sb_block != 1)
 		SEQ_OPTS_PRINT("sb=%llu", sbi->s_sb_block);
 
-	for (m = ext4_mount_opts; m->token != Opt_err; m++) {
+	for (m = ext4_mount_opts; m->token != MATCH_FAILURE; m++) {
 		int want_set = m->flags & MOPT_SET;
 		if (((m->flags & (MOPT_SET|MOPT_CLEAR)) == 0) ||
 		    (m->flags & MOPT_CLEAR_ERR))

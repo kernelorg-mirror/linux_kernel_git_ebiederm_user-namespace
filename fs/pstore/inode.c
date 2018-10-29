@@ -228,12 +228,12 @@ static struct inode *pstore_get_inode(struct super_block *sb)
 }
 
 enum {
-	Opt_kmsg_bytes, Opt_err
+	Opt_kmsg_bytes,
 };
 
-static const match_table_t tokens = {
+static const struct match_table tokens[] = {
 	{Opt_kmsg_bytes, "kmsg_bytes=%u"},
-	{Opt_err, NULL}
+	{ }
 };
 
 static void parse_options(char *options)

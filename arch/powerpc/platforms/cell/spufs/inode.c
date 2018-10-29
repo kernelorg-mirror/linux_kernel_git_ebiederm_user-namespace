@@ -594,15 +594,15 @@ long spufs_create(struct path *path, struct dentry *dentry,
 
 /* File system initialization */
 enum {
-	Opt_uid, Opt_gid, Opt_mode, Opt_debug, Opt_err,
+	Opt_uid, Opt_gid, Opt_mode, Opt_debug,
 };
 
-static const match_table_t spufs_tokens = {
+static const struct match_table spufs_tokens[] = {
 	{ Opt_uid,   "uid=%d" },
 	{ Opt_gid,   "gid=%d" },
 	{ Opt_mode,  "mode=%o" },
 	{ Opt_debug, "debug" },
-	{ Opt_err,    NULL  },
+	{ },
 };
 
 static int spufs_show_options(struct seq_file *m, struct dentry *root)

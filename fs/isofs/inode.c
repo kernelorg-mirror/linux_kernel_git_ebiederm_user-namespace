@@ -294,11 +294,11 @@ isofs_dentry_cmpi_ms(const struct dentry *dentry,
 enum {
 	Opt_block, Opt_check_r, Opt_check_s, Opt_cruft, Opt_gid, Opt_ignore,
 	Opt_iocharset, Opt_map_a, Opt_map_n, Opt_map_o, Opt_mode, Opt_nojoliet,
-	Opt_norock, Opt_sb, Opt_session, Opt_uid, Opt_unhide, Opt_utf8, Opt_err,
+	Opt_norock, Opt_sb, Opt_session, Opt_uid, Opt_unhide, Opt_utf8,
 	Opt_nocompress, Opt_hide, Opt_showassoc, Opt_dmode, Opt_overriderockperm,
 };
 
-static const match_table_t tokens = {
+static const struct match_table tokens[] = {
 	{Opt_norock, "norock"},
 	{Opt_nojoliet, "nojoliet"},
 	{Opt_unhide, "unhide"},
@@ -334,7 +334,7 @@ static const match_table_t tokens = {
 	{Opt_ignore, "conv=auto"},
 	{Opt_ignore, "conv=a"},
 	{Opt_nocompress, "nocompress"},
-	{Opt_err, NULL}
+	{ }
 };
 
 static int parse_options(char *options, struct iso9660_options *popt)

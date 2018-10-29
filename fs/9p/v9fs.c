@@ -63,11 +63,9 @@ enum {
 	Opt_access, Opt_posixacl,
 	/* Lock timeout option */
 	Opt_locktimeout,
-	/* Error token */
-	Opt_err
 };
 
-static const match_table_t tokens = {
+static const struct match_table tokens[] = {
 	{Opt_debug, "debug=%x"},
 	{Opt_dfltuid, "dfltuid=%u"},
 	{Opt_dfltgid, "dfltgid=%u"},
@@ -83,7 +81,7 @@ static const match_table_t tokens = {
 	{Opt_access, "access=%s"},
 	{Opt_posixacl, "posixacl"},
 	{Opt_locktimeout, "locktimeout=%u"},
-	{Opt_err, NULL}
+	{ }
 };
 
 static const char *const v9fs_cache_modes[nr__p9_cache_modes] = {

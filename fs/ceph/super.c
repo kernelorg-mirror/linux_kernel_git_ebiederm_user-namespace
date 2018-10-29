@@ -169,7 +169,7 @@ enum {
 	Opt_nocopyfrom,
 };
 
-static match_table_t fsopt_tokens = {
+static const struct match_table fsopt_tokens[] = {
 	{Opt_wsize, "wsize=%d"},
 	{Opt_rsize, "rsize=%d"},
 	{Opt_rasize, "rasize=%d"},
@@ -207,7 +207,7 @@ static match_table_t fsopt_tokens = {
 	{Opt_noquotadf, "noquotadf"},
 	{Opt_copyfrom, "copyfrom"},
 	{Opt_nocopyfrom, "nocopyfrom"},
-	{-1, NULL}
+	{ }
 };
 
 static int parse_fsopt_token(char *c, void *private)

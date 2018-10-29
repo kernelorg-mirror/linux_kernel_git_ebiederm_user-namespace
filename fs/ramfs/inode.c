@@ -177,12 +177,11 @@ static const struct super_operations ramfs_ops = {
 
 enum {
 	Opt_mode,
-	Opt_err
 };
 
-static const match_table_t tokens = {
+static const struct match_table tokens[] = {
 	{Opt_mode, "mode=%o"},
-	{Opt_err, NULL}
+	{ }
 };
 
 static int ramfs_parse_options(char *data, struct ramfs_mount_opts *opts)

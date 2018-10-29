@@ -257,7 +257,7 @@ enum {
 	Opt_notcp_nodelay,
 };
 
-static match_table_t opt_tokens = {
+static const struct match_table opt_tokens[] = {
 	{Opt_osdtimeout, "osdtimeout=%d"},
 	{Opt_osdkeepalivetimeout, "osdkeepalive=%d"},
 	{Opt_mount_timeout, "mount_timeout=%d"},
@@ -280,7 +280,7 @@ static match_table_t opt_tokens = {
 	{Opt_nocephx_sign_messages, "nocephx_sign_messages"},
 	{Opt_tcp_nodelay, "tcp_nodelay"},
 	{Opt_notcp_nodelay, "notcp_nodelay"},
-	{-1, NULL}
+	{ }
 };
 
 void ceph_destroy_options(struct ceph_options *opt)

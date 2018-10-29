@@ -373,15 +373,15 @@ static int nfs_idmap_lookup_id(const char *name, size_t namelen, const char *typ
 /* idmap classic begins here */
 
 enum {
-	Opt_find_uid, Opt_find_gid, Opt_find_user, Opt_find_group, Opt_find_err
+	Opt_find_uid, Opt_find_gid, Opt_find_user, Opt_find_group,
 };
 
-static const match_table_t nfs_idmap_tokens = {
+static const struct match_table nfs_idmap_tokens[] = {
 	{ Opt_find_uid, "uid:%s" },
 	{ Opt_find_gid, "gid:%s" },
 	{ Opt_find_user, "user:%s" },
 	{ Opt_find_group, "group:%s" },
-	{ Opt_find_err, NULL }
+	{ }
 };
 
 static int nfs_idmap_legacy_upcall(struct key_construction *, const char *, void *);

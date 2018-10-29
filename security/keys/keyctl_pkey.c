@@ -25,15 +25,14 @@ static void keyctl_pkey_params_free(struct kernel_pkey_params *params)
 }
 
 enum {
-	Opt_err = -1,
 	Opt_enc,		/* "enc=<encoding>" eg. "enc=oaep" */
 	Opt_hash,		/* "hash=<digest-name>" eg. "hash=sha1" */
 };
 
-static const match_table_t param_keys = {
+static const struct match_table param_keys[] = {
 	{ Opt_enc,	"enc=%s" },
 	{ Opt_hash,	"hash=%s" },
-	{ Opt_err,	NULL }
+	{ }
 };
 
 /*

@@ -61,10 +61,9 @@ enum {
 	Opt_size, Opt_nr_inodes,
 	Opt_mode, Opt_uid, Opt_gid,
 	Opt_pagesize, Opt_min_size,
-	Opt_err,
 };
 
-static const match_table_t tokens = {
+static const struct match_table tokens[] = {
 	{Opt_size,	"size=%s"},
 	{Opt_nr_inodes,	"nr_inodes=%s"},
 	{Opt_mode,	"mode=%o"},
@@ -72,7 +71,7 @@ static const match_table_t tokens = {
 	{Opt_gid,	"gid=%u"},
 	{Opt_pagesize,	"pagesize=%s"},
 	{Opt_min_size,	"min_size=%s"},
-	{Opt_err,	NULL},
+	{ }
 };
 
 #ifdef CONFIG_NUMA

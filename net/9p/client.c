@@ -55,15 +55,14 @@ enum {
 	Opt_trans,
 	Opt_legacy,
 	Opt_version,
-	Opt_err,
 };
 
-static const match_table_t tokens = {
+static const struct match_table tokens[] = {
 	{Opt_msize, "msize=%u"},
 	{Opt_legacy, "noextend"},
 	{Opt_trans, "trans=%s"},
 	{Opt_version, "version=%s"},
-	{Opt_err, NULL},
+	{ }
 };
 
 inline int p9_is_proto_dotl(struct p9_client *clnt)

@@ -581,7 +581,6 @@ void ima_update_policy(void)
 }
 
 enum {
-	Opt_err = -1,
 	Opt_measure = 1, Opt_dont_measure,
 	Opt_appraise, Opt_dont_appraise,
 	Opt_audit, Opt_hash, Opt_dont_hash,
@@ -595,7 +594,7 @@ enum {
 	Opt_pcr
 };
 
-static match_table_t policy_tokens = {
+static const struct match_table policy_tokens[] = {
 	{Opt_measure, "measure"},
 	{Opt_dont_measure, "dont_measure"},
 	{Opt_appraise, "appraise"},
@@ -626,7 +625,7 @@ static match_table_t policy_tokens = {
 	{Opt_appraise_type, "appraise_type=%s"},
 	{Opt_permit_directio, "permit_directio"},
 	{Opt_pcr, "pcr=%s"},
-	{Opt_err, NULL}
+	{ }
 };
 
 static int ima_lsm_rule_init(struct ima_rule_entry *entry,
@@ -971,7 +970,7 @@ static int ima_parse_rule(char *rule, struct ima_rule_entry *entry)
 				entry->flags |= IMA_PCR;
 
 			break;
-		case Opt_err:
+		default:
 			ima_log_string(ab, "UNKNOWN", p);
 			result = -EINVAL;
 			break;
@@ -1103,7 +1102,7 @@ void ima_policy_stop(struct seq_file *m, void *v)
 {
 }
 
-#define pt(token)	policy_tokens[token + Opt_err].pattern
+#define pt(token)	policy_tokens[token - 1].pattern
 #define mt(token)	mask_tokens[token]
 
 /*

@@ -58,24 +58,24 @@ static int blksize;
 static struct crypto_shash *hash_tfm;
 
 enum {
-	Opt_err = -1, Opt_new, Opt_load, Opt_update
+	Opt_new, Opt_load, Opt_update
 };
 
 enum {
-	Opt_error = -1, Opt_default, Opt_ecryptfs
+	Opt_default, Opt_ecryptfs
 };
 
-static const match_table_t key_format_tokens = {
+static const struct match_table key_format_tokens[] = {
 	{Opt_default, "default"},
 	{Opt_ecryptfs, "ecryptfs"},
-	{Opt_error, NULL}
+	{ }
 };
 
-static const match_table_t key_tokens = {
+static const struct match_table key_tokens[] = {
 	{Opt_new, "new"},
 	{Opt_load, "load"},
 	{Opt_update, "update"},
-	{Opt_err, NULL}
+	{ }
 };
 
 static int aes_get_sizes(void)
@@ -199,7 +199,7 @@ static int datablob_parse(char *datablob, const char **format,
 		*format = p;
 		*master_desc = strsep(&datablob, " \t");
 		break;
-	case Opt_error:
+	default:
 		*master_desc = p;
 		break;
 	}
@@ -254,7 +254,7 @@ static int datablob_parse(char *datablob, const char **format,
 		}
 		ret = 0;
 		break;
-	case Opt_err:
+	default:
 		pr_info("encrypted_key: keyword \'%s\' not recognized\n",
 			keyword);
 		break;

@@ -23,15 +23,13 @@ enum {
 	Opt_intr,
 	Opt_acl,
 	Opt_local_lock,
-
-	Opt_err
 };
 
-static const match_table_t tokens = {
+static const struct match_table tokens[] = {
 	{ Opt_acl,		"acl" },
 	{ Opt_intr,		"intr" },
 	{ Opt_local_lock,	"local_lock" },
-	{ Opt_err,	NULL }
+	{ }
 };
 
 uint64_t orangefs_features;

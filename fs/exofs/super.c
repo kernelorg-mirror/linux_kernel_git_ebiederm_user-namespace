@@ -61,18 +61,18 @@ struct exofs_mountopt {
 /*
  * exofs-specific mount-time options.
  */
-enum { Opt_name, Opt_pid, Opt_to, Opt_err };
+enum { Opt_name, Opt_pid, Opt_to, };
 
 /*
  * Our mount-time options.  These should ideally be 64-bit unsigned, but the
  * kernel's parsing functions do not currently support that.  32-bit should be
  * sufficient for most applications now.
  */
-static match_table_t tokens = {
+static const struct match_table tokens[] = {
 	{Opt_name, "osdname=%s"},
 	{Opt_pid, "pid=%u"},
 	{Opt_to, "to=%u"},
-	{Opt_err, NULL}
+	{ }
 };
 
 /*

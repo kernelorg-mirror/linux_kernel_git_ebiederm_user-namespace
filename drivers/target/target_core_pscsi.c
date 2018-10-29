@@ -716,15 +716,15 @@ after_mode_select:
 
 enum {
 	Opt_scsi_host_id, Opt_scsi_channel_id, Opt_scsi_target_id,
-	Opt_scsi_lun_id, Opt_err
+	Opt_scsi_lun_id,
 };
 
-static match_table_t tokens = {
+static const struct match_table tokens[] = {
 	{Opt_scsi_host_id, "scsi_host_id=%d"},
 	{Opt_scsi_channel_id, "scsi_channel_id=%d"},
 	{Opt_scsi_target_id, "scsi_target_id=%d"},
 	{Opt_scsi_lun_id, "scsi_lun_id=%d"},
-	{Opt_err, NULL}
+	{ }
 };
 
 static ssize_t pscsi_set_configfs_dev_params(struct se_device *dev,

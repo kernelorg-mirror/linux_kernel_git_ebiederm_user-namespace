@@ -25,7 +25,6 @@
 
 
 enum {
-	NVMF_OPT_ERR		= 0,
 	NVMF_OPT_WWNN		= 1 << 0,
 	NVMF_OPT_WWPN		= 1 << 1,
 	NVMF_OPT_ROLES		= 1 << 2,
@@ -44,14 +43,14 @@ struct fcloop_ctrl_options {
 	u64			lpwwpn;
 };
 
-static const match_table_t opt_tokens = {
+static const struct match_table opt_tokens[] = {
 	{ NVMF_OPT_WWNN,	"wwnn=%s"	},
 	{ NVMF_OPT_WWPN,	"wwpn=%s"	},
 	{ NVMF_OPT_ROLES,	"roles=%d"	},
 	{ NVMF_OPT_FCADDR,	"fcaddr=%x"	},
 	{ NVMF_OPT_LPWWNN,	"lpwwnn=%s"	},
 	{ NVMF_OPT_LPWWPN,	"lpwwpn=%s"	},
-	{ NVMF_OPT_ERR,		NULL		}
+	{ }
 };
 
 static int
@@ -72,7 +71,6 @@ fcloop_parse_options(struct fcloop_ctrl_options *opts,
 			continue;
 
 		token = match_token(p, opt_tokens, args);
-		opts->mask |= token;
 		switch (token) {
 		case NVMF_OPT_WWNN:
 			if (match_u64(args, &token64)) {
@@ -121,6 +119,7 @@ fcloop_parse_options(struct fcloop_ctrl_options *opts,
 			ret = -EINVAL;
 			goto out_free_options;
 		}
+		opts->mask |= token;
 	}
 
 out_free_options:

@@ -194,7 +194,6 @@ struct smack_known_list_elem {
 #define NUM_SMK_MNT_OPTS	5
 
 enum {
-	Opt_error = -1,
 	Opt_fsdefault = 1,
 	Opt_fsfloor = 2,
 	Opt_fshat = 3,

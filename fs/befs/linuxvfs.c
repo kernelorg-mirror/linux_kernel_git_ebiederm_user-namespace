@@ -682,15 +682,15 @@ static struct dentry *befs_get_parent(struct dentry *child)
 }
 
 enum {
-	Opt_uid, Opt_gid, Opt_charset, Opt_debug, Opt_err,
+	Opt_uid, Opt_gid, Opt_charset, Opt_debug,
 };
 
-static const match_table_t befs_tokens = {
+static const struct match_table befs_tokens[] = {
 	{Opt_uid, "uid=%d"},
 	{Opt_gid, "gid=%d"},
 	{Opt_charset, "iocharset=%s"},
 	{Opt_debug, "debug"},
-	{Opt_err, NULL}
+	{ }
 };
 
 static int

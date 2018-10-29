@@ -588,12 +588,11 @@ static const struct super_operations bpf_super_ops = {
 
 enum {
 	OPT_MODE,
-	OPT_ERR,
 };
 
-static const match_table_t bpf_mount_tokens = {
+static const struct match_table bpf_mount_tokens[] = {
 	{ OPT_MODE, "mode=%o" },
-	{ OPT_ERR, NULL },
+	{ }
 };
 
 struct bpf_mount_opts {

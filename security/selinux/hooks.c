@@ -438,7 +438,6 @@ static inline int inode_doinit(struct inode *inode)
 }
 
 enum {
-	Opt_error = -1,
 	Opt_context = 1,
 	Opt_fscontext = 2,
 	Opt_defcontext = 3,
@@ -449,13 +448,13 @@ enum {
 
 #define NUM_SEL_MNT_OPTS	(Opt_nextmntopt - 1)
 
-static const match_table_t tokens = {
+static const struct match_table tokens[] = {
 	{Opt_context, CONTEXT_STR "%s"},
 	{Opt_fscontext, FSCONTEXT_STR "%s"},
 	{Opt_defcontext, DEFCONTEXT_STR "%s"},
 	{Opt_rootcontext, ROOTCONTEXT_STR "%s"},
 	{Opt_labelsupport, LABELSUPP_STR},
-	{Opt_error, NULL},
+	{ }
 };
 
 #define SEL_MOUNT_FAIL_MSG "SELinux:  duplicate or incompatible mount options\n"

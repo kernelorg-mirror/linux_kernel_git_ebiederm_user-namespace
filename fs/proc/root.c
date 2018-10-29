@@ -27,13 +27,13 @@
 #include "internal.h"
 
 enum {
-	Opt_gid, Opt_hidepid, Opt_err,
+	Opt_gid, Opt_hidepid,
 };
 
-static const match_table_t tokens = {
+static const struct match_table tokens[] = {
 	{Opt_hidepid, "hidepid=%u"},
 	{Opt_gid, "gid=%u"},
-	{Opt_err, NULL},
+	{ }
 };
 
 int proc_parse_options(char *options, struct pid_namespace *pid)

@@ -744,10 +744,9 @@ enum {
 	Opt_lock_on_read,
 	Opt_exclusive,
 	Opt_notrim,
-	Opt_err
 };
 
-static match_table_t rbd_opts_tokens = {
+static const struct match_table rbd_opts_tokens[] = {
 	{Opt_queue_depth, "queue_depth=%d"},
 	{Opt_lock_timeout, "lock_timeout=%d"},
 	/* int args above */
@@ -760,7 +759,7 @@ static match_table_t rbd_opts_tokens = {
 	{Opt_lock_on_read, "lock_on_read"},
 	{Opt_exclusive, "exclusive"},
 	{Opt_notrim, "notrim"},
-	{Opt_err, NULL}
+	{ }
 };
 
 struct rbd_options {
@@ -791,7 +790,7 @@ static int parse_rbd_opts_token(char *c, void *private)
 	int token, intval, ret;
 
 	token = match_token(c, rbd_opts_tokens, argstr);
-	if (token < Opt_last_int) {
+	if (token >= Opt_queue_depth && token < Opt_last_int) {
 		ret = match_int(&argstr[0], &intval);
 		if (ret < 0) {
 			pr_err("bad option arg (not int) at '%s'\n", c);

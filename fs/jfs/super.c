@@ -234,12 +234,12 @@ static void jfs_put_super(struct super_block *sb)
 
 enum {
 	Opt_integrity, Opt_nointegrity, Opt_iocharset, Opt_resize,
-	Opt_resize_nosize, Opt_errors, Opt_ignore, Opt_err, Opt_quota,
+	Opt_resize_nosize, Opt_errors, Opt_ignore, Opt_quota,
 	Opt_usrquota, Opt_grpquota, Opt_uid, Opt_gid, Opt_umask,
 	Opt_discard, Opt_nodiscard, Opt_discard_minblk
 };
 
-static const match_table_t tokens = {
+static const struct match_table tokens[] = {
 	{Opt_integrity, "integrity"},
 	{Opt_nointegrity, "nointegrity"},
 	{Opt_iocharset, "iocharset=%s"},
@@ -256,7 +256,7 @@ static const match_table_t tokens = {
 	{Opt_discard, "discard"},
 	{Opt_nodiscard, "nodiscard"},
 	{Opt_discard_minblk, "discard=%u"},
-	{Opt_err, NULL}
+	{ }
 };
 
 static int parse_options(char *options, struct super_block *sb, s64 *newLVSize,

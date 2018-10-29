@@ -1032,10 +1032,10 @@ enum {
 	Opt_uni_xl_no, Opt_uni_xl_yes, Opt_nonumtail_no, Opt_nonumtail_yes,
 	Opt_obsolete, Opt_flush, Opt_tz_utc, Opt_rodir, Opt_err_cont,
 	Opt_err_panic, Opt_err_ro, Opt_discard, Opt_nfs, Opt_time_offset,
-	Opt_nfs_stale_rw, Opt_nfs_nostale_ro, Opt_err, Opt_dos1xfloppy,
+	Opt_nfs_stale_rw, Opt_nfs_nostale_ro, Opt_dos1xfloppy,
 };
 
-static const match_table_t fat_tokens = {
+static const struct match_table fat_tokens[] = {
 	{Opt_check_r, "check=relaxed"},
 	{Opt_check_s, "check=strict"},
 	{Opt_check_n, "check=normal"},
@@ -1077,16 +1077,16 @@ static const match_table_t fat_tokens = {
 	{Opt_obsolete, "cvf_format=%20s"},
 	{Opt_obsolete, "cvf_options=%100s"},
 	{Opt_obsolete, "posix"},
-	{Opt_err, NULL},
+	{ },
 };
-static const match_table_t msdos_tokens = {
+static const struct match_table msdos_tokens[] = {
 	{Opt_nodots, "nodots"},
 	{Opt_nodots, "dotsOK=no"},
 	{Opt_dots, "dots"},
 	{Opt_dots, "dotsOK=yes"},
-	{Opt_err, NULL}
+	{ }
 };
-static const match_table_t vfat_tokens = {
+static const struct match_table vfat_tokens[] = {
 	{Opt_charset, "iocharset=%s"},
 	{Opt_shortname_lower, "shortname=lower"},
 	{Opt_shortname_win95, "shortname=win95"},
@@ -1114,7 +1114,7 @@ static const match_table_t vfat_tokens = {
 	{Opt_nonumtail_yes, "nonumtail=true"},
 	{Opt_nonumtail_yes, "nonumtail"},
 	{Opt_rodir, "rodir"},
-	{Opt_err, NULL}
+	{ }
 };
 
 static int parse_options(struct super_block *sb, char *options, int is_vfat,
@@ -1161,7 +1161,7 @@ static int parse_options(struct super_block *sb, char *options, int is_vfat,
 			continue;
 
 		token = match_token(p, fat_tokens, args);
-		if (token == Opt_err) {
+		if (token == MATCH_FAILURE) {
 			if (is_vfat)
 				token = match_token(p, vfat_tokens, args);
 			else

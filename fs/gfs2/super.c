@@ -85,10 +85,9 @@ enum {
 	Opt_norgrplvb,
 	Opt_loccookie,
 	Opt_noloccookie,
-	Opt_error,
 };
 
-static const match_table_t tokens = {
+static const struct match_table tokens[] = {
 	{Opt_lockproto, "lockproto=%s"},
 	{Opt_locktable, "locktable=%s"},
 	{Opt_hostdata, "hostdata=%s"},
@@ -126,7 +125,7 @@ static const match_table_t tokens = {
 	{Opt_norgrplvb, "norgrplvb"},
 	{Opt_loccookie, "loccookie"},
 	{Opt_noloccookie, "noloccookie"},
-	{Opt_error, NULL}
+	{ }
 };
 
 /**
@@ -288,7 +287,6 @@ int gfs2_mount_args(struct gfs2_args *args, char *options)
 		case Opt_noloccookie:
 			args->ar_loccookie = 0;
 			break;
-		case Opt_error:
 		default:
 			pr_warn("invalid mount option: %s\n", o);
 			return -EINVAL;

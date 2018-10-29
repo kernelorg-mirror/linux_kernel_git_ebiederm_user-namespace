@@ -218,16 +218,15 @@ enum {
 	Opt_acl,
 	Opt_noacl,
 	Opt_fault_injection,
-	Opt_err
 };
 
-static match_table_t erofs_tokens = {
+static const struct match_table erofs_tokens[] = {
 	{Opt_user_xattr, "user_xattr"},
 	{Opt_nouser_xattr, "nouser_xattr"},
 	{Opt_acl, "acl"},
 	{Opt_noacl, "noacl"},
 	{Opt_fault_injection, "fault_injection=%u"},
-	{Opt_err, NULL}
+	{ }
 };
 
 static int parse_options(struct super_block *sb, char *options)

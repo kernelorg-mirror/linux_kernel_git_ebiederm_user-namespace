@@ -531,14 +531,14 @@ fail:
 }
 
 enum {
-	Opt_udev_path, Opt_readonly, Opt_force, Opt_err
+	Opt_udev_path, Opt_readonly, Opt_force,
 };
 
-static match_table_t tokens = {
+static const struct match_table tokens[] = {
 	{Opt_udev_path, "udev_path=%s"},
 	{Opt_readonly, "readonly=%d"},
 	{Opt_force, "force=%d"},
-	{Opt_err, NULL}
+	{ }
 };
 
 static ssize_t iblock_set_configfs_dev_params(struct se_device *dev,

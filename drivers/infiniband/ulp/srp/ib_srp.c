@@ -3348,7 +3348,6 @@ out:
  * to the add_target sysfs attribute.
  */
 enum {
-	SRP_OPT_ERR		= 0,
 	SRP_OPT_ID_EXT		= 1 << 0,
 	SRP_OPT_IOC_GUID	= 1 << 1,
 	SRP_OPT_DGID		= 1 << 2,
@@ -3380,7 +3379,7 @@ static unsigned int srp_opt_mandatory[] = {
 	SRP_OPT_IP_DEST,
 };
 
-static const match_table_t srp_opt_tokens = {
+static const struct match_table srp_opt_tokens[] = {
 	{ SRP_OPT_ID_EXT,		"id_ext=%s" 		},
 	{ SRP_OPT_IOC_GUID,		"ioc_guid=%s" 		},
 	{ SRP_OPT_DGID,			"dgid=%s" 		},
@@ -3399,7 +3398,7 @@ static const match_table_t srp_opt_tokens = {
 	{ SRP_OPT_QUEUE_SIZE,		"queue_size=%d"		},
 	{ SRP_OPT_IP_SRC,		"src=%s"		},
 	{ SRP_OPT_IP_DEST,		"dest=%s"		},
-	{ SRP_OPT_ERR,			NULL 			}
+	{ }
 };
 
 /**
@@ -3458,7 +3457,6 @@ static int srp_parse_options(struct net *net, const char *buf,
 			continue;
 
 		token = match_token(p, srp_opt_tokens, args);
-		opt_mask |= token;
 
 		switch (token) {
 		case SRP_OPT_ID_EXT:
@@ -3685,6 +3683,7 @@ static int srp_parse_options(struct net *net, const char *buf,
 				p);
 			goto out;
 		}
+		opt_mask |= token;
 	}
 
 	for (i = 0; i < ARRAY_SIZE(srp_opt_mandatory); i++) {

@@ -543,13 +543,13 @@ rd_execute_rw(struct se_cmd *cmd, struct scatterlist *sgl, u32 sgl_nents,
 }
 
 enum {
-	Opt_rd_pages, Opt_rd_nullio, Opt_err
+	Opt_rd_pages, Opt_rd_nullio,
 };
 
-static match_table_t tokens = {
+static const struct match_table tokens[] = {
 	{Opt_rd_pages, "rd_pages=%d"},
 	{Opt_rd_nullio, "rd_nullio=%d"},
-	{Opt_err, NULL}
+	{ }
 };
 
 static ssize_t rd_set_configfs_dev_params(struct se_device *dev,

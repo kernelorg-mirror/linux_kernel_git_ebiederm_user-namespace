@@ -64,7 +64,6 @@ static struct kmem_cache *afs_inode_cachep;
 static atomic_t afs_count_active_inodes;
 
 enum {
-	afs_no_opt,
 	afs_opt_cell,
 	afs_opt_dyn,
 	afs_opt_rwpath,
@@ -72,13 +71,13 @@ enum {
 	afs_opt_autocell,
 };
 
-static const match_table_t afs_options_list = {
+static const struct match_table afs_options_list[] = {
 	{ afs_opt_cell,		"cell=%s"	},
 	{ afs_opt_dyn,		"dyn"		},
 	{ afs_opt_rwpath,	"rwpath"	},
 	{ afs_opt_vol,		"vol=%s"	},
 	{ afs_opt_autocell,	"autocell"	},
-	{ afs_no_opt,		NULL		},
+	{ }
 };
 
 /*

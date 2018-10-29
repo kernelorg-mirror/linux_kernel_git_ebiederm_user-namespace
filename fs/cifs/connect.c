@@ -114,11 +114,9 @@ enum {
 	Opt_blank_pass,
 	Opt_blank_user,
 	Opt_blank_ip,
-
-	Opt_err
 };
 
-static const match_table_t cifs_mount_option_tokens = {
+static const struct match_table cifs_mount_option_tokens[] = {
 
 	{ Opt_user_xattr, "user_xattr" },
 	{ Opt_nouser_xattr, "nouser_xattr" },
@@ -253,7 +251,7 @@ static const match_table_t cifs_mount_option_tokens = {
 	{ Opt_ignore, "relatime" },
 	{ Opt_ignore, "_netdev" },
 
-	{ Opt_err, NULL }
+	{ }
 };
 
 enum {
@@ -262,11 +260,9 @@ enum {
 	Opt_ntlm, Opt_sec_ntlmi, Opt_sec_ntlmv2,
 	Opt_sec_ntlmv2i, Opt_sec_lanman,
 	Opt_sec_none,
-
-	Opt_sec_err
 };
 
-static const match_table_t cifs_secflavor_tokens = {
+static const struct match_table cifs_secflavor_tokens[] = {
 	{ Opt_sec_krb5, "krb5" },
 	{ Opt_sec_krb5i, "krb5i" },
 	{ Opt_sec_krb5p, "krb5p" },
@@ -279,8 +275,7 @@ static const match_table_t cifs_secflavor_tokens = {
 	{ Opt_sec_ntlmv2i, "ntlmv2i" },
 	{ Opt_sec_lanman, "lanman" },
 	{ Opt_sec_none, "none" },
-
-	{ Opt_sec_err, NULL }
+	{ }
 };
 
 /* cache flavors */
@@ -288,17 +283,16 @@ enum {
 	Opt_cache_loose,
 	Opt_cache_strict,
 	Opt_cache_none,
-	Opt_cache_err
 };
 
-static const match_table_t cifs_cacheflavor_tokens = {
+static const struct match_table cifs_cacheflavor_tokens[] = {
 	{ Opt_cache_loose, "loose" },
 	{ Opt_cache_strict, "strict" },
 	{ Opt_cache_none, "none" },
-	{ Opt_cache_err, NULL }
+	{ }
 };
 
-static const match_table_t cifs_smb_version_tokens = {
+static const struct match_table cifs_smb_version_tokens[] = {
 	{ Smb_1, SMB1_VERSION_STRING },
 	{ Smb_20, SMB20_VERSION_STRING},
 	{ Smb_21, SMB21_VERSION_STRING },
@@ -308,7 +302,7 @@ static const match_table_t cifs_smb_version_tokens = {
 	{ Smb_311, ALT_SMB311_VERSION_STRING },
 	{ Smb_3any, SMB3ANY_VERSION_STRING },
 	{ Smb_default, SMBDEFAULT_VERSION_STRING },
-	{ Smb_version_err, NULL }
+	{ }
 };
 
 static int ip_connect(struct TCP_Server_Info *server);

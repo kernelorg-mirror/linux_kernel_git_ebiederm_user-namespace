@@ -148,14 +148,13 @@ enum {
 	Opt_uid,
 	Opt_gid,
 	Opt_mode,
-	Opt_err
 };
 
-static const match_table_t tokens = {
+static const struct match_table tokens[] = {
 	{Opt_uid, "uid=%u"},
 	{Opt_gid, "gid=%u"},
 	{Opt_mode, "mode=%o"},
-	{Opt_err, NULL}
+	{ }
 };
 
 struct tracefs_fs_info {

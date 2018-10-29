@@ -2042,14 +2042,14 @@ enum {
 	Opt_nl_reply_supported, Opt_max_data_area_mb, Opt_err,
 };
 
-static match_table_t tokens = {
+static const struct match_table tokens[] = {
 	{Opt_dev_config, "dev_config=%s"},
 	{Opt_dev_size, "dev_size=%s"},
 	{Opt_hw_block_size, "hw_block_size=%d"},
 	{Opt_hw_max_sectors, "hw_max_sectors=%d"},
 	{Opt_nl_reply_supported, "nl_reply_supported=%d"},
 	{Opt_max_data_area_mb, "max_data_area_mb=%d"},
-	{Opt_err, NULL}
+	{ }
 };
 
 static int tcmu_set_dev_attrib(substring_t *arg, u32 *dev_attrib)

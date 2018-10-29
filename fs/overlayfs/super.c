@@ -401,10 +401,9 @@ enum {
 	OPT_XINO_AUTO,
 	OPT_METACOPY_ON,
 	OPT_METACOPY_OFF,
-	OPT_ERR,
 };
 
-static const match_table_t ovl_tokens = {
+static const struct match_table ovl_tokens[] = {
 	{OPT_LOWERDIR,			"lowerdir=%s"},
 	{OPT_UPPERDIR,			"upperdir=%s"},
 	{OPT_WORKDIR,			"workdir=%s"},
@@ -419,7 +418,7 @@ static const match_table_t ovl_tokens = {
 	{OPT_XINO_AUTO,			"xino=auto"},
 	{OPT_METACOPY_ON,		"metacopy=on"},
 	{OPT_METACOPY_OFF,		"metacopy=off"},
-	{OPT_ERR,			NULL}
+	{ }
 };
 
 static char *ovl_next_opt(char **s)

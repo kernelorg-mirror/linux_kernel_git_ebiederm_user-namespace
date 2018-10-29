@@ -106,17 +106,16 @@ struct pts_mount_opts {
 
 enum {
 	Opt_uid, Opt_gid, Opt_mode, Opt_ptmxmode, Opt_newinstance,  Opt_max,
-	Opt_err
 };
 
-static const match_table_t tokens = {
+static const struct match_table tokens[] = {
 	{Opt_uid, "uid=%u"},
 	{Opt_gid, "gid=%u"},
 	{Opt_mode, "mode=%o"},
 	{Opt_ptmxmode, "ptmxmode=%o"},
 	{Opt_newinstance, "newinstance"},
 	{Opt_max, "max=%d"},
-	{Opt_err, NULL}
+	{ }
 };
 
 struct pts_fs_info {

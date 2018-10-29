@@ -711,7 +711,6 @@ static int key_unseal(struct trusted_key_payload *p,
 }
 
 enum {
-	Opt_err = -1,
 	Opt_new, Opt_load, Opt_update,
 	Opt_keyhandle, Opt_keyauth, Opt_blobauth,
 	Opt_pcrinfo, Opt_pcrlock, Opt_migratable,
@@ -720,7 +719,7 @@ enum {
 	Opt_policyhandle,
 };
 
-static const match_table_t key_tokens = {
+static const struct match_table key_tokens[] = {
 	{Opt_new, "new"},
 	{Opt_load, "load"},
 	{Opt_update, "update"},
@@ -733,7 +732,7 @@ static const match_table_t key_tokens = {
 	{Opt_hash, "hash=%s"},
 	{Opt_policydigest, "policydigest=%s"},
 	{Opt_policyhandle, "policyhandle=%s"},
-	{Opt_err, NULL}
+	{ }
 };
 
 /* can have zero or more token= options */
@@ -908,7 +907,7 @@ static int datablob_parse(char *datablob, struct trusted_key_payload *p,
 			return ret;
 		ret = Opt_update;
 		break;
-	case Opt_err:
+	default:
 		return -EINVAL;
 		break;
 	}

@@ -161,18 +161,16 @@ static const struct export_operations jffs2_export_ops = {
  *
  * Opt_override_compr: override default compressor
  * Opt_rp_size: size of reserved pool in KiB
- * Opt_err: just end of array marker
  */
 enum {
 	Opt_override_compr,
 	Opt_rp_size,
-	Opt_err,
 };
 
-static const match_table_t tokens = {
+static const struct match_table tokens[] = {
 	{Opt_override_compr, "compr=%s"},
 	{Opt_rp_size, "rp_size=%u"},
-	{Opt_err, NULL},
+	{ }
 };
 
 static int jffs2_parse_options(struct jffs2_sb_info *c, char *data)

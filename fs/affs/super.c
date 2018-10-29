@@ -168,10 +168,10 @@ static const struct super_operations affs_sops = {
 enum {
 	Opt_bs, Opt_mode, Opt_mufs, Opt_notruncate, Opt_prefix, Opt_protect,
 	Opt_reserved, Opt_root, Opt_setgid, Opt_setuid,
-	Opt_verbose, Opt_volume, Opt_ignore, Opt_err,
+	Opt_verbose, Opt_volume, Opt_ignore,
 };
 
-static const match_table_t tokens = {
+static const struct match_table tokens[] = {
 	{Opt_bs, "bs=%u"},
 	{Opt_mode, "mode=%o"},
 	{Opt_mufs, "mufs"},
@@ -188,7 +188,7 @@ static const match_table_t tokens = {
 	{Opt_ignore, "noquota"},
 	{Opt_ignore, "quota"},
 	{Opt_ignore, "usrquota"},
-	{Opt_err, NULL},
+	{ },
 };
 
 static int

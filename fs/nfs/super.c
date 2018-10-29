@@ -113,11 +113,9 @@ enum {
 
 	/* Special mount options */
 	Opt_userspace, Opt_deprecated, Opt_sloppy,
-
-	Opt_err
 };
 
-static const match_table_t nfs_mount_option_tokens = {
+static const struct match_table nfs_mount_option_tokens[] = {
 	{ Opt_userspace, "bg" },
 	{ Opt_userspace, "fg" },
 	{ Opt_userspace, "retry=%s" },
@@ -186,25 +184,22 @@ static const match_table_t nfs_mount_option_tokens = {
 	/* The following needs to be listed after all other options */
 	{ Opt_nfsvers, "v%s" },
 
-	{ Opt_err, NULL }
+	{ }
 };
 
 enum {
 	Opt_xprt_udp, Opt_xprt_udp6, Opt_xprt_tcp, Opt_xprt_tcp6, Opt_xprt_rdma,
 	Opt_xprt_rdma6,
-
-	Opt_xprt_err
 };
 
-static const match_table_t nfs_xprt_protocol_tokens = {
+static const struct match_table nfs_xprt_protocol_tokens[] = {
 	{ Opt_xprt_udp, "udp" },
 	{ Opt_xprt_udp6, "udp6" },
 	{ Opt_xprt_tcp, "tcp" },
 	{ Opt_xprt_tcp6, "tcp6" },
 	{ Opt_xprt_rdma, "rdma" },
 	{ Opt_xprt_rdma6, "rdma6" },
-
-	{ Opt_xprt_err, NULL }
+	{ }
 };
 
 enum {
@@ -212,11 +207,9 @@ enum {
 	Opt_sec_krb5, Opt_sec_krb5i, Opt_sec_krb5p,
 	Opt_sec_lkey, Opt_sec_lkeyi, Opt_sec_lkeyp,
 	Opt_sec_spkm, Opt_sec_spkmi, Opt_sec_spkmp,
-
-	Opt_sec_err
 };
 
-static const match_table_t nfs_secflavor_tokens = {
+static const struct match_table nfs_secflavor_tokens[] = {
 	{ Opt_sec_none, "none" },
 	{ Opt_sec_none, "null" },
 	{ Opt_sec_sys, "sys" },
@@ -233,57 +226,48 @@ static const match_table_t nfs_secflavor_tokens = {
 	{ Opt_sec_spkmi, "spkm3i" },
 	{ Opt_sec_spkmp, "spkm3p" },
 
-	{ Opt_sec_err, NULL }
+	{ }
 };
 
 enum {
 	Opt_lookupcache_all, Opt_lookupcache_positive,
 	Opt_lookupcache_none,
-
-	Opt_lookupcache_err
 };
 
-static match_table_t nfs_lookupcache_tokens = {
+static const struct match_table nfs_lookupcache_tokens[] = {
 	{ Opt_lookupcache_all, "all" },
 	{ Opt_lookupcache_positive, "pos" },
 	{ Opt_lookupcache_positive, "positive" },
 	{ Opt_lookupcache_none, "none" },
-
-	{ Opt_lookupcache_err, NULL }
+	{ }
 };
 
 enum {
 	Opt_local_lock_all, Opt_local_lock_flock, Opt_local_lock_posix,
 	Opt_local_lock_none,
-
-	Opt_local_lock_err
 };
 
-static match_table_t nfs_local_lock_tokens = {
+static const struct match_table nfs_local_lock_tokens[] = {
 	{ Opt_local_lock_all, "all" },
 	{ Opt_local_lock_flock, "flock" },
 	{ Opt_local_lock_posix, "posix" },
 	{ Opt_local_lock_none, "none" },
-
-	{ Opt_local_lock_err, NULL }
+	{ }
 };
 
 enum {
 	Opt_vers_2, Opt_vers_3, Opt_vers_4, Opt_vers_4_0,
 	Opt_vers_4_1, Opt_vers_4_2,
-
-	Opt_vers_err
 };
 
-static match_table_t nfs_vers_tokens = {
+static const struct match_table nfs_vers_tokens[] = {
 	{ Opt_vers_2, "2" },
 	{ Opt_vers_3, "3" },
 	{ Opt_vers_4, "4" },
 	{ Opt_vers_4_0, "4.0" },
 	{ Opt_vers_4_1, "4.1" },
 	{ Opt_vers_4_2, "4.2" },
-
-	{ Opt_vers_err, NULL }
+	{ }
 };
 
 static struct dentry *nfs_xdev_mount(struct file_system_type *fs_type,

@@ -207,12 +207,12 @@ static int hypfs_release(struct inode *inode, struct file *filp)
 	return 0;
 }
 
-enum { opt_uid, opt_gid, opt_err };
+enum { opt_uid, opt_gid };
 
-static const match_table_t hypfs_tokens = {
+static const struct match_table hypfs_tokens[] = {
 	{opt_uid, "uid=%u"},
 	{opt_gid, "gid=%u"},
-	{opt_err, NULL}
+	{ }
 };
 
 static int hypfs_parse_options(char *options, struct super_block *sb)
@@ -248,7 +248,6 @@ static int hypfs_parse_options(char *options, struct super_block *sb)
 				return -EINVAL;
 			hypfs_info->gid = gid;
 			break;
-		case opt_err:
 		default:
 			pr_err("%s is not a valid mount option\n", str);
 			return -EINVAL;

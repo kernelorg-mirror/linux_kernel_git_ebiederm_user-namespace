@@ -198,7 +198,6 @@ enum smb_version {
 	Smb_311,
 	Smb_3any,
 	Smb_default,
-	Smb_version_err
 };
 
 struct mid_q_entry;

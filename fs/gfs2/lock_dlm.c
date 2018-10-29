@@ -1328,12 +1328,12 @@ release:
 	free_recover_size(ls);
 }
 
-static const match_table_t dlm_tokens = {
+static const struct match_table dlm_tokens[] = {
 	{ Opt_jid, "jid=%d"},
 	{ Opt_id, "id=%d"},
 	{ Opt_first, "first=%d"},
 	{ Opt_nodir, "nodir=%d"},
-	{ Opt_err, NULL },
+	{ }
 };
 
 const struct lm_lockops gfs2_dlm_ops = {
@@ -1345,6 +1345,6 @@ const struct lm_lockops gfs2_dlm_ops = {
 	.lm_put_lock = gdlm_put_lock,
 	.lm_lock = gdlm_lock,
 	.lm_cancel = gdlm_cancel,
-	.lm_tokens = &dlm_tokens,
+	.lm_tokens = dlm_tokens,
 };
 

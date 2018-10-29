@@ -343,10 +343,9 @@ enum {
 #ifdef CONFIG_BTRFS_FS_REF_VERIFY
 	Opt_ref_verify,
 #endif
-	Opt_err,
 };
 
-static const match_table_t tokens = {
+static const struct match_table tokens[] = {
 	{Opt_acl, "acl"},
 	{Opt_noacl, "noacl"},
 	{Opt_clear_cache, "clear_cache"},
@@ -413,7 +412,7 @@ static const match_table_t tokens = {
 #ifdef CONFIG_BTRFS_FS_REF_VERIFY
 	{Opt_ref_verify, "ref_verify"},
 #endif
-	{Opt_err, NULL},
+	{ }
 };
 
 /*
@@ -844,7 +843,7 @@ int btrfs_parse_options(struct btrfs_fs_info *info, char *options,
 			btrfs_set_opt(info->mount_opt, REF_VERIFY);
 			break;
 #endif
-		case Opt_err:
+		case MATCH_FAILURE:
 			btrfs_info(info, "unrecognized mount option '%s'", p);
 			ret = -EINVAL;
 			goto out;

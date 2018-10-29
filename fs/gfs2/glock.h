@@ -22,7 +22,6 @@ enum {
 	Opt_id,
 	Opt_first,
 	Opt_nodir,
-	Opt_err,
 };
 
 /*
@@ -132,7 +131,7 @@ struct lm_lockops {
 	int (*lm_lock) (struct gfs2_glock *gl, unsigned int req_state,
 			unsigned int flags);
 	void (*lm_cancel) (struct gfs2_glock *gl);
-	const match_table_t *lm_tokens;
+	const struct match_table *lm_tokens;
 };
 
 extern struct workqueue_struct *gfs2_delete_workqueue;

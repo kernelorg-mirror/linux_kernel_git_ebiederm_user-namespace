@@ -220,12 +220,11 @@ void qnx6_superblock_debug(struct qnx6_super_block *sb, struct super_block *s)
 
 enum {
 	Opt_mmifs,
-	Opt_err
 };
 
-static const match_table_t tokens = {
+static const struct match_table tokens[] = {
 	{Opt_mmifs, "mmi_fs"},
-	{Opt_err, NULL}
+	{ }
 };
 
 static int qnx6_parse_options(char *options, struct super_block *sb)

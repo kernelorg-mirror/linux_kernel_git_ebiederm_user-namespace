@@ -43,7 +43,6 @@ struct nvmf_host {
  * enum nvmf_parsing_opts - used to define the sysfs parsing options used.
  */
 enum {
-	NVMF_OPT_ERR		= 0,
 	NVMF_OPT_TRANSPORT	= 1 << 0,
 	NVMF_OPT_NQN		= 1 << 1,
 	NVMF_OPT_TRADDR		= 1 << 2,

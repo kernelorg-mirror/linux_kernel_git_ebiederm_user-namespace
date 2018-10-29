@@ -290,10 +290,10 @@ enum {
 	Opt_err_cont, Opt_err_ro, Opt_err_panic,
 	Opt_eas_no, Opt_eas_ro, Opt_eas_rw,
 	Opt_chkdsk_no, Opt_chkdsk_errors, Opt_chkdsk_always,
-	Opt_timeshift, Opt_err,
+	Opt_timeshift,
 };
 
-static const match_table_t tokens = {
+static const struct match_table tokens[] = {
 	{Opt_help, "help"},
 	{Opt_uid, "uid=%u"},
 	{Opt_gid, "gid=%u"},
@@ -313,7 +313,7 @@ static const match_table_t tokens = {
 	{Opt_chkdsk_errors, "chkdsk=errors"},
 	{Opt_chkdsk_always, "chkdsk=always"},
 	{Opt_timeshift, "timeshift=%d"},
-	{Opt_err, NULL},
+	{ }
 };
 
 static int parse_opts(char *opts, kuid_t *uid, kgid_t *gid, umode_t *umask,
