@@ -1531,15 +1531,10 @@ static struct vfsmount *pfmfs_mnt __read_mostly;
 static int __init
 init_pfm_fs(void)
 {
-	int err = register_filesystem(&pfm_fs_type);
-	if (!err) {
-		pfmfs_mnt = kern_mount(&pfm_fs_type);
-		err = PTR_ERR(pfmfs_mnt);
-		if (IS_ERR(pfmfs_mnt))
-			unregister_filesystem(&pfm_fs_type);
-		else
-			err = 0;
-	}
+	pfmfs_mnt = kern_mount(&pfm_fs_type);
+	err = PTR_ERR(pfmfs_mnt);
+	if (!IS_ERR(pfmfs_mnt))
+		err = 0;
 	return err;
 }
 
