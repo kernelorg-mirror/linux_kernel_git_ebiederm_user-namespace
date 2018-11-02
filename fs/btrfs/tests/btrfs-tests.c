@@ -43,18 +43,9 @@ struct inode *btrfs_new_test_inode(void)
 
 static int btrfs_init_test_fs(void)
 {
-	int ret;
-
-	ret = register_filesystem(&test_type);
-	if (ret) {
-		printk(KERN_ERR "btrfs: cannot register test file system\n");
-		return ret;
-	}
-
 	test_mnt = kern_mount(&test_type);
 	if (IS_ERR(test_mnt)) {
 		printk(KERN_ERR "btrfs: cannot mount test file system\n");
-		unregister_filesystem(&test_type);
 		return PTR_ERR(test_mnt);
 	}
 	return 0;
@@ -63,7 +54,6 @@ static int btrfs_init_test_fs(void)
 static void btrfs_destroy_test_fs(void)
 {
 	kern_unmount(test_mnt);
-	unregister_filesystem(&test_type);
 }
 
 struct btrfs_fs_info *btrfs_alloc_dummy_fs_info(u32 nodesize, u32 sectorsize)
