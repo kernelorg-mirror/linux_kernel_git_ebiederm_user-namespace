@@ -51,6 +51,9 @@ static inline unsigned long cifs_get_time(struct dentry *dentry)
 	return (unsigned long) dentry->d_fsdata;
 }
 
+struct dentry *cifs_do_mount(struct file_system_type *fs_type,
+			     int flags, const char *dev_name, void *data);
+
 extern struct file_system_type cifs_fs_type;
 extern const struct address_space_operations cifs_addr_ops;
 extern const struct address_space_operations cifs_addr_ops_smallbuf;

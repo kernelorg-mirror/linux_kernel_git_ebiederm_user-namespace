@@ -835,7 +835,7 @@ smb3_do_mount(struct file_system_type *fs_type,
 	return cifs_smb3_do_mount(fs_type, flags, dev_name, data, true);
 }
 
-static struct dentry *
+struct dentry *
 cifs_do_mount(struct file_system_type *fs_type,
 	      int flags, const char *dev_name, void *data)
 {

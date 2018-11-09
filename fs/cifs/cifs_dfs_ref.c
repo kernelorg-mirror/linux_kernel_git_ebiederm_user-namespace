@@ -237,7 +237,8 @@ static struct dentry *cifs_dfs_do_refmount(struct dentry *mntpt,
 	if (IS_ERR(mountdata))
 		return ERR_CAST(mountdata);
 
-	root = vfs_submount(mntpt, &cifs_fs_type, devname, mountdata);
+	root = cifs_do_mount(&cifs_fs_type, SB_SUBMOUNT, devname, mountdata);
+	root = finish_subsuper(mntpt->d_sb, root);
 	kfree(mountdata);
 	kfree(devname);
 	return root;
