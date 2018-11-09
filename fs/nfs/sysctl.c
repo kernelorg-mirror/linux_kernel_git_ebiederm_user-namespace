@@ -11,14 +11,15 @@
 #include <linux/sysctl.h>
 #include <linux/module.h>
 #include <linux/nfs_fs.h>
+#include <linux/mount.h>
 
 static struct ctl_table_header *nfs_callback_sysctl_table;
 
 static struct ctl_table nfs_cb_sysctls[] = {
 	{
 		.procname	= "nfs_mountpoint_timeout",
-		.data		= &nfs_mountpoint_expiry_timeout,
-		.maxlen		= sizeof(nfs_mountpoint_expiry_timeout),
+		.data		= &sysctl_mountpoint_timeout,
+		.maxlen		= sizeof(sysctl_mountpoint_timeout),
 		.mode		= 0644,
 		.proc_handler	= proc_dointvec_jiffies,
 	},

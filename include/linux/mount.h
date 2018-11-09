@@ -95,12 +95,10 @@ extern struct vfsmount *vfs_submount(const struct dentry *mountpoint,
 				     struct file_system_type *type,
 				     const char *name, void *data);
 
-extern void mnt_set_expiry(struct vfsmount *mnt, struct list_head *expiry_list);
-extern void mark_mounts_for_expiry(struct list_head *mounts);
-
 extern dev_t name_to_dev_t(const char *name);
 
 extern unsigned int sysctl_mount_max;
+extern int sysctl_mountpoint_timeout;
 
 extern bool path_is_mountpoint(const struct path *path);
 

@@ -21,12 +21,6 @@
 
 #define NFSDBG_FACILITY		NFSDBG_VFS
 
-static void nfs_expire_automounts(struct work_struct *work);
-
-static LIST_HEAD(nfs_automount_list);
-static DECLARE_DELAYED_WORK(nfs_automount_task, nfs_expire_automounts);
-int nfs_mountpoint_expiry_timeout = 500 * HZ;
-
 /*
  * nfs_path - reconstruct the path given an arbitrary dentry
  * @base - used to return pointer to the end of devname part of path
@@ -153,12 +147,6 @@ struct vfsmount *nfs_d_automount(struct path *path)
 		goto out;
 
 	mnt = server->nfs_client->rpc_ops->submount(server, path->dentry, fh, fattr);
-	if (IS_ERR(mnt))
-		goto out;
-
-	mntget(mnt); /* prevent immediate expiration */
-	mnt_set_expiry(mnt, &nfs_automount_list);
-	schedule_delayed_work(&nfs_automount_task, nfs_mountpoint_expiry_timeout);
 
 out:
 	nfs_free_fattr(fattr);
@@ -193,21 +181,6 @@ const struct inode_operations nfs_referral_inode_operations = {
 	.getattr	= nfs_namespace_getattr,
 	.setattr	= nfs_namespace_setattr,
 };
-
-static void nfs_expire_automounts(struct work_struct *work)
-{
-	struct list_head *list = &nfs_automount_list;
-
-	mark_mounts_for_expiry(list);
-	if (!list_empty(list))
-		schedule_delayed_work(&nfs_automount_task, nfs_mountpoint_expiry_timeout);
-}
-
-void nfs_release_automount_timer(void)
-{
-	if (list_empty(&nfs_automount_list))
-		cancel_delayed_work(&nfs_automount_task);
-}
 
 /*
  * Clone a mountpoint of the appropriate type

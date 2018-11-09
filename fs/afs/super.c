@@ -122,7 +122,6 @@ void afs_fs_exit(void)
 {
 	_enter("");
 
-	afs_mntpt_kill_timer();
 	unregister_filesystem(&afs_fs_type);
 
 	if (atomic_read(&afs_count_active_inodes) != 0) {

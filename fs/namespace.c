@@ -32,6 +32,9 @@
 #include "pnode.h"
 #include "internal.h"
 
+int sysctl_mountpoint_timeout = 500 * HZ;
+EXPORT_SYMBOL_GPL(sysctl_mountpoint_timeout);
+
 /* Maximum number of mounts in a mount namespace */
 unsigned int sysctl_mount_max __read_mostly = 100000;
 
@@ -2572,14 +2575,14 @@ static int do_new_mount(struct path *path, const char *fstype, int sb_flags,
 	return err;
 }
 
+static LIST_HEAD(automount_list);
+static void expire_automounts(struct work_struct *work);
+static DECLARE_DELAYED_WORK(automount_task, expire_automounts);
+
 int finish_automount(struct vfsmount *m, struct path *path)
 {
 	struct mount *mnt = real_mount(m);
 	int err;
-	/* The new mount record should have at least 2 refs to prevent it being
-	 * expired before we get a chance to add it
-	 */
-	BUG_ON(mnt_get_count(mnt) < 2);
 
 	if (m->mnt_sb == path->mnt->mnt_sb &&
 	    m->mnt_root == path->dentry) {
@@ -2587,42 +2590,33 @@ int finish_automount(struct vfsmount *m, struct path *path)
 		goto fail;
 	}
 
+	mntget(m); /* prevent immediate expiration */
+	namespace_lock();
+	list_add_tail(&mnt->mnt_expire, &automount_list);
+	namespace_unlock();
+	schedule_delayed_work(&automount_task, sysctl_mountpoint_timeout);
+
 	err = do_add_mount(mnt, path, path->mnt->mnt_flags | MNT_SHRINKABLE);
 	if (!err)
 		return 0;
-fail:
+
 	/* remove m from any expiration list it may be on */
 	if (!list_empty(&mnt->mnt_expire)) {
 		namespace_lock();
 		list_del_init(&mnt->mnt_expire);
 		namespace_unlock();
 	}
-	mntput(m);
+fail:
 	mntput(m);
 	return err;
 }
-
-/**
- * mnt_set_expiry - Put a mount on an expiration list
- * @mnt: The mount to list.
- * @expiry_list: The list to add the mount to.
- */
-void mnt_set_expiry(struct vfsmount *mnt, struct list_head *expiry_list)
-{
-	namespace_lock();
-
-	list_add_tail(&real_mount(mnt)->mnt_expire, expiry_list);
-
-	namespace_unlock();
-}
-EXPORT_SYMBOL(mnt_set_expiry);
 
 /*
  * process a list of expirable mountpoints with the intent of discarding any
  * mountpoints that aren't in use and haven't been touched since last we came
  * here
  */
-void mark_mounts_for_expiry(struct list_head *mounts)
+static void mark_mounts_for_expiry(struct list_head *mounts)
 {
 	struct mount *mnt, *next;
 	LIST_HEAD(graveyard);
@@ -2654,7 +2648,14 @@ void mark_mounts_for_expiry(struct list_head *mounts)
 	namespace_unlock();
 }
 
-EXPORT_SYMBOL_GPL(mark_mounts_for_expiry);
+static void expire_automounts(struct work_struct *work)
+{
+	struct list_head *list = &automount_list;
+
+	mark_mounts_for_expiry(list);
+	if (!list_empty(list))
+	    schedule_delayed_work(&automount_task, sysctl_mountpoint_timeout);
+}
 
 /*
  * Ripoff of 'select_parent()'

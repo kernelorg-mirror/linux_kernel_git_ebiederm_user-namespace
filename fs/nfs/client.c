@@ -926,7 +926,6 @@ void nfs_free_server(struct nfs_server *server)
 	ida_destroy(&server->openowner_id);
 	nfs_free_iostats(server->io_stats);
 	kfree(server);
-	nfs_release_automount_timer();
 }
 EXPORT_SYMBOL_GPL(nfs_free_server);
 

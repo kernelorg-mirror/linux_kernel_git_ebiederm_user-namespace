@@ -8008,7 +8008,6 @@ static struct vfsmount *trace_automount(struct dentry *mntpt, void *ingore)
 	put_filesystem(type);
 	if (IS_ERR(mnt))
 		return NULL;
-	mntget(mnt);
 
 	return mnt;
 }

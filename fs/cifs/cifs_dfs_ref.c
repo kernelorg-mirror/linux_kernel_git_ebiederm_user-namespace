@@ -26,29 +26,6 @@
 #include "cifs_debug.h"
 #include "cifs_unicode.h"
 
-static LIST_HEAD(cifs_dfs_automount_list);
-
-static void cifs_dfs_expire_automounts(struct work_struct *work);
-static DECLARE_DELAYED_WORK(cifs_dfs_automount_task,
-			    cifs_dfs_expire_automounts);
-static int cifs_dfs_mountpoint_expiry_timeout = 500 * HZ;
-
-static void cifs_dfs_expire_automounts(struct work_struct *work)
-{
-	struct list_head *list = &cifs_dfs_automount_list;
-
-	mark_mounts_for_expiry(list);
-	if (!list_empty(list))
-		schedule_delayed_work(&cifs_dfs_automount_task,
-				      cifs_dfs_mountpoint_expiry_timeout);
-}
-
-void cifs_dfs_release_automount_timer(void)
-{
-	BUG_ON(!list_empty(&cifs_dfs_automount_list));
-	cancel_delayed_work_sync(&cifs_dfs_automount_task);
-}
-
 /**
  * cifs_build_devname - build a devicename from a UNC and optional prepath
  * @nodename:	pointer to UNC string
@@ -278,10 +255,11 @@ static void dump_referral(const struct dfs_info3_param *ref)
 }
 
 /*
- * Create a vfsmount that we can automount
+ * Attempt to automount the referral
  */
-static struct vfsmount *cifs_dfs_do_automount(struct dentry *mntpt)
+struct vfsmount *cifs_dfs_d_automount(struct path *path)
 {
+	struct dentry *mntpt = path->dentry;
 	struct dfs_info3_param *referrals = NULL;
 	unsigned int num_referrals = 0;
 	struct cifs_sb_info *cifs_sb;
@@ -362,29 +340,6 @@ free_full_path:
 cdda_exit:
 	cifs_dbg(FYI, "leaving %s\n" , __func__);
 	return mnt;
-}
-
-/*
- * Attempt to automount the referral
- */
-struct vfsmount *cifs_dfs_d_automount(struct path *path)
-{
-	struct vfsmount *newmnt;
-
-	cifs_dbg(FYI, "in %s\n", __func__);
-
-	newmnt = cifs_dfs_do_automount(path->dentry);
-	if (IS_ERR(newmnt)) {
-		cifs_dbg(FYI, "leaving %s [automount failed]\n" , __func__);
-		return newmnt;
-	}
-
-	mntget(newmnt); /* prevent immediate expiration */
-	mnt_set_expiry(newmnt, &cifs_dfs_automount_list);
-	schedule_delayed_work(&cifs_dfs_automount_task,
-			      cifs_dfs_mountpoint_expiry_timeout);
-	cifs_dbg(FYI, "leaving %s [ok]\n" , __func__);
-	return newmnt;
 }
 
 const struct inode_operations cifs_dfs_referral_inode_operations = {

@@ -24,7 +24,6 @@ static struct dentry *afs_mntpt_lookup(struct inode *dir,
 				       struct dentry *dentry,
 				       unsigned int flags);
 static int afs_mntpt_open(struct inode *inode, struct file *file);
-static void afs_mntpt_expiry_timed_out(struct work_struct *work);
 
 const struct file_operations afs_mntpt_file_operations = {
 	.open		= afs_mntpt_open,
@@ -41,11 +40,6 @@ const struct inode_operations afs_mntpt_inode_operations = {
 const struct inode_operations afs_autocell_inode_operations = {
 	.getattr	= afs_getattr,
 };
-
-static LIST_HEAD(afs_vfsmounts);
-static DECLARE_DELAYED_WORK(afs_mntpt_expiry_timer, afs_mntpt_expiry_timed_out);
-
-static unsigned long afs_mntpt_expiry_timeout = 10 * 60;
 
 /*
  * no valid lookup procedure on this sort of dir
@@ -68,10 +62,11 @@ static int afs_mntpt_open(struct inode *inode, struct file *file)
 }
 
 /*
- * create a vfsmount to be automounted
+ * handle an automount point
  */
-static struct vfsmount *afs_mntpt_do_automount(struct dentry *mntpt)
+struct vfsmount *afs_d_automount(struct path *path)
 {
+	struct dentry *mntpt = path->dentry;
 	struct afs_super_info *as;
 	struct vfsmount *mnt;
 	struct afs_vnode *vnode;
@@ -170,52 +165,4 @@ error_no_options:
 error_no_devname:
 	_leave(" = %d", ret);
 	return ERR_PTR(ret);
-}
-
-/*
- * handle an automount point
- */
-struct vfsmount *afs_d_automount(struct path *path)
-{
-	struct vfsmount *newmnt;
-
-	_enter("{%pd}", path->dentry);
-
-	newmnt = afs_mntpt_do_automount(path->dentry);
-	if (IS_ERR(newmnt))
-		return newmnt;
-
-	mntget(newmnt); /* prevent immediate expiration */
-	mnt_set_expiry(newmnt, &afs_vfsmounts);
-	queue_delayed_work(afs_wq, &afs_mntpt_expiry_timer,
-			   afs_mntpt_expiry_timeout * HZ);
-	_leave(" = %p", newmnt);
-	return newmnt;
-}
-
-/*
- * handle mountpoint expiry timer going off
- */
-static void afs_mntpt_expiry_timed_out(struct work_struct *work)
-{
-	_enter("");
-
-	if (!list_empty(&afs_vfsmounts)) {
-		mark_mounts_for_expiry(&afs_vfsmounts);
-		queue_delayed_work(afs_wq, &afs_mntpt_expiry_timer,
-				   afs_mntpt_expiry_timeout * HZ);
-	}
-
-	_leave("");
-}
-
-/*
- * kill the AFS mountpoint timer if it's still running
- */
-void afs_mntpt_kill_timer(void)
-{
-	_enter("");
-
-	ASSERT(list_empty(&afs_vfsmounts));
-	cancel_delayed_work_sync(&afs_mntpt_expiry_timer);
 }
