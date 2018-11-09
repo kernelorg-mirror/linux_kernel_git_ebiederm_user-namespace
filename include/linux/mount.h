@@ -91,9 +91,6 @@ struct file_system_type;
 extern struct vfsmount *vfs_kern_mount(struct file_system_type *type,
 				      int flags, const char *name,
 				      void *data);
-extern struct dentry *vfs_submount(const struct dentry *mountpoint,
-				   struct file_system_type *type,
-				   const char *name, void *data);
 
 extern dev_t name_to_dev_t(const char *name);
 
