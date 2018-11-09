@@ -148,7 +148,8 @@ struct dentry *afs_d_automount(struct path *path)
 
 	/* try and do the mount */
 	_debug("--- attempting mount %s -o %s ---", devname, options);
-	root = vfs_submount(mntpt, &afs_fs_type, devname, options);
+	root = afs_mount(&afs_fs_type, SB_SUBMOUNT, devname, options);
+	root = finish_subsuper(mntpt->d_sb, root);
 	_debug("--- mount result %p ---", root);
 
 	free_page((unsigned long) devname);

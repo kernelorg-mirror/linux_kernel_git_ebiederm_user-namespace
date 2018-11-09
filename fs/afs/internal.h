@@ -230,6 +230,9 @@ static inline struct afs_super_info *AFS_FS_S(struct super_block *sb)
 	return sb->s_fs_info;
 }
 
+struct dentry *afs_mount(struct file_system_type *fs_type,
+			 int flags, const char *dev_name, void *data);
+
 extern struct file_system_type afs_fs_type;
 
 /*
