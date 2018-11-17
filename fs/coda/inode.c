@@ -25,6 +25,7 @@
 #include <linux/uaccess.h>
 #include <linux/fs.h>
 #include <linux/vmalloc.h>
+#include <linux/parser.h>
 
 #include <linux/coda.h>
 #include <linux/coda_psdev.h>
@@ -111,23 +112,13 @@ static const struct super_operations coda_super_operations =
 	.remount_fs	= coda_remount,
 };
 
-static int get_device_index(struct coda_mount_data *data)
+static int get_device_index(int fd)
 {
 	struct fd f;
 	struct inode *inode;
 	int idx;
 
-	if (data == NULL) {
-		pr_warn("%s: Bad mount data\n", __func__);
-		return -1;
-	}
-
-	if (data->version != CODA_MOUNT_VERSION) {
-		pr_warn("%s: Bad mount version\n", __func__);
-		return -1;
-	}
-
-	f = fdget(data->fd);
+	f = fdget(fd);
 	if (!f.file)
 		goto Ebadf;
 	inode = file_inode(f.file);
@@ -150,18 +141,55 @@ Ebadf:
 	return -1;
 }
 
+enum {
+	Opt_fd,
+};
+
+static const struct match_table tokens[] = {
+	{ Opt_fd,	"fd=%u"},
+	{ }
+};
+
+static int parse_coda_options(char *options, int *idx)
+{
+	char *p;
+
+	while ((p = strsep(&options, ",")) != NULL) {
+		int token;
+		int value;
+		substring_t args[MAX_OPT_ARGS];
+		if (!*p)
+			continue;
+
+		token = match_token(p, tokens, args);
+		switch (token) {
+		case Opt_fd:
+			if (match_int(&args[0], &value))
+				return -EINVAL;
+			*idx = get_device_index(value);
+			break;
+		default:
+			pr_warn("bad coda mount option '%s'\n", p);
+			return -EINVAL;
+		}
+	}
+	return 0;
+}
+
 static int coda_fill_super(struct super_block *sb, void *data, int silent)
 {
 	struct inode *root = NULL;
 	struct venus_comm *vc;
 	struct CodaFid fid;
 	int error;
-	int idx;
+	int idx = -1;
 
 	if (task_active_pid_ns(current) != &init_pid_ns)
 		return -EINVAL;
 
-	idx = get_device_index((struct coda_mount_data *) data);
+	error = parse_coda_options(data, &idx);
+	if (error)
+		return error;
 
 	/* Ignore errors in data, for backward compatibility */
 	if(idx == -1)
@@ -321,12 +349,24 @@ static struct dentry *coda_mount(struct file_system_type *fs_type,
 	return mount_nodev(fs_type, flags, data, coda_fill_super);
 }
 
+static const char *coda_text_options(const char *name, void *data, size_t size)
+{
+	struct coda_mount_data *cmd = data;
+
+	if ((cmd->version == CODA_MOUNT_VERSION) && (cmd->fd >= 0)) {
+		int fd = cmd->fd;
+
+		snprintf(data, size, "fd=%u", fd);
+	}
+	return NULL;
+}
+
 struct file_system_type coda_fs_type = {
 	.owner		= THIS_MODULE,
 	.name		= "coda",
 	.mount		= coda_mount,
 	.kill_sb	= kill_anon_super,
-	.fs_flags	= FS_BINARY_MOUNTDATA,
+	.text_options	= coda_text_options,
 };
 MODULE_ALIAS_FS("coda");
 
