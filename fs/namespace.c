@@ -2466,6 +2466,7 @@ static int do_new_mount(struct path *path, const char *fstype, int sb_flags,
 			int mnt_flags, const char *name, void *data)
 {
 	struct file_system_type *type;
+	const char *newname = NULL;
 	struct vfsmount *mnt;
 	int err;
 
@@ -2481,11 +2482,21 @@ static int do_new_mount(struct path *path, const char *fstype, int sb_flags,
 	if (err)
 		return err;
 
+	if (data && type->text_options) {
+		newname = type->text_options(name, data, PAGE_SIZE);
+		if (IS_ERR(newname))
+			return PTR_ERR(newname);
+
+		if (newname)
+			name = newname;
+	}
+
 	mnt = vfs_kern_mount(type, sb_flags, name, data);
 	if (!IS_ERR(mnt) && (type->fs_flags & FS_HAS_SUBTYPE) &&
 	    !mnt->mnt_sb->s_subtype)
 		mnt = fs_set_subtype(mnt, fstype);
 
+	kfree(newname);
 	put_filesystem(type);
 	if (IS_ERR(mnt))
 		return PTR_ERR(mnt);

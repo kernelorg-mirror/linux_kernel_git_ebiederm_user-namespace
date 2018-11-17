@@ -2170,6 +2170,7 @@ struct file_system_type {
 	struct dentry *(*mount) (struct file_system_type *, int,
 		       const char *, void *);
 	void (*kill_sb) (struct super_block *);
+	const char *(*text_options) (const char *, void *, size_t);
 	struct module *owner;
 	struct file_system_type * next;
 	struct hlist_head fs_supers;
