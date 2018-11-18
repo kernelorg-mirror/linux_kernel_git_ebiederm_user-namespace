@@ -2232,13 +2232,11 @@ nfs_compare_remount_data(struct nfs_server *nfss,
 }
 
 int
-nfs_remount(struct super_block *sb, int *flags, char *raw_data)
+nfs_remount(struct super_block *sb, int *flags, char *options)
 {
 	int error;
 	struct nfs_server *nfss = sb->s_fs_info;
 	struct nfs_parsed_mount_data *data;
-	struct nfs_mount_data *options = (struct nfs_mount_data *)raw_data;
-	struct nfs4_mount_data *options4 = (struct nfs4_mount_data *)raw_data;
 	u32 nfsvers = nfss->nfs_client->rpc_ops->version;
 
 	sync_filesystem(sb);
@@ -2248,10 +2246,14 @@ nfs_remount(struct super_block *sb, int *flags, char *raw_data)
 	 * them populated with default values. We have no way to know which
 	 * ones were explicitly specified. Fall back to legacy behavior and
 	 * just return success.
+	 *
+	 * Only worry about little endian architectures here. The version number
+	 * on big endian architectures appears to be a null terminated string.
 	 */
-	if ((nfsvers == 4 && (!options4 || options4->version == 1)) ||
-	    (nfsvers <= 3 && (!options || (options->version >= 1 &&
-					   options->version <= 6))))
+	if (!options ||
+	    ((options[0] != '\0') && (options[1] == '\0') &&
+	     ((nfsvers == 4 && (options[0] == '\1')) ||
+	      (nfsvers <= 3 && (options[0] >= '\1') && (options[0] <= '\6')))))
 		return 0;
 
 	data = kzalloc(sizeof(*data), GFP_KERNEL);
@@ -2279,7 +2281,7 @@ nfs_remount(struct super_block *sb, int *flags, char *raw_data)
 
 	/* overwrite those values with any that were specified */
 	error = -EINVAL;
-	if (!nfs_parse_mount_options((char *)options, data, NULL))
+	if (!nfs_parse_mount_options(options, data, NULL))
 		goto out;
 
 	/*
