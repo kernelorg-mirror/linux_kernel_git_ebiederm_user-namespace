@@ -110,6 +110,7 @@ enum {
 	Opt_lookupcache,
 	Opt_fscache_uniq,
 	Opt_local_lock,
+	Opt_fhandle,
 
 	/* Special mount options */
 	Opt_userspace, Opt_deprecated, Opt_sloppy,
@@ -180,6 +181,8 @@ static const struct match_table nfs_mount_option_tokens[] = {
 	{ Opt_lookupcache, "lookupcache=%s" },
 	{ Opt_fscache_uniq, "fsc=%s" },
 	{ Opt_local_lock, "local_lock=%s" },
+
+	{ Opt_fhandle, "fhandle=%s" },
 
 	/* The following needs to be listed after all other options */
 	{ Opt_nfsvers, "v%s" },
@@ -1147,6 +1150,28 @@ static int nfs_parse_version_string(char *string,
 	return 1;
 }
 
+static int nfs_parse_fhandle_string(char *string, struct nfs_fh *mntfh)
+{
+	size_t len = strlen(string);
+
+	/* Fail if not expecting a mount file handle */
+	if (!mntfh)
+		return 0;
+
+	/* Ensure len is a multiple of 2 and is short enough to
+	 * be a v3 file handle.
+	 */
+	if ((len & 1) || (len/2 > NFS3_FHSIZE))
+		return 0;
+
+	/* Convert the string from hex and place it in mntfh */
+	mntfh->size = len/2;
+	if (hex2bin(mntfh->data, string, len))
+		return 0;
+
+	return 1;
+}
+
 static int nfs_get_option_str(substring_t args[], char **option)
 {
 	kfree(*option);
@@ -1188,7 +1213,8 @@ static int nfs_get_option_ul_bound(substring_t args[], unsigned long *option,
  * otherwise return 0 (zero).
  */
 static int nfs_parse_mount_options(char *raw,
-				   struct nfs_parsed_mount_data *mnt)
+				   struct nfs_parsed_mount_data *mnt,
+				   struct nfs_fh *mntfh)
 {
 	char *p, *string, *secdata;
 	int rc, sloppy = 0, invalid_option = 0;
@@ -1591,6 +1617,18 @@ static int nfs_parse_mount_options(char *raw,
 			};
 			break;
 
+		case Opt_fhandle:
+			string = match_strdup(args);
+			if (string == NULL)
+				goto out_nomem;
+
+			rc = nfs_parse_fhandle_string(string, mntfh);
+			kfree(string);
+			if (!rc)
+				goto out_invalid_value;
+			mnt->need_mount = false;
+			break;
+
 		/*
 		 * Special options
 		 */
@@ -1639,7 +1677,22 @@ static int nfs_parse_mount_options(char *raw,
 		}
 	}
 
+	if (!mnt->need_mount) {
+		if (mnt->version == 3) {
+			if (mntfh->size > NFS3_FHSIZE)
+				goto out_invalid_fh;
+		} else if (mnt->version == 2) {
+			if (mntfh->size != NFS2_FHSIZE)
+				goto out_invalid_fh;
+		} else
+			goto out_invalid_fh;
+	}
+
 	return 1;
+
+out_invalid_fh:
+	printk(KERN_INFO "NFS: invalid root filehandle\n");
+	return 0;
 
 out_mountproto_mismatch:
 	printk(KERN_INFO "NFS: mount server address does not match mountproto= "
@@ -2137,6 +2190,7 @@ static int nfs_validate_mount_data(struct file_system_type *fs_type,
 
 static int nfs_validate_text_mount_data(void *options,
 					struct nfs_parsed_mount_data *args,
+					struct nfs_fh *mountfh,
 					const char *dev_name)
 {
 	int port = 0;
@@ -2144,7 +2198,7 @@ static int nfs_validate_text_mount_data(void *options,
 	int max_pathlen = NFS_MAXPATHLEN;
 	struct sockaddr *sap = (struct sockaddr *)&args->nfs_server.address;
 
-	if (nfs_parse_mount_options((char *)options, args) == 0)
+	if (nfs_parse_mount_options((char *)options, args, mountfh) == 0)
 		return -EINVAL;
 
 	if (!nfs_verify_server_address(sap))
@@ -2274,7 +2328,7 @@ nfs_remount(struct super_block *sb, int *flags, char *raw_data)
 
 	/* overwrite those values with any that were specified */
 	error = -EINVAL;
-	if (!nfs_parse_mount_options((char *)options, data))
+	if (!nfs_parse_mount_options((char *)options, data, NULL))
 		goto out;
 
 	/*
@@ -2666,7 +2720,7 @@ struct dentry *nfs_fs_mount(struct file_system_type *fs_type,
 	/* Validate the mount data */
 	error = nfs_validate_mount_data(fs_type, raw_data, mount_info.parsed, mount_info.mntfh, dev_name);
 	if (error == NFS_TEXT_DATA)
-		error = nfs_validate_text_mount_data(raw_data, mount_info.parsed, dev_name);
+		error = nfs_validate_text_mount_data(raw_data, mount_info.parsed, mount_info.mntfh, dev_name);
 	if (error < 0) {
 		mntroot = ERR_PTR(error);
 		goto out;
