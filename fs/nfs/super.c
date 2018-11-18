@@ -68,7 +68,6 @@
 #include "nfs.h"
 
 #define NFSDBG_FACILITY		NFSDBG_VFS
-#define NFS_TEXT_DATA		1
 
 #if IS_ENABLED(CONFIG_NFS_V3)
 #define NFS_DEFAULT_VERSION 3
@@ -313,15 +312,16 @@ const struct super_operations nfs_sops = {
 EXPORT_SYMBOL_GPL(nfs_sops);
 
 #if IS_ENABLED(CONFIG_NFS_V4)
+static const char *nfs4_text_options(const char *name, void *opt, size_t size);
 static void nfs4_validate_mount_flags(struct nfs_parsed_mount_data *);
-static int nfs4_validate_mount_data(void *options,
-	struct nfs_parsed_mount_data *args, const char *dev_name);
+
 
 struct file_system_type nfs4_fs_type = {
 	.owner		= THIS_MODULE,
 	.name		= "nfs4",
 	.mount		= nfs_fs_mount,
 	.kill_sb	= nfs_kill_super,
+	.text_options	= nfs4_text_options,
 	.fs_flags	= FS_RENAME_DOES_D_MOVE|FS_BINARY_MOUNTDATA,
 };
 MODULE_ALIAS_FS("nfs4");
@@ -2139,19 +2139,6 @@ out_path:
 	return -ENAMETOOLONG;
 }
 
-static int nfs_validate_mount_data(struct file_system_type *fs_type,
-				   void *options,
-				   struct nfs_parsed_mount_data *args,
-				   struct nfs_fh *mntfh,
-				   const char *dev_name)
-{
-#if IS_ENABLED(CONFIG_NFS_V4)
-	if (fs_type == &nfs4_fs_type)
-		return nfs4_validate_mount_data(options, args, dev_name);
-#endif
-	return NFS_TEXT_DATA;
-}
-
 static int nfs_validate_text_mount_data(void *options,
 					struct nfs_parsed_mount_data *args,
 					struct nfs_fh *mountfh,
@@ -2682,9 +2669,7 @@ struct dentry *nfs_fs_mount(struct file_system_type *fs_type,
 		goto out;
 
 	/* Validate the mount data */
-	error = nfs_validate_mount_data(fs_type, raw_data, mount_info.parsed, mount_info.mntfh, dev_name);
-	if (error == NFS_TEXT_DATA)
-		error = nfs_validate_text_mount_data(raw_data, mount_info.parsed, mount_info.mntfh, dev_name);
+	error = nfs_validate_text_mount_data(raw_data, mount_info.parsed, mount_info.mntfh, dev_name);
 	if (error < 0) {
 		mntroot = ERR_PTR(error);
 		goto out;
@@ -2767,104 +2752,157 @@ static void nfs4_validate_mount_flags(struct nfs_parsed_mount_data *args)
 }
 
 /*
- * Validate NFSv4 mount options
+ * Convert NFSv4 binary mount options
  */
-static int nfs4_validate_mount_data(void *options,
-				    struct nfs_parsed_mount_data *args,
-				    const char *dev_name)
+static const char *nfs4_text_options(const char *name, void *opt, size_t size)
 {
-	struct sockaddr *sap = (struct sockaddr *)&args->nfs_server.address;
-	struct nfs4_mount_data *data = (struct nfs4_mount_data *)options;
-	char *c;
+	static const char inval_auth[] =
+		"NFS4: Invalid number of RPC auth flavours\n";
+	static const char no_address[] =
+		"NFS4: mount program didn't pass remote address\n";
+	static const char invalid_transport[] =
+		"NFSv4: Unsupported transport protocol\n";
+	static const char invalid_pseudoflavor[] =
+		"NFS: invalid security pseudo flavour\n";
+	struct nfs4_mount_data *data = (struct nfs4_mount_data *)opt;
+	struct sockaddr host_addr;
+	unsigned int version = 4;
+	rpc_authflavor_t pseudoflavor;
+	size_t off = 0;
+	const char *hostname = NULL, *export_path = NULL, *client_address = NULL;
+	const char *newname, *sec, *err_msg;
+	int err;
 
-	if (data == NULL)
-		goto out_no_data;
+	if (size < sizeof(*data))
+		return ERR_PTR(-EINVAL);
 
-	args->version = 4;
+	if (data->version != 1)
+		return NULL; /* Text mount options */
 
-	switch (data->version) {
-	case 1:
-		if (data->host_addrlen > sizeof(args->nfs_server.address))
-			goto out_no_address;
-		if (data->host_addrlen == 0)
-			goto out_no_address;
-		args->nfs_server.addrlen = data->host_addrlen;
-		if (copy_from_user(sap, data->host_addr, data->host_addrlen))
-			return -EFAULT;
-		if (!nfs_verify_server_address(sap))
-			goto out_no_address;
-		args->nfs_server.port = ntohs(((struct sockaddr_in *)sap)->sin_port);
+	data = kzalloc(sizeof(*data), GFP_KERNEL);
+	if (!data)
+		return ERR_PTR(-ENOMEM);
+	memcpy(data, opt, sizeof(*data));
+	memset(opt, '\0', size);
 
-		if (data->auth_flavourlen) {
-			rpc_authflavor_t pseudoflavor;
-			if (data->auth_flavourlen > 1)
-				goto out_inval_auth;
-			if (copy_from_user(&pseudoflavor,
-					   data->auth_flavours,
-					   sizeof(pseudoflavor)))
-				return -EFAULT;
-			args->selected_flavor = pseudoflavor;
-		} else
-			args->selected_flavor = RPC_AUTH_UNIX;
+	err_msg = no_address;
+	err = -EINVAL;
+	if (data->host_addrlen > sizeof(struct sockaddr_storage))
+		goto err;
+	if (data->host_addrlen == 0)
+		goto err;
 
-		c = strndup_user(data->hostname.data, NFS4_MAXNAMLEN);
-		if (IS_ERR(c))
-			return PTR_ERR(c);
-		args->nfs_server.hostname = c;
+	err_msg = NULL;
+	err = -EFAULT;
+	if (copy_from_user(&host_addr, data->host_addr, data->host_addrlen))
+		goto err;
 
-		c = strndup_user(data->mnt_path.data, NFS4_MAXPATHLEN);
-		if (IS_ERR(c))
-			return PTR_ERR(c);
-		args->nfs_server.export_path = c;
-		dfprintk(MOUNT, "NFS: MNTPATH: '%s'\n", c);
+	err_msg = no_address;
+	err = -EINVAL;
+	if (!nfs_verify_server_address(&host_addr))
+		goto err;
 
-		c = strndup_user(data->client_addr.data, 16);
-		if (IS_ERR(c))
-			return PTR_ERR(c);
-		args->client_address = c;
+	if (data->auth_flavourlen) {
+		err_msg = inval_auth;
+		err = -EINVAL;
+		if (data->auth_flavourlen > 1)
+			goto err;
 
-		/*
-		 * Translate to nfs_parsed_mount_data, which nfs4_fill_super
-		 * can deal with.
-		 */
+		err_msg = NULL;
+		err = -EFAULT;
+		if (copy_from_user(&pseudoflavor,
+				   data->auth_flavours,
+				   sizeof(pseudoflavor)))
+			goto err;
+	} else
+		pseudoflavor = RPC_AUTH_UNIX;
 
-		args->flags	= data->flags & NFS4_MOUNT_FLAGMASK;
-		args->rsize	= data->rsize;
-		args->wsize	= data->wsize;
-		args->timeo	= data->timeo;
-		args->retrans	= data->retrans;
-		args->acregmin	= data->acregmin;
-		args->acregmax	= data->acregmax;
-		args->acdirmin	= data->acdirmin;
-		args->acdirmax	= data->acdirmax;
-		args->nfs_server.protocol = data->proto;
-		nfs_validate_transport_protocol(args);
-		if (args->nfs_server.protocol == XPRT_TRANSPORT_UDP)
-			goto out_invalid_transport_udp;
+	err_msg = NULL;
+	hostname = strndup_user(data->hostname.data, NFS4_MAXNAMLEN);
+	err = PTR_ERR(hostname);
+	if (IS_ERR(hostname))
+		goto err;
 
-		break;
-	default:
-		return NFS_TEXT_DATA;
-	}
+	export_path = strndup_user(data->mnt_path.data, NFS4_MAXPATHLEN);
+	err = PTR_ERR(export_path);
+	if (IS_ERR(export_path))
+		goto err;
+	dfprintk(MOUNT, "NFS: MNTPATH: '%s'\n", export_path);
 
-	return 0;
+	client_address = strndup_user(data->client_addr.data, 16);
+	err = PTR_ERR(client_address);
+	if (IS_ERR(client_address))
+		goto err;
 
-out_no_data:
-	dfprintk(MOUNT, "NFS4: mount program didn't pass any mount data\n");
-	return -EINVAL;
 
-out_inval_auth:
-	dfprintk(MOUNT, "NFS4: Invalid number of RPC auth flavours %d\n",
-		 data->auth_flavourlen);
-	return -EINVAL;
+	/* Generate the equivalent nfs string options */
+	off += scnprintf(opt + off, size - off, "vers=%u", version);
 
-out_no_address:
-	dfprintk(MOUNT, "NFS4: mount program didn't pass remote address\n");
-	return -EINVAL;
+	/* Only the flags in NFS4_MOUNT_FLAGMASK are considred */
+#define ADD_FLAG(FLAG, SET, CLEAR)	do { 				\
+		const char *str = (data->flags & FLAG) ? SET : CLEAR;	\
+		off += scnprintf(opt + off, size - off, ",%s", str);	\
+	} while (0);
 
-out_invalid_transport_udp:
-	dfprintk(MOUNT, "NFSv4: Unsupported transport protocol udp\n");
-	return -EINVAL;
+	ADD_FLAG(NFS4_MOUNT_SOFT, "soft", "hard");
+	ADD_FLAG(NFS4_MOUNT_INTR, "intr", "nointr");
+	ADD_FLAG(NFS4_MOUNT_NOCTO, "nocto", "cto");
+	ADD_FLAG(NFS4_MOUNT_NOAC, "noac", "noac");
+	/* NFS4_MOUNT_STRICTLOCK -- ignored */
+	ADD_FLAG(NFS4_MOUNT_UNSHARED, "nosharecache", "sharecache");
+#undef ADD_FLAG
+
+	off += scnprintf(opt + off, size - off, ",rsize=%u", data->rsize);
+	off += scnprintf(opt + off, size - off, ",wsize=%u", data->wsize);
+	off += scnprintf(opt + off, size - off, ",timeo=%u", data->timeo);
+	off += scnprintf(opt + off, size - off, ",retrans=%u", data->retrans);
+	off += scnprintf(opt + off, size - off, ",acregmin=%u", data->acregmin);
+	off += scnprintf(opt + off, size - off, ",acregmax=%u", data->acregmax);
+	off += scnprintf(opt + off, size - off, ",acdirmin=%u", data->acdirmin);
+	off += scnprintf(opt + off, size - off, ",acdirmax=%u", data->acdirmax);
+	off += scnprintf(opt + off, size - off, ",clientaddr=%s", client_address);
+
+	/* For mnt_path and hostname see newname */
+
+	off += scnprintf(opt + off, size - off, ",addr=%pI", &host_addr);
+	off += scnprintf(opt + off, size - off, ",port=%u",
+			 ntohs(((struct sockaddr_in *)&host_addr)->sin_port));
+
+	err_msg = invalid_transport;
+	err = -EINVAL;
+	if (data->proto == IPPROTO_TCP)
+		off += scnprintf(opt + off, size - off, ",tcp");
+	else if (data->proto == IPPROTO_UDP)
+		off += scnprintf(opt + off, size - off, ",udp");
+	else
+		goto err;
+
+	err_msg = invalid_pseudoflavor;
+	err = -EINVAL;
+	sec = nfs_pseudoflavour_to_name(pseudoflavor);
+	if (strcmp(sec, "unknown"))
+		goto err;
+	off += scnprintf(opt + off, size - off, ",sec=%s", sec);
+
+	/* Does hostname needs to be enclosed in brackets? */
+	if (strchr(hostname, ':'))
+		newname = kasprintf(GFP_KERNEL, "[%s]:%s", hostname, export_path);
+	else
+		newname = kasprintf(GFP_KERNEL, "%s:%s", hostname, export_path);
+	kfree(hostname);
+	kfree(export_path);
+	kfree(client_address);
+	kfree(data);
+	return newname;
+
+err:
+	if (err_msg)
+		dfprintk(MOUNT, "%s", err_msg);
+	kfree(hostname);
+	kfree(export_path);
+	kfree(client_address);
+	kfree(data);
+	return ERR_PTR(err);
 }
 
 /*
