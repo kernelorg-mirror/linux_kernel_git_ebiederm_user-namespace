@@ -275,12 +275,14 @@ static const struct match_table nfs_vers_tokens[] = {
 
 static struct dentry *nfs_xdev_mount(struct file_system_type *fs_type,
 		int flags, const char *dev_name, void *raw_data);
+static const char *nfs23_text_options(const char *name, void *opt, size_t size);
 
 struct file_system_type nfs_fs_type = {
 	.owner		= THIS_MODULE,
 	.name		= "nfs",
 	.mount		= nfs_fs_mount,
 	.kill_sb	= nfs_kill_super,
+	.text_options	= nfs23_text_options,
 	.fs_flags	= FS_RENAME_DOES_D_MOVE|FS_BINARY_MOUNTDATA,
 };
 MODULE_ALIAS_FS("nfs");
@@ -512,6 +514,144 @@ static const char *nfs_pseudoflavour_to_name(rpc_authflavor_t flavour)
 			break;
 	}
 	return sec_flavours[i].str;
+}
+
+static const char *nfs23_text_options(const char *name, void *opt, size_t size)
+{
+	struct nfs_mount_data *data = (struct nfs_mount_data *)opt;
+	unsigned int version = NFS_DEFAULT_VERSION;
+	const char *sec, *newname;
+	size_t off = 0;
+
+	if (size < sizeof(*data))
+		return ERR_PTR(-EINVAL);
+
+	data = kmemdup(opt, sizeof(*data), GFP_KERNEL);
+	if (!data)
+		return ERR_PTR(-ENOMEM);
+	memset(opt, '\0', size);
+
+	switch (data->version) {
+	case 1:
+		data->namlen = 0; /* fall through */
+	case 2:
+		data->bsize = 0; /* fall through */
+	case 3:
+		if (data->flags & NFS_MOUNT_VER3)
+			goto out_no_v3;
+		data->root.size = NFS2_FHSIZE;
+		memcpy(data->root.data, data->old_root.data, NFS2_FHSIZE);
+		/* fall through */
+	case 4:
+		if (data->flags & NFS_MOUNT_SECFLAVOUR)
+			goto out_no_sec;
+		/* fall through */
+	case 5:
+		memset(data->context, 0, sizeof(data->context));
+		/* fall through */
+	case 6:
+		if (data->flags & NFS_MOUNT_VER3) {
+			if (data->root.size > NFS3_FHSIZE || data->root.size == 0)
+				goto out_invalid_fh;
+			version = 3;
+		} else {
+			version = 2;
+		}
+
+		if (!(data->flags & NFS_MOUNT_SECFLAVOUR))
+			data->pseudoflavor = RPC_AUTH_UNIX;
+	default:
+		/* nfs text data */
+		return NULL;
+	}
+
+	/* ignore data->fd */
+	off += scnprintf(opt + off, size - off, "vers=%u", version);
+
+#define ADD_FLAG(FLAG, SET, CLEAR)	do { 				\
+		const char *str = (data->flags & FLAG) ? SET : CLEAR;	\
+		off += scnprintf(opt + off, size - off, ",%s", str);	\
+	} while (0);
+
+	ADD_FLAG(NFS_MOUNT_SOFT, "soft", "hard");
+	ADD_FLAG(NFS_MOUNT_INTR, "intr", "nointr");
+	/* ignore NFS_MOUNT_SECURE */
+	ADD_FLAG(NFS_MOUNT_POSIX, "posix", "noposix");
+	ADD_FLAG(NFS_MOUNT_NOCTO, "nocto", "cto");
+	ADD_FLAG(NFS_MOUNT_NOAC, "noac", "noac");
+	ADD_FLAG(NFS_MOUNT_TCP, "tcp", "udp");
+	/* NFS_MOUNT_VER3 -- see vers= */
+	/* NFS_MOUNT_KERBEROS -- ignored */
+	ADD_FLAG(NFS_MOUNT_NONLM, "nolock", "lock");
+	/* NFS_MOUNT_BROKEN_SUID -- ignored */
+	ADD_FLAG(NFS_MOUNT_NOACL, "noacl", "acl");
+	/* NFS_MOUNT_STRICTLOCK -- ingored */
+	/* NFS_MOUNT_SECFLAVOUR -- see sec= */
+	/* NFS_MOUNT_NODIRPLUS -- ignored */
+	ADD_FLAG(NFS_MOUNT_UNSHARED, "nosharecache", "sharecache");
+#undef ADD_FLAG
+
+	off += scnprintf(opt + off, size - off, ",rsize=%u", data->rsize);
+	off += scnprintf(opt + off, size - off, ",wsize=%u", data->wsize);
+	off += scnprintf(opt + off, size - off, ",timeo=%u", data->timeo);
+	off += scnprintf(opt + off, size - off, ",retrans=%u", data->retrans);
+	off += scnprintf(opt + off, size - off, ",acregmin=%u", data->acregmin);
+	off += scnprintf(opt + off, size - off, ",acregmax=%u", data->acregmax);
+	off += scnprintf(opt + off, size - off, ",acdirmin=%u", data->acdirmin);
+	off += scnprintf(opt + off, size - off, ",acdirmax=%u", data->acdirmax);
+	off += scnprintf(opt + off, size - off, ",addr=%pI", &data->addr);
+	off += scnprintf(opt + off, size - off, ",port=%u", ntohs(data->addr.sin_port));
+
+	data->hostname[NFS_MAXNAMLEN] = '\0';
+	newname = kstrdup(data->hostname, GFP_KERNEL);
+
+	off += scnprintf(opt + off, size - off, ",namlen=%u", data->namlen);
+	off += scnprintf(opt + off, size - off, ",bsize=%u", data->bsize);
+	off += scnprintf(opt + off, size - off, ",fhandle=%*phN",
+			 data->root.size, data->root.data);
+
+	sec = nfs_pseudoflavour_to_name(data->pseudoflavor);
+	if (strcmp(sec, "unknown"))
+		goto out_invalid_pseudoflavor;
+	off += scnprintf(opt + off, size - off, ",sec=%s", sec);
+
+	/*
+	 * The legacy version 6 binary mount data from userspace has a
+	 * field used only to transport selinux information into the
+	 * the kernel.  To continue to support that functionality we
+	 * have a touch of selinux knowledge here in the NFS code. The
+	 * userspace code converted context=blah to just blah so we are
+	 * converting back to the full string selinux understands.
+	 */
+	if (data->context[0]) {
+		data->context[NFS_MAX_CONTEXT_LEN] = '\0';
+		off += scnprintf(opt + off, size - off,
+				 ",context=%s", data->context);
+	}
+
+	kfree(data);
+	return newname;
+
+fail:
+	kfree(data);
+	return ERR_PTR(-EINVAL);
+
+out_no_v3:
+	dfprintk(MOUNT, "NFS: nfs_mount_data version %d does not support v3\n",
+		data->version);
+	goto fail;
+
+out_no_sec:
+	dfprintk(MOUNT, "NFS: nfs_mount_data vesion supports only AUTH_SYS\n");
+	goto fail;
+
+out_invalid_pseudoflavor:
+	dfprintk(MOUNT, "NFS: invalid security pseudo flavour\n");
+	goto fail;
+
+out_invalid_fh:
+	dfprintk(MOUNT, "NFS: invalid root filehandle\n");
+	goto fail;
 }
 
 static void nfs_show_mountd_netid(struct seq_file *m, struct nfs_server *nfss,
@@ -1999,194 +2139,18 @@ out_path:
 	return -ENAMETOOLONG;
 }
 
-/*
- * Validate the NFS2/NFS3 mount data
- * - fills in the mount root filehandle
- *
- * For option strings, user space handles the following behaviors:
- *
- * + DNS: mapping server host name to IP address ("addr=" option)
- *
- * + failure mode: how to behave if a mount request can't be handled
- *   immediately ("fg/bg" option)
- *
- * + retry: how often to retry a mount request ("retry=" option)
- *
- * + breaking back: trying proto=udp after proto=tcp, v2 after v3,
- *   mountproto=tcp after mountproto=udp, and so on
- */
-static int nfs23_validate_mount_data(void *options,
-				     struct nfs_parsed_mount_data *args,
-				     struct nfs_fh *mntfh,
-				     const char *dev_name)
+static int nfs_validate_mount_data(struct file_system_type *fs_type,
+				   void *options,
+				   struct nfs_parsed_mount_data *args,
+				   struct nfs_fh *mntfh,
+				   const char *dev_name)
 {
-	struct nfs_mount_data *data = (struct nfs_mount_data *)options;
-	struct sockaddr *sap = (struct sockaddr *)&args->nfs_server.address;
-	int extra_flags = NFS_MOUNT_LEGACY_INTERFACE;
-
-	if (data == NULL)
-		goto out_no_data;
-
-	args->version = NFS_DEFAULT_VERSION;
-	switch (data->version) {
-	case 1:
-		data->namlen = 0; /* fall through */
-	case 2:
-		data->bsize = 0; /* fall through */
-	case 3:
-		if (data->flags & NFS_MOUNT_VER3)
-			goto out_no_v3;
-		data->root.size = NFS2_FHSIZE;
-		memcpy(data->root.data, data->old_root.data, NFS2_FHSIZE);
-		/* Turn off security negotiation */
-		extra_flags |= NFS_MOUNT_SECFLAVOUR;
-		/* fall through */
-	case 4:
-		if (data->flags & NFS_MOUNT_SECFLAVOUR)
-			goto out_no_sec;
-		/* fall through */
-	case 5:
-		memset(data->context, 0, sizeof(data->context));
-		/* fall through */
-	case 6:
-		if (data->flags & NFS_MOUNT_VER3) {
-			if (data->root.size > NFS3_FHSIZE || data->root.size == 0)
-				goto out_invalid_fh;
-			mntfh->size = data->root.size;
-			args->version = 3;
-		} else {
-			mntfh->size = NFS2_FHSIZE;
-			args->version = 2;
-		}
-
-
-		memcpy(mntfh->data, data->root.data, mntfh->size);
-		if (mntfh->size < sizeof(mntfh->data))
-			memset(mntfh->data + mntfh->size, 0,
-			       sizeof(mntfh->data) - mntfh->size);
-
-		/*
-		 * Translate to nfs_parsed_mount_data, which nfs_fill_super
-		 * can deal with.
-		 */
-		args->flags		= data->flags & NFS_MOUNT_FLAGMASK;
-		args->flags		|= extra_flags;
-		args->rsize		= data->rsize;
-		args->wsize		= data->wsize;
-		args->timeo		= data->timeo;
-		args->retrans		= data->retrans;
-		args->acregmin		= data->acregmin;
-		args->acregmax		= data->acregmax;
-		args->acdirmin		= data->acdirmin;
-		args->acdirmax		= data->acdirmax;
-		args->need_mount	= false;
-
-		memcpy(sap, &data->addr, sizeof(data->addr));
-		args->nfs_server.addrlen = sizeof(data->addr);
-		args->nfs_server.port = ntohs(data->addr.sin_port);
-		if (!nfs_verify_server_address(sap))
-			goto out_no_address;
-
-		if (!(data->flags & NFS_MOUNT_TCP))
-			args->nfs_server.protocol = XPRT_TRANSPORT_UDP;
-		/* N.B. caller will free nfs_server.hostname in all cases */
-		args->nfs_server.hostname = kstrdup(data->hostname, GFP_KERNEL);
-		args->namlen		= data->namlen;
-		args->bsize		= data->bsize;
-
-		if (data->flags & NFS_MOUNT_SECFLAVOUR)
-			args->selected_flavor = data->pseudoflavor;
-		else
-			args->selected_flavor = RPC_AUTH_UNIX;
-		if (!args->nfs_server.hostname)
-			goto out_nomem;
-
-		if (!(data->flags & NFS_MOUNT_NONLM))
-			args->flags &= ~(NFS_MOUNT_LOCAL_FLOCK|
-					 NFS_MOUNT_LOCAL_FCNTL);
-		else
-			args->flags |= (NFS_MOUNT_LOCAL_FLOCK|
-					NFS_MOUNT_LOCAL_FCNTL);
-		/*
-		 * The legacy version 6 binary mount data from userspace has a
-		 * field used only to transport selinux information into the
-		 * the kernel.  To continue to support that functionality we
-		 * have a touch of selinux knowledge here in the NFS code. The
-		 * userspace code converted context=blah to just blah so we are
-		 * converting back to the full string selinux understands.
-		 */
-		if (data->context[0]){
-#ifdef CONFIG_SECURITY_SELINUX
-			int rc;
-			char *opts_str = kmalloc(sizeof(data->context) + 8, GFP_KERNEL);
-			if (!opts_str)
-				return -ENOMEM;
-			strcpy(opts_str, "context=");
-			data->context[NFS_MAX_CONTEXT_LEN] = '\0';
-			strcat(opts_str, &data->context[0]);
-			rc = security_sb_parse_opts_str(opts_str, &args->lsm_opts);
-			kfree(opts_str);
-			if (rc)
-				return rc;
-#else
-			return -EINVAL;
-#endif
-		}
-
-		break;
-	default:
-		return NFS_TEXT_DATA;
-	}
-
-	return 0;
-
-out_no_data:
-	dfprintk(MOUNT, "NFS: mount program didn't pass any mount data\n");
-	return -EINVAL;
-
-out_no_v3:
-	dfprintk(MOUNT, "NFS: nfs_mount_data version %d does not support v3\n",
-		 data->version);
-	return -EINVAL;
-
-out_no_sec:
-	dfprintk(MOUNT, "NFS: nfs_mount_data version supports only AUTH_SYS\n");
-	return -EINVAL;
-
-out_nomem:
-	dfprintk(MOUNT, "NFS: not enough memory to handle mount options\n");
-	return -ENOMEM;
-
-out_no_address:
-	dfprintk(MOUNT, "NFS: mount program didn't pass remote address\n");
-	return -EINVAL;
-
-out_invalid_fh:
-	dfprintk(MOUNT, "NFS: invalid root filehandle\n");
-	return -EINVAL;
-}
-
 #if IS_ENABLED(CONFIG_NFS_V4)
-static int nfs_validate_mount_data(struct file_system_type *fs_type,
-				   void *options,
-				   struct nfs_parsed_mount_data *args,
-				   struct nfs_fh *mntfh,
-				   const char *dev_name)
-{
-	if (fs_type == &nfs_fs_type)
-		return nfs23_validate_mount_data(options, args, mntfh, dev_name);
-	return nfs4_validate_mount_data(options, args, dev_name);
-}
-#else
-static int nfs_validate_mount_data(struct file_system_type *fs_type,
-				   void *options,
-				   struct nfs_parsed_mount_data *args,
-				   struct nfs_fh *mntfh,
-				   const char *dev_name)
-{
-	return nfs23_validate_mount_data(options, args, mntfh, dev_name);
-}
+	if (fs_type == &nfs4_fs_type)
+		return nfs4_validate_mount_data(options, args, dev_name);
 #endif
+	return NFS_TEXT_DATA;
+}
 
 static int nfs_validate_text_mount_data(void *options,
 					struct nfs_parsed_mount_data *args,
