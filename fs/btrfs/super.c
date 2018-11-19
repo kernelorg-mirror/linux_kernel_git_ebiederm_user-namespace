@@ -1593,7 +1593,9 @@ static struct dentry *btrfs_mount_root(struct file_system_type *fs_type,
 	if (s->s_root) {
 		btrfs_close_devices(fs_devices);
 		free_fs_info(fs_info);
-		if ((flags ^ s->s_flags) & SB_RDONLY)
+		if (!(flags & SB_RDONLY) && (s->s_flags & SB_RDONLY))
+			error = btrfs_remount(s, &flags, NULL);
+		if (!error && ((flags ^ s->s_flags) & SB_RDONLY))
 			error = -EBUSY;
 	} else {
 		snprintf(s->s_id, sizeof(s->s_id), "%pg", bdev);
@@ -1667,30 +1669,6 @@ static struct dentry *btrfs_mount(struct file_system_type *fs_type, int flags,
 
 	/* mount device's root (/) */
 	mnt_root = vfs_kern_mount(&btrfs_root_fs_type, flags, device_name, data);
-	if (PTR_ERR_OR_ZERO(mnt_root) == -EBUSY) {
-		if (flags & SB_RDONLY) {
-			mnt_root = vfs_kern_mount(&btrfs_root_fs_type,
-				flags & ~SB_RDONLY, device_name, data);
-		} else {
-			mnt_root = vfs_kern_mount(&btrfs_root_fs_type,
-				flags | SB_RDONLY, device_name, data);
-			if (IS_ERR(mnt_root)) {
-				root = ERR_CAST(mnt_root);
-				kfree(subvol_name);
-				goto out;
-			}
-
-			down_write(&mnt_root->mnt_sb->s_umount);
-			error = btrfs_remount(mnt_root->mnt_sb, &flags, NULL);
-			up_write(&mnt_root->mnt_sb->s_umount);
-			if (error < 0) {
-				root = ERR_PTR(error);
-				mntput(mnt_root);
-				kfree(subvol_name);
-				goto out;
-			}
-		}
-	}
 	if (IS_ERR(mnt_root)) {
 		root = ERR_CAST(mnt_root);
 		kfree(subvol_name);
