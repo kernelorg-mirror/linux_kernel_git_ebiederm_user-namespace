@@ -241,6 +241,10 @@ static struct dentry *nfs_follow_remote_path(struct dentry *root,
 	dentry = mount_subtree(root, export_path);
 	nfs_referral_loop_unprotect();
 
+	/* Lock the super so mount_fs can unlock it */
+	if (!IS_ERR(dentry))
+		down_write(&dentry->d_sb->s_umount);
+
 	return dentry;
 }
 

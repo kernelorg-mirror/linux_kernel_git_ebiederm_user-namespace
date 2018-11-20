@@ -3076,8 +3076,6 @@ struct dentry *mount_subtree(struct dentry *root, const char *name)
 	s = path.mnt->mnt_sb;
 	atomic_inc(&s->s_active);
 	mntput(path.mnt);
-	/* lock the sucker */
-	down_write(&s->s_umount);
 	/* ... and return the root of (sub)tree on it */
 	return path.dentry;
 }

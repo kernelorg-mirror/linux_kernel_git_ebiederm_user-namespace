@@ -1462,6 +1462,8 @@ static struct dentry *mount_subvol(struct dentry *mnt_root, const char *data)
 				  subvol_name, subvol_objectid);
 			ret = -EINVAL;
 		}
+		/* Lock the super so mount_fs can unlock it */
+		down_write(&s->s_umount);
 		if (ret) {
 			dput(root);
 			root = ERR_PTR(ret);
