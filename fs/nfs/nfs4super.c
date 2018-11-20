@@ -116,12 +116,8 @@ out:
 	return mntroot;
 }
 
-static struct dentry *nfs_do_root_mount(struct file_system_type *fs_type,
-		int flags, void *data, const char *hostname)
-
+static char *nfs4_root_devname(const char *hostname)
 {
-	struct vfsmount *root_mnt;
-	struct dentry *root;
 	char *root_devname;
 	size_t len;
 
@@ -134,6 +130,20 @@ static struct dentry *nfs_do_root_mount(struct file_system_type *fs_type,
 		snprintf(root_devname, len, "[%s]:/", hostname);
 	else
 		snprintf(root_devname, len, "%s:/", hostname);
+	return root_devname;
+}
+
+static struct dentry *nfs_do_root_mount(struct file_system_type *fs_type,
+		int flags, void *data, const char *hostname)
+
+{
+	struct vfsmount *root_mnt;
+	struct dentry *root;
+	char *root_devname;
+
+	root_devname = nfs4_root_devname(hostname);
+	if (IS_ERR(root_devname))
+		return ERR_CAST(root_devname);
 	root_mnt = vfs_kern_mount(fs_type, flags, root_devname, data);
 	kfree(root_devname);
 
