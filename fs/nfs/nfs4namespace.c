@@ -274,9 +274,13 @@ static struct dentry *try_location(struct nfs_clone_mount *mountdata,
 		page2[buf->len] = '\0';
 		mountdata->hostname = page2;
 
-		snprintf(page, PAGE_SIZE, "%s:%s",
-				mountdata->hostname,
-				mountdata->mnt_path);
+		/* Does hostname needs to be enclosed in brackets? */
+		if (strchr(mountdata->hostname, ':'))
+			snprintf(page, PAGE_SIZE, "%s:%s",
+				 mountdata->hostname, mountdata->mnt_path);
+		else
+			snprintf(page, PAGE_SIZE, "[%s]:%s",
+				 mountdata->hostname, mountdata->mnt_path);
 
 		root = nfs4_referral_mount(page, mountdata);
 		if (!IS_ERR(root))
