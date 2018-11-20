@@ -2599,7 +2599,7 @@ out:
 
 int open_ctree(struct super_block *sb,
 	       struct btrfs_fs_devices *fs_devices,
-	       char *options)
+	       const char *options)
 {
 	u32 sectorsize;
 	u32 nodesize;

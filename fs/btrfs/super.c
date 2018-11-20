@@ -420,11 +420,11 @@ static const struct match_table tokens[] = {
  * reading in a new superblock is parsed here.
  * XXX JDM: This needs to be cleaned up for remount.
  */
-int btrfs_parse_options(struct btrfs_fs_info *info, char *options,
+int btrfs_parse_options(struct btrfs_fs_info *info, const char *options,
 			unsigned long new_flags)
 {
 	substring_t args[MAX_OPT_ARGS];
-	char *p, *num;
+	char *p, *num, *opts, *orig = NULL;
 	u64 cache_gen;
 	int intarg;
 	int ret = 0;
@@ -447,7 +447,16 @@ int btrfs_parse_options(struct btrfs_fs_info *info, char *options,
 	if (!options)
 		goto check;
 
-	while ((p = strsep(&options, ",")) != NULL) {
+	/*
+	 * strsep changes the string, duplicate it so the original
+	 * string is left unmodified.
+	 */
+	ret = -ENOMEM;
+	orig = opts = kstrdup(options, GFP_KERNEL);
+	if (!opts)
+		goto out;
+
+	while ((p = strsep(&opts, ",")) != NULL) {
 		int token;
 		if (!*p)
 			continue;
@@ -872,6 +881,7 @@ out:
 		btrfs_info(info, "disk space caching is enabled");
 	if (!ret && btrfs_test_opt(info, FREE_SPACE_TREE))
 		btrfs_info(info, "using free space tree");
+	kfree(orig);
 	return ret;
 }
 
@@ -1172,7 +1182,7 @@ static int get_default_subvol_objectid(struct btrfs_fs_info *fs_info, u64 *objec
 	return 0;
 }
 
-static int btrfs_fill_super(struct super_block *sb, void *data)
+static int btrfs_fill_super(struct super_block *sb, const char *data)
 {
 	struct inode *inode;
 	struct btrfs_fs_info *fs_info = btrfs_sb(sb);
