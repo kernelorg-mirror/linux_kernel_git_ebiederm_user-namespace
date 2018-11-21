@@ -21,17 +21,18 @@
 static struct kernfs_root *sysfs_root;
 struct kernfs_node *sysfs_root_kn;
 
+static int sysfs_mount_permission(void)
+{
+	struct net *net = current->nsproxy->net_ns;
+	return ns_capable(net->user_ns, CAP_SYS_ADMIN) ? 0 : -EPERM;
+}
+
 static struct dentry *sysfs_mount(struct file_system_type *fs_type,
 	int flags, const char *dev_name, void *data)
 {
 	struct net *net = current->nsproxy->net_ns;
 	struct dentry *root;
 	bool new_sb = false;
-
-	if (!(flags & SB_KERNMOUNT)) {
-		if (!ns_capable(net->user_ns, CAP_SYS_ADMIN))
-			return ERR_PTR(-EPERM);
-	}
 
 	net = hold_net(net);
 	root = kernfs_mount_ns(fs_type, flags, sysfs_root,
@@ -54,9 +55,9 @@ static void sysfs_kill_sb(struct super_block *sb)
 
 static struct file_system_type sysfs_fs_type = {
 	.name		= "sysfs",
+	.permission	= sysfs_mount_permission,
 	.mount		= sysfs_mount,
 	.kill_sb	= sysfs_kill_sb,
-	.fs_flags	= FS_USERNS_MOUNT,
 };
 
 int __init sysfs_init(void)

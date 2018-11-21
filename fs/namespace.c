@@ -2448,6 +2448,16 @@ unlock:
 
 static bool mount_too_revealing(struct vfsmount *mnt, int *new_mnt_flags);
 
+static int new_mount_permission(struct file_system_type *type)
+{
+	int err = 0;
+	if (type->permission)
+		err = type->permission();
+	else if (!capable(CAP_SYS_ADMIN))
+		err = -EPERM;
+	return err;
+}
+
 /*
  * create a new mount for userspace and request it to be added into the
  * namespace's tree
@@ -2465,6 +2475,11 @@ static int do_new_mount(struct path *path, const char *fstype, int sb_flags,
 	type = get_fs_type(fstype);
 	if (!type)
 		return -ENODEV;
+
+	/* Verify the mounter has permission to mount the filesystem */
+	err = new_mount_permission(type);
+	if (err)
+		return err;
 
 	mnt = vfs_kern_mount(type, sb_flags, name, data);
 	if (!IS_ERR(mnt) && (type->fs_flags & FS_HAS_SUBTYPE) &&

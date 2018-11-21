@@ -2030,6 +2030,12 @@ struct dentry *cgroup_do_mount(struct file_system_type *fs_type, int flags,
 	return dentry;
 }
 
+static int cgroup_mount_permission(void)
+{
+	struct cgroup_namespace *ns = current->nsproxy->cgroup_ns;
+	return ns_capable(ns->user_ns, CAP_SYS_ADMIN) ? 0 : -EPERM;
+}
+
 static struct dentry *cgroup_mount(struct file_system_type *fs_type,
 			 int flags, const char *unused_dev_name,
 			 void *data)
@@ -2039,12 +2045,6 @@ static struct dentry *cgroup_mount(struct file_system_type *fs_type,
 	int ret;
 
 	get_cgroup_ns(ns);
-
-	/* Check if the caller has permission to mount. */
-	if (!ns_capable(ns->user_ns, CAP_SYS_ADMIN)) {
-		put_cgroup_ns(ns);
-		return ERR_PTR(-EPERM);
-	}
 
 	/*
 	 * The first time anyone tries to mount a cgroup, enable the list
@@ -2101,16 +2101,16 @@ static void cgroup_kill_sb(struct super_block *sb)
 
 struct file_system_type cgroup_fs_type = {
 	.name = "cgroup",
+	.permission = cgroup_mount_permission,
 	.mount = cgroup_mount,
 	.kill_sb = cgroup_kill_sb,
-	.fs_flags = FS_USERNS_MOUNT,
 };
 
 static struct file_system_type cgroup2_fs_type = {
 	.name = "cgroup2",
+	.permission = cgroup_mount_permission,
 	.mount = cgroup_mount,
 	.kill_sb = cgroup_kill_sb,
-	.fs_flags = FS_USERNS_MOUNT,
 };
 
 int cgroup_path_ns_locked(struct cgroup *cgrp, char *buf, size_t buflen,

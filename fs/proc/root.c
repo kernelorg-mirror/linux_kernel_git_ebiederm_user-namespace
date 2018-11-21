@@ -86,6 +86,12 @@ int proc_remount(struct super_block *sb, int *flags, char *data)
 	return !proc_parse_options(data, pid);
 }
 
+static int proc_mount_permission(void)
+{
+	struct pid_namespace *ns = task_active_pid_ns(current);
+	return ns_capable(ns->user_ns, CAP_SYS_ADMIN) ? 0 : -EPERM;
+}
+
 static struct dentry *proc_mount(struct file_system_type *fs_type,
 	int flags, const char *dev_name, void *data)
 {
@@ -116,9 +122,9 @@ static void proc_kill_sb(struct super_block *sb)
 
 static struct file_system_type proc_fs_type = {
 	.name		= "proc",
+	.permission	= proc_mount_permission,
 	.mount		= proc_mount,
 	.kill_sb	= proc_kill_sb,
-	.fs_flags	= FS_USERNS_MOUNT,
 };
 
 void __init proc_root_init(void)

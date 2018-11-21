@@ -519,9 +519,9 @@ static void devpts_kill_sb(struct super_block *sb)
 
 static struct file_system_type devpts_fs_type = {
 	.name		= "devpts",
+	.permission	= userns_mount_permission,
 	.mount		= devpts_mount,
 	.kill_sb	= devpts_kill_sb,
-	.fs_flags	= FS_USERNS_MOUNT,
 };
 
 /*

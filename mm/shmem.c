@@ -3654,9 +3654,9 @@ static struct dentry *shmem_mount(struct file_system_type *fs_type,
 static struct file_system_type shmem_fs_type = {
 	.owner		= THIS_MODULE,
 	.name		= "tmpfs",
+	.permission	= userns_mount_permission,
 	.mount		= shmem_mount,
 	.kill_sb	= kill_litter_super,
-	.fs_flags	= FS_USERNS_MOUNT,
 };
 
 int __init shmem_init(void)
@@ -3799,9 +3799,9 @@ bool shmem_huge_enabled(struct vm_area_struct *vma)
 
 static struct file_system_type shmem_fs_type = {
 	.name		= "tmpfs",
+	.permission	= userns_mount_permission,
 	.mount		= ramfs_mount,
 	.kill_sb	= kill_litter_super,
-	.fs_flags	= FS_USERNS_MOUNT,
 };
 
 int __init shmem_init(void)
