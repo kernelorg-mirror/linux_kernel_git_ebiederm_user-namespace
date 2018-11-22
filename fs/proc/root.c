@@ -95,14 +95,7 @@ static int proc_mount_permission(void)
 static struct dentry *proc_mount(struct file_system_type *fs_type,
 	int flags, const char *dev_name, void *data)
 {
-	struct pid_namespace *ns;
-
-	if (flags & SB_KERNMOUNT) {
-		ns = data;
-		data = NULL;
-	} else {
-		ns = task_active_pid_ns(current);
-	}
+	struct pid_namespace *ns = task_active_pid_ns(current);
 
 	return mount_ns(fs_type, flags, data, ns, ns->user_ns, proc_fill_super);
 }
@@ -216,8 +209,12 @@ struct proc_dir_entry proc_root = {
 int pid_ns_prepare_proc(struct pid_namespace *ns)
 {
 	struct vfsmount *mnt;
+	struct dentry *root;
 
-	mnt = kern_mount_data(&proc_fs_type, ns);
+	root = mount_ns(&proc_fs_type, SB_KERNMOUNT, "", ns, ns->user_ns, proc_fill_super);
+	if (!IS_ERR(root))
+		finish_super(root->d_sb);
+	mnt = kern_mount_root(root);
 	if (IS_ERR(mnt))
 		return PTR_ERR(mnt);
 
