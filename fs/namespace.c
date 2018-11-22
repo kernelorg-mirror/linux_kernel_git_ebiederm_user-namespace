@@ -3345,7 +3345,7 @@ struct vfsmount *kern_mount_root(struct dentry *root)
 	return mnt;
 }
 
-struct vfsmount *kern_mount_data(struct file_system_type *type, void *data)
+struct vfsmount *kern_mount_data(struct file_system_type *type, char *data)
 {
 	struct dentry *root;
 
