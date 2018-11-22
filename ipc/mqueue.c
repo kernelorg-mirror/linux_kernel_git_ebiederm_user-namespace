@@ -353,13 +353,7 @@ static struct dentry *mqueue_mount(struct file_system_type *fs_type,
 			 int flags, const char *dev_name,
 			 void *data)
 {
-	struct ipc_namespace *ns;
-	if (flags & SB_KERNMOUNT) {
-		ns = data;
-		data = NULL;
-	} else {
-		ns = current->nsproxy->ipc_ns;
-	}
+	struct ipc_namespace *ns = current->nsproxy->ipc_ns;
 	return mount_ns(fs_type, flags, data, ns, ns->user_ns, mqueue_fill_super);
 }
 
@@ -1537,6 +1531,8 @@ static struct file_system_type mqueue_fs_type = {
 
 int mq_init_ns(struct ipc_namespace *ns)
 {
+	struct dentry *root;
+
 	ns->mq_queues_count  = 0;
 	ns->mq_queues_max    = DFLT_QUEUESMAX;
 	ns->mq_msg_max       = DFLT_MSGMAX;
@@ -1544,7 +1540,10 @@ int mq_init_ns(struct ipc_namespace *ns)
 	ns->mq_msg_default   = DFLT_MSG;
 	ns->mq_msgsize_default  = DFLT_MSGSIZE;
 
-	ns->mq_mnt = kern_mount_data(&mqueue_fs_type, ns);
+	root = mount_ns(&mqueue_fs_type, SB_KERNMOUNT, "", ns, ns->user_ns, mqueue_fill_super);
+	if (!IS_ERR(root))
+		finish_super(root->d_sb);
+	ns->mq_mnt = kern_mount_root(root);
 	if (IS_ERR(ns->mq_mnt)) {
 		int err = PTR_ERR(ns->mq_mnt);
 		ns->mq_mnt = NULL;
