@@ -944,8 +944,8 @@ static struct mount *skip_mnt_tree(struct mount *p)
 	return p;
 }
 
-static struct vfsmount *sb_mount(struct dentry *root, const char *name,
-				 unsigned int mnt_flags)
+struct vfsmount *sb_mount(struct dentry *root, const char *name,
+			  unsigned int mnt_flags)
 {
 	struct super_block *sb = root->d_sb;
 	struct mount *mnt = alloc_vfsmnt(name);

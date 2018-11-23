@@ -148,3 +148,4 @@ static inline bool is_local_mountpoint(struct dentry *dentry)
 }
 
 bool mount_too_revealing(struct dentry *root, int *new_mnt_flags);
+struct vfsmount *sb_mount(struct dentry *root, const char *name, unsigned int mnt_flags);
