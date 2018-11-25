@@ -183,6 +183,7 @@ static void destroy_unused_super(struct super_block *s)
 	put_user_ns(s->s_user_ns);
 	kfree(s->s_subtype);
 	free_prealloced_shrinker(&s->s_shrink);
+	put_filesystem(s->s_type);
 	/* no delays needed */
 	destroy_super_work(&s->destroy_work);
 }
@@ -207,6 +208,7 @@ static struct super_block *alloc_super(struct file_system_type *type, int flags,
 		return NULL;
 
 	s->s_configure_seq = 1;
+	s->s_type = get_filesystem(type);
 	INIT_LIST_HEAD(&s->s_mounts);
 	s->s_user_ns = get_user_ns(user_ns);
 	init_rwsem(&s->s_umount);
@@ -533,12 +535,10 @@ retry:
 		destroy_unused_super(s);
 		return ERR_PTR(err);
 	}
-	s->s_type = type;
 	strlcpy(s->s_id, type->name, sizeof(s->s_id));
 	list_add_tail(&s->s_list, &super_blocks);
 	hlist_add_head(&s->s_instances, &type->fs_supers);
 	spin_unlock(&sb_lock);
-	get_filesystem(type);
 	register_shrinker_prepared(&s->s_shrink);
 	return s;
 }
