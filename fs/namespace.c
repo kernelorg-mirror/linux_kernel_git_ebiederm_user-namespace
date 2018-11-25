@@ -2440,13 +2440,11 @@ static int fs_set_subtype(struct super_block *sb, const char *fstype)
 /*
  * add a mount into a namespace's mount tree
  */
-static int do_add_mount(struct mount *newmnt, struct path *path, int mnt_flags)
+static int do_add_mount(struct mount *newmnt, struct path *path)
 {
 	struct mountpoint *mp;
 	struct mount *parent;
 	int err;
-
-	mnt_flags &= ~MNT_INTERNAL_FLAGS;
 
 	mp = lock_mount(path);
 	if (IS_ERR(mp))
@@ -2456,7 +2454,7 @@ static int do_add_mount(struct mount *newmnt, struct path *path, int mnt_flags)
 	err = -EINVAL;
 	if (unlikely(!check_mnt(parent))) {
 		/* that's acceptable only for automounts done in private ns */
-		if (!(mnt_flags & MNT_SHRINKABLE))
+		if (!(newmnt->mnt.mnt_flags & MNT_SHRINKABLE))
 			goto unlock;
 		/* ... and for those we'd better have mountpoint still alive */
 		if (!parent->mnt_ns)
@@ -2473,7 +2471,6 @@ static int do_add_mount(struct mount *newmnt, struct path *path, int mnt_flags)
 	if (d_is_symlink(newmnt->mnt.mnt_root))
 		goto unlock;
 
-	newmnt->mnt.mnt_flags = mnt_flags;
 	err = graft_tree(newmnt, parent, mp);
 
 unlock:
@@ -2553,7 +2550,7 @@ static int do_new_mount(struct path *path, const char *fstype, int sb_flags,
 	if (IS_ERR(mnt))
 		goto out_name;
 
-	err = do_add_mount(real_mount(mnt), path, mnt_flags);
+	err = do_add_mount(real_mount(mnt), path);
 	if (err)
 		mntput(mnt);
 out_name:
@@ -2596,7 +2593,7 @@ struct vfsmount *finish_automount(struct dentry *root, struct path *path)
 	namespace_unlock();
 	schedule_delayed_work(&automount_task, sysctl_mountpoint_timeout);
 
-	err = do_add_mount(mnt, path, mnt->mnt.mnt_flags);
+	err = do_add_mount(mnt, path);
 	if (!err)
 		return m;
 
