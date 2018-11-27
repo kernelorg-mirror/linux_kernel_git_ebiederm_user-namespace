@@ -941,7 +941,8 @@ static struct mount *skip_mnt_tree(struct mount *p)
 	return p;
 }
 
-static struct vfsmount *sb_mount(struct dentry *root, const char *name)
+static struct vfsmount *sb_mount(struct dentry *root, const char *name,
+				 unsigned int mnt_flags)
 {
 	struct super_block *sb = root->d_sb;
 	struct mount *mnt = alloc_vfsmnt(name);
@@ -955,6 +956,7 @@ static struct vfsmount *sb_mount(struct dentry *root, const char *name)
 	mnt->mnt.mnt_sb = sb;
 	mnt->mnt_mountpoint = mnt->mnt.mnt_root;
 	mnt->mnt_parent = mnt;
+	mnt->mnt.mnt_flags = mnt_flags & ~MNT_INTERNAL_FLAGS;
 	lock_mount_hash();
 	list_add_tail(&mnt->mnt_instance, &sb->s_mounts);
 	unlock_mount_hash();
@@ -977,7 +979,7 @@ vfs_kern_mount(struct file_system_type *type, int flags, const char *name, void 
 	if (IS_ERR(root))
 		return ERR_CAST(root);
 
-	return sb_mount(root, name);
+	return sb_mount(root, name, 0);
 }
 EXPORT_SYMBOL_GPL(vfs_kern_mount);
 
