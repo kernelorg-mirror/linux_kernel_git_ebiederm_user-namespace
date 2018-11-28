@@ -970,7 +970,7 @@ fail:
 	return ERR_PTR(-ENOMEM);
 }
 
-struct vfsmount *
+static struct vfsmount *
 vfs_kern_mount(struct file_system_type *type, int flags, const char *name, void *data)
 {
 	struct dentry *root;
@@ -984,7 +984,6 @@ vfs_kern_mount(struct file_system_type *type, int flags, const char *name, void 
 
 	return sb_mount(root, name, 0);
 }
-EXPORT_SYMBOL_GPL(vfs_kern_mount);
 
 static struct mount *clone_mnt(struct mount *old, struct dentry *root,
 					int flag)

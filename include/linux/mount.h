@@ -88,9 +88,6 @@ struct path;
 extern struct vfsmount *clone_private_mount(const struct path *path);
 
 struct file_system_type;
-extern struct vfsmount *vfs_kern_mount(struct file_system_type *type,
-				      int flags, const char *name,
-				      void *data);
 
 extern dev_t name_to_dev_t(const char *name);
 
