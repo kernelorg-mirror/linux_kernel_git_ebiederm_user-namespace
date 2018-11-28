@@ -240,6 +240,12 @@ fail:
 	return err;
 }
 
+static int tracefs_show_devname(struct seq_file *m, struct dentry *root)
+{
+	seq_printf(m, "tracefs");
+	return 0;
+}
+
 static int tracefs_show_options(struct seq_file *m, struct dentry *root)
 {
 	struct tracefs_fs_info *fsi = root->d_sb->s_fs_info;
@@ -260,6 +266,7 @@ static int tracefs_show_options(struct seq_file *m, struct dentry *root)
 static const struct super_operations tracefs_super_operations = {
 	.statfs		= simple_statfs,
 	.remount_fs	= tracefs_remount,
+	.show_devname	= tracefs_show_devname,
 	.show_options	= tracefs_show_options,
 };
 
