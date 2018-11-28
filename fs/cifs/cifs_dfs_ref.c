@@ -222,11 +222,11 @@ compose_mount_options_err:
  * @fullpath:		full path in UNC format
  * @ref:		server's referral
  */
-static struct vfsmount *cifs_dfs_do_refmount(struct dentry *mntpt,
+static struct dentry *cifs_dfs_do_refmount(struct dentry *mntpt,
 		struct cifs_sb_info *cifs_sb,
 		const char *fullpath, const struct dfs_info3_param *ref)
 {
-	struct vfsmount *mnt;
+	struct dentry *root;
 	char *mountdata;
 	char *devname = NULL;
 
@@ -237,10 +237,10 @@ static struct vfsmount *cifs_dfs_do_refmount(struct dentry *mntpt,
 	if (IS_ERR(mountdata))
 		return ERR_CAST(mountdata);
 
-	mnt = vfs_submount(mntpt, &cifs_fs_type, devname, mountdata);
+	root = vfs_submount(mntpt, &cifs_fs_type, devname, mountdata);
 	kfree(mountdata);
 	kfree(devname);
-	return mnt;
+	return root;
 
 }
 
@@ -257,7 +257,7 @@ static void dump_referral(const struct dfs_info3_param *ref)
 /*
  * Attempt to automount the referral
  */
-struct vfsmount *cifs_dfs_d_automount(struct path *path)
+struct dentry *cifs_dfs_d_automount(struct path *path)
 {
 	struct dentry *mntpt = path->dentry;
 	struct dfs_info3_param *referrals = NULL;
@@ -268,7 +268,7 @@ struct vfsmount *cifs_dfs_d_automount(struct path *path)
 	unsigned int xid;
 	int i;
 	int rc;
-	struct vfsmount *mnt;
+	struct dentry *root;
 	struct tcon_link *tlink;
 
 	cifs_dbg(FYI, "in %s\n", __func__);
@@ -280,11 +280,11 @@ struct vfsmount *cifs_dfs_d_automount(struct path *path)
 	 * the double backslashes usually used in the UNC. This function
 	 * gives us the latter, so we must adjust the result.
 	 */
-	mnt = ERR_PTR(-ENOMEM);
+	root = ERR_PTR(-ENOMEM);
 
 	cifs_sb = CIFS_SB(mntpt->d_sb);
 	if (cifs_sb->mnt_cifs_flags & CIFS_MOUNT_NO_DFS) {
-		mnt = ERR_PTR(-EREMOTE);
+		root = ERR_PTR(-EREMOTE);
 		goto cdda_exit;
 	}
 
@@ -295,7 +295,7 @@ struct vfsmount *cifs_dfs_d_automount(struct path *path)
 
 	tlink = cifs_sb_tlink(cifs_sb);
 	if (IS_ERR(tlink)) {
-		mnt = ERR_CAST(tlink);
+		root = ERR_CAST(tlink);
 		goto free_full_path;
 	}
 	ses = tlink_tcon(tlink)->ses;
@@ -308,7 +308,7 @@ struct vfsmount *cifs_dfs_d_automount(struct path *path)
 
 	cifs_put_tlink(tlink);
 
-	mnt = ERR_PTR(-ENOENT);
+	root = ERR_PTR(-ENOENT);
 	for (i = 0; i < num_referrals; i++) {
 		int len;
 		dump_referral(referrals + i);
@@ -317,21 +317,21 @@ struct vfsmount *cifs_dfs_d_automount(struct path *path)
 		if (len < 2) {
 			cifs_dbg(VFS, "%s: Net Address path too short: %s\n",
 				 __func__, referrals[i].node_name);
-			mnt = ERR_PTR(-EINVAL);
+			root = ERR_PTR(-EINVAL);
 			break;
 		}
-		mnt = cifs_dfs_do_refmount(mntpt, cifs_sb,
+		root = cifs_dfs_do_refmount(mntpt, cifs_sb,
 				full_path, referrals + i);
-		cifs_dbg(FYI, "%s: cifs_dfs_do_refmount:%s , mnt:%p\n",
-			 __func__, referrals[i].node_name, mnt);
-		if (!IS_ERR(mnt))
+		cifs_dbg(FYI, "%s: cifs_dfs_do_refmount:%s , root:%p\n",
+			 __func__, referrals[i].node_name, root);
+		if (!IS_ERR(root))
 			goto success;
 	}
 
 	/* no valid submounts were found; return error from get_dfs_path() by
 	 * preference */
 	if (rc != 0)
-		mnt = ERR_PTR(rc);
+		root = ERR_PTR(rc);
 
 success:
 	free_dfs_info_array(referrals, num_referrals);
@@ -339,7 +339,7 @@ free_full_path:
 	kfree(full_path);
 cdda_exit:
 	cifs_dbg(FYI, "leaving %s\n" , __func__);
-	return mnt;
+	return root;
 }
 
 const struct inode_operations cifs_dfs_referral_inode_operations = {

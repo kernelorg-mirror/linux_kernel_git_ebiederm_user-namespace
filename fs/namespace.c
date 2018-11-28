@@ -986,7 +986,7 @@ vfs_kern_mount(struct file_system_type *type, int flags, const char *name, void 
 }
 EXPORT_SYMBOL_GPL(vfs_kern_mount);
 
-struct vfsmount *
+struct dentry *
 vfs_submount(const struct dentry *mountpoint, struct file_system_type *type,
 	     const char *name, void *data)
 {
@@ -997,7 +997,7 @@ vfs_submount(const struct dentry *mountpoint, struct file_system_type *type,
 	if (mountpoint->d_sb->s_user_ns != &init_user_ns)
 		return ERR_PTR(-EPERM);
 
-	return vfs_kern_mount(type, SB_SUBMOUNT, name, data);
+	return mount_fs(type, SB_SUBMOUNT, name, data);
 }
 EXPORT_SYMBOL_GPL(vfs_submount);
 
@@ -2579,10 +2579,19 @@ static LIST_HEAD(automount_list);
 static void expire_automounts(struct work_struct *work);
 static DECLARE_DELAYED_WORK(automount_task, expire_automounts);
 
-int finish_automount(struct vfsmount *m, struct path *path)
+struct vfsmount *finish_automount(struct dentry *root, struct path *path)
 {
-	struct mount *mnt = real_mount(m);
+	struct vfsmount *m;
+	struct mount *mnt;
 	int err;
+
+	/* mnt_devname is set wrong require show_devname to cover this up */
+	WARN_ON_ONCE(!root->d_sb->s_op->show_devname);
+	m = sb_mount(root, "automount", path->mnt->mnt_flags | MNT_SHRINKABLE);
+	if (IS_ERR(m))
+		return ERR_CAST(m);
+
+	mnt = real_mount(m);
 
 	if (m->mnt_sb == path->mnt->mnt_sb &&
 	    m->mnt_root == path->dentry) {
@@ -2596,9 +2605,9 @@ int finish_automount(struct vfsmount *m, struct path *path)
 	namespace_unlock();
 	schedule_delayed_work(&automount_task, sysctl_mountpoint_timeout);
 
-	err = do_add_mount(mnt, path, path->mnt->mnt_flags | MNT_SHRINKABLE);
+	err = do_add_mount(mnt, path, mnt->mnt.mnt_flags);
 	if (!err)
-		return 0;
+		return m;
 
 	/* remove m from any expiration list it may be on */
 	if (!list_empty(&mnt->mnt_expire)) {
@@ -2608,7 +2617,7 @@ int finish_automount(struct vfsmount *m, struct path *path)
 	}
 fail:
 	mntput(m);
-	return err;
+	return ERR_PTR(err);
 }
 
 /*

@@ -7991,9 +7991,9 @@ init_tracer_tracefs(struct trace_array *tr, struct dentry *d_tracer)
 	ftrace_init_tracefs(tr, d_tracer);
 }
 
-static struct vfsmount *trace_automount(struct dentry *mntpt, void *ingore)
+static struct dentry *trace_automount(struct dentry *mntpt, void *ingore)
 {
-	struct vfsmount *mnt;
+	struct dentry *root;
 	struct file_system_type *type;
 
 	/*
@@ -8004,12 +8004,12 @@ static struct vfsmount *trace_automount(struct dentry *mntpt, void *ingore)
 	type = get_fs_type("tracefs");
 	if (!type)
 		return NULL;
-	mnt = vfs_submount(mntpt, type, "tracefs", NULL);
+	root = vfs_submount(mntpt, type, "tracefs", NULL);
 	put_filesystem(type);
-	if (IS_ERR(mnt))
+	if (IS_ERR(root))
 		return NULL;
 
-	return mnt;
+	return root;
 }
 
 /**

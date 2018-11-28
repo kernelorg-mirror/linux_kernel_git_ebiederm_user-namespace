@@ -235,13 +235,13 @@ out:
 	return new;
 }
 
-static struct vfsmount *try_location(struct nfs_clone_mount *mountdata,
-				     char *page, char *page2,
-				     const struct nfs4_fs_location *location)
+static struct dentry *try_location(struct nfs_clone_mount *mountdata,
+				   char *page, char *page2,
+				   const struct nfs4_fs_location *location)
 {
 	const size_t addr_bufsize = sizeof(struct sockaddr_storage);
 	struct net *net = rpc_net_ns(NFS_SB(mountdata->sb)->client);
-	struct vfsmount *mnt = ERR_PTR(-ENOENT);
+	struct dentry *root = ERR_PTR(-ENOENT);
 	char *mnt_path;
 	unsigned int maxbuflen;
 	unsigned int s;
@@ -278,12 +278,12 @@ static struct vfsmount *try_location(struct nfs_clone_mount *mountdata,
 				mountdata->hostname,
 				mountdata->mnt_path);
 
-		mnt = vfs_submount(mountdata->dentry, &nfs4_referral_fs_type, page, mountdata);
-		if (!IS_ERR(mnt))
+		root = vfs_submount(mountdata->dentry, &nfs4_referral_fs_type, page, mountdata);
+		if (!IS_ERR(root))
 			break;
 	}
 	kfree(mountdata->addr);
-	return mnt;
+	return root;
 }
 
 /**
@@ -292,10 +292,10 @@ static struct vfsmount *try_location(struct nfs_clone_mount *mountdata,
  * @locations - array of NFSv4 server location information
  *
  */
-static struct vfsmount *nfs_follow_referral(struct dentry *dentry,
-					    const struct nfs4_fs_locations *locations)
+static struct dentry *nfs_follow_referral(struct dentry *dentry,
+					  const struct nfs4_fs_locations *locations)
 {
-	struct vfsmount *mnt = ERR_PTR(-ENOENT);
+	struct dentry *root = ERR_PTR(-ENOENT);
 	struct nfs_clone_mount mountdata = {
 		.sb = dentry->d_sb,
 		.dentry = dentry,
@@ -320,7 +320,7 @@ static struct vfsmount *nfs_follow_referral(struct dentry *dentry,
 	/* Ensure fs path is a prefix of current dentry path */
 	error = nfs4_validate_fspath(dentry, locations, page, page2);
 	if (error < 0) {
-		mnt = ERR_PTR(error);
+		root = ERR_PTR(error);
 		goto out;
 	}
 
@@ -331,15 +331,15 @@ static struct vfsmount *nfs_follow_referral(struct dentry *dentry,
 		    location->rootpath.ncomponents == 0)
 			continue;
 
-		mnt = try_location(&mountdata, page, page2, location);
-		if (!IS_ERR(mnt))
+		root = try_location(&mountdata, page, page2, location);
+		if (!IS_ERR(root))
 			break;
 	}
 
 out:
 	free_page((unsigned long) page);
 	free_page((unsigned long) page2);
-	return mnt;
+	return root;
 }
 
 /*
@@ -347,9 +347,9 @@ out:
  * @dentry - dentry of referral
  *
  */
-static struct vfsmount *nfs_do_refmount(struct rpc_clnt *client, struct dentry *dentry)
+static struct dentry *nfs_do_refmount(struct rpc_clnt *client, struct dentry *dentry)
 {
-	struct vfsmount *mnt = ERR_PTR(-ENOMEM);
+	struct dentry *root = ERR_PTR(-ENOMEM);
 	struct dentry *parent;
 	struct nfs4_fs_locations *fs_locations = NULL;
 	struct page *page;
@@ -358,14 +358,14 @@ static struct vfsmount *nfs_do_refmount(struct rpc_clnt *client, struct dentry *
 	/* BUG_ON(IS_ROOT(dentry)); */
 	page = alloc_page(GFP_KERNEL);
 	if (page == NULL)
-		return mnt;
+		return root;
 
 	fs_locations = kmalloc(sizeof(struct nfs4_fs_locations), GFP_KERNEL);
 	if (fs_locations == NULL)
 		goto out_free;
 
 	/* Get locations */
-	mnt = ERR_PTR(-ENOENT);
+	root = ERR_PTR(-ENOENT);
 
 	parent = dget_parent(dentry);
 	dprintk("%s: getting locations for %pd2\n",
@@ -378,14 +378,14 @@ static struct vfsmount *nfs_do_refmount(struct rpc_clnt *client, struct dentry *
 	    fs_locations->fs_path.ncomponents <= 0)
 		goto out_free;
 
-	mnt = nfs_follow_referral(dentry, fs_locations);
+	root = nfs_follow_referral(dentry, fs_locations);
 out_free:
 	__free_page(page);
 	kfree(fs_locations);
-	return mnt;
+	return root;
 }
 
-struct vfsmount *nfs4_submount(struct nfs_server *server, struct dentry *dentry,
+struct dentry *nfs4_submount(struct nfs_server *server, struct dentry *dentry,
 			       struct nfs_fh *fh, struct nfs_fattr *fattr)
 {
 	rpc_authflavor_t flavor = server->client->cl_auth->au_flavor;
@@ -393,7 +393,7 @@ struct vfsmount *nfs4_submount(struct nfs_server *server, struct dentry *dentry,
 	struct inode *dir = d_inode(parent);
 	const struct qstr *name = &dentry->d_name;
 	struct rpc_clnt *client;
-	struct vfsmount *mnt;
+	struct dentry *root;
 
 	/* Look it up again to get its attributes and sec flavor */
 	client = nfs4_proc_lookup_mountpoint(dir, name, fh, fattr);
@@ -402,16 +402,16 @@ struct vfsmount *nfs4_submount(struct nfs_server *server, struct dentry *dentry,
 		return ERR_CAST(client);
 
 	if (fattr->valid & NFS_ATTR_FATTR_V4_REFERRAL) {
-		mnt = nfs_do_refmount(client, dentry);
+		root = nfs_do_refmount(client, dentry);
 		goto out;
 	}
 
 	if (client->cl_auth->au_flavor != flavor)
 		flavor = client->cl_auth->au_flavor;
-	mnt = nfs_do_submount(dentry, fh, fattr, flavor);
+	root = nfs_do_submount(dentry, fh, fattr, flavor);
 out:
 	rpc_shutdown_client(client);
-	return mnt;
+	return root;
 }
 
 /*

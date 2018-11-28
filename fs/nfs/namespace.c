@@ -130,9 +130,9 @@ EXPORT_SYMBOL_GPL(nfs_path);
  * situation, and that different filesystems may want to use
  * different security flavours.
  */
-struct vfsmount *nfs_d_automount(struct path *path)
+struct dentry *nfs_d_automount(struct path *path)
 {
-	struct vfsmount *mnt;
+	struct dentry *root;
 	struct nfs_server *server = NFS_SERVER(d_inode(path->dentry));
 	struct nfs_fh *fh = NULL;
 	struct nfs_fattr *fattr = NULL;
@@ -140,18 +140,18 @@ struct vfsmount *nfs_d_automount(struct path *path)
 	if (IS_ROOT(path->dentry))
 		return ERR_PTR(-ESTALE);
 
-	mnt = ERR_PTR(-ENOMEM);
+	root = ERR_PTR(-ENOMEM);
 	fh = nfs_alloc_fhandle();
 	fattr = nfs_alloc_fattr();
 	if (fh == NULL || fattr == NULL)
 		goto out;
 
-	mnt = server->nfs_client->rpc_ops->submount(server, path->dentry, fh, fattr);
+	root = server->nfs_client->rpc_ops->submount(server, path->dentry, fh, fattr);
 
 out:
 	nfs_free_fattr(fattr);
 	nfs_free_fhandle(fh);
-	return mnt;
+	return root;
 }
 
 static int
@@ -185,7 +185,7 @@ const struct inode_operations nfs_referral_inode_operations = {
 /*
  * Clone a mountpoint of the appropriate type
  */
-static struct vfsmount *nfs_do_clone_mount(struct nfs_server *server,
+static struct dentry *nfs_do_clone_mount(struct nfs_server *server,
 					   const char *devname,
 					   struct nfs_clone_mount *mountdata)
 {
@@ -200,7 +200,7 @@ static struct vfsmount *nfs_do_clone_mount(struct nfs_server *server,
  * @authflavor - security flavor to use when performing the mount
  *
  */
-struct vfsmount *nfs_do_submount(struct dentry *dentry, struct nfs_fh *fh,
+struct dentry *nfs_do_submount(struct dentry *dentry, struct nfs_fh *fh,
 				 struct nfs_fattr *fattr, rpc_authflavor_t authflavor)
 {
 	struct nfs_clone_mount mountdata = {
@@ -210,7 +210,7 @@ struct vfsmount *nfs_do_submount(struct dentry *dentry, struct nfs_fh *fh,
 		.fattr = fattr,
 		.authflavor = authflavor,
 	};
-	struct vfsmount *mnt;
+	struct dentry *root;
 	char *page = (char *) __get_free_page(GFP_USER);
 	char *devname;
 
@@ -219,16 +219,16 @@ struct vfsmount *nfs_do_submount(struct dentry *dentry, struct nfs_fh *fh,
 
 	devname = nfs_devname(dentry, page, PAGE_SIZE);
 	if (IS_ERR(devname))
-		mnt = ERR_CAST(devname);
+		root = ERR_CAST(devname);
 	else
-		mnt = nfs_do_clone_mount(NFS_SB(dentry->d_sb), devname, &mountdata);
+		root = nfs_do_clone_mount(NFS_SB(dentry->d_sb), devname, &mountdata);
 
 	free_page((unsigned long)page);
-	return mnt;
+	return root;
 }
 EXPORT_SYMBOL_GPL(nfs_do_submount);
 
-struct vfsmount *nfs_submount(struct nfs_server *server, struct dentry *dentry,
+struct dentry *nfs_submount(struct nfs_server *server, struct dentry *dentry,
 			      struct nfs_fh *fh, struct nfs_fattr *fattr)
 {
 	int err;

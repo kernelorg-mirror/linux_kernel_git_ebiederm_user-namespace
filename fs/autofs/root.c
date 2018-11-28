@@ -25,7 +25,7 @@ static long autofs_root_compat_ioctl(struct file *,
 static int autofs_dir_open(struct inode *inode, struct file *file);
 static struct dentry *autofs_lookup(struct inode *,
 				    struct dentry *, unsigned int);
-static struct vfsmount *autofs_d_automount(struct path *);
+static struct dentry *autofs_d_automount(struct path *);
 static int autofs_d_manage(const struct path *, bool);
 static void autofs_dentry_release(struct dentry *);
 
@@ -329,7 +329,7 @@ static struct dentry *autofs_mountpoint_changed(struct path *path)
 	return path->dentry;
 }
 
-static struct vfsmount *autofs_d_automount(struct path *path)
+static struct dentry *autofs_d_automount(struct path *path)
 {
 	struct dentry *dentry = path->dentry;
 	struct autofs_sb_info *sbi = autofs_sbi(dentry->d_sb);

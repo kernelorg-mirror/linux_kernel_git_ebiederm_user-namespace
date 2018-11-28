@@ -1023,7 +1023,7 @@ extern const struct inode_operations afs_mntpt_inode_operations;
 extern const struct inode_operations afs_autocell_inode_operations;
 extern const struct file_operations afs_mntpt_file_operations;
 
-extern struct vfsmount *afs_d_automount(struct path *);
+extern struct dentry *afs_d_automount(struct path *);
 
 /*
  * netdevices.c

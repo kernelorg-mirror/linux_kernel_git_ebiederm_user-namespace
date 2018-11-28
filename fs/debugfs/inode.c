@@ -185,7 +185,7 @@ static void debugfs_release_dentry(struct dentry *dentry)
 		kfree(dentry->d_fsdata);
 }
 
-static struct vfsmount *debugfs_automount(struct path *path)
+static struct dentry *debugfs_automount(struct path *path)
 {
 	debugfs_automount_t f;
 	f = (debugfs_automount_t)path->dentry->d_fsdata;

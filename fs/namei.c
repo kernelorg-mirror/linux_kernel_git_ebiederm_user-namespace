@@ -1141,6 +1141,7 @@ static int follow_automount(struct path *path, struct nameidata *nd,
 			    bool *need_mntput)
 {
 	struct vfsmount *mnt;
+	struct dentry *root;
 	int err;
 
 	if (!path->dentry->d_op || !path->dentry->d_op->d_automount)
@@ -1166,8 +1167,8 @@ static int follow_automount(struct path *path, struct nameidata *nd,
 	if (nd->total_link_count >= 40)
 		return -ELOOP;
 
-	mnt = path->dentry->d_op->d_automount(path);
-	if (IS_ERR(mnt)) {
+	root = path->dentry->d_op->d_automount(path);
+	if (IS_ERR(root)) {
 		/*
 		 * The filesystem is allowed to return -EISDIR here to indicate
 		 * it doesn't want to automount.  For instance, autofs would do
@@ -1177,12 +1178,12 @@ static int follow_automount(struct path *path, struct nameidata *nd,
 		 * the path being looked up; if it wasn't then the remainder of
 		 * the path is inaccessible and we should say so.
 		 */
-		if (PTR_ERR(mnt) == -EISDIR && (nd->flags & LOOKUP_PARENT))
+		if (PTR_ERR(root) == -EISDIR && (nd->flags & LOOKUP_PARENT))
 			return -EREMOTE;
-		return PTR_ERR(mnt);
+		return PTR_ERR(root);
 	}
 
-	if (!mnt) /* mount collision */
+	if (!root) /* mount collision */
 		return 0;
 
 	if (!*need_mntput) {
@@ -1190,21 +1191,19 @@ static int follow_automount(struct path *path, struct nameidata *nd,
 		mntget(path->mnt);
 		*need_mntput = true;
 	}
-	err = finish_automount(mnt, path);
+	mnt = finish_automount(root, path);
 
-	switch (err) {
-	case -EBUSY:
+	if (IS_ERR(mnt)) {
+		err = PTR_ERR(mnt);
 		/* Someone else made a mount here whilst we were busy */
-		return 0;
-	case 0:
-		path_put(path);
-		path->mnt = mnt;
-		path->dentry = dget(mnt->mnt_root);
-		return 0;
-	default:
+		if (err == -EBUSY)
+			err = 0;
 		return err;
 	}
-
+	path_put(path);
+	path->mnt = mnt;
+	path->dentry = dget(mnt->mnt_root);
+	return 0;
 }
 
 /*

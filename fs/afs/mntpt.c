@@ -64,11 +64,11 @@ static int afs_mntpt_open(struct inode *inode, struct file *file)
 /*
  * handle an automount point
  */
-struct vfsmount *afs_d_automount(struct path *path)
+struct dentry *afs_d_automount(struct path *path)
 {
 	struct dentry *mntpt = path->dentry;
 	struct afs_super_info *as;
-	struct vfsmount *mnt;
+	struct dentry *root;
 	struct afs_vnode *vnode;
 	struct page *page;
 	char *devname, *options;
@@ -148,13 +148,13 @@ struct vfsmount *afs_d_automount(struct path *path)
 
 	/* try and do the mount */
 	_debug("--- attempting mount %s -o %s ---", devname, options);
-	mnt = vfs_submount(mntpt, &afs_fs_type, devname, options);
-	_debug("--- mount result %p ---", mnt);
+	root = vfs_submount(mntpt, &afs_fs_type, devname, options);
+	_debug("--- mount result %p ---", root);
 
 	free_page((unsigned long) devname);
 	free_page((unsigned long) options);
-	_leave(" = %p", mnt);
-	return mnt;
+	_leave(" = %p", root);
+	return root;
 
 error:
 	put_page(page);
