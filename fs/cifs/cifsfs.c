@@ -418,6 +418,27 @@ cifs_show_nls(struct seq_file *s, struct nls_table *cur)
 	unload_nls(def);
 }
 
+static int
+cifs_show_devname(struct seq_file *m, struct dentry *root)
+{
+	/* Needed as automounts don't properly populate mnt_devname */
+	struct cifs_sb_info *cifs_sb = CIFS_SB(root->d_sb);
+	struct cifs_tcon *tcon = cifs_sb_master_tcon(cifs_sb);
+	const char sep = CIFS_DIR_SEP(cifs_sb);
+
+	seq_printf(m, "\\\\%s", tcon->treeName);
+	if (cifs_sb->prepath) {
+		char *path = kstrdup(cifs_sb->prepath, GFP_KERNEL);
+		if (!path)
+			return -ENOMEM;
+		convert_delimiter(path, sep);
+		seq_printf(m, "%c%s", sep, path);
+		kfree(path);
+	}
+
+	return 0;
+}
+
 /*
  * cifs_show_options() is for displaying mount options in /proc/mounts.
  * Not all settable options are displayed but most of the important
@@ -631,6 +652,7 @@ static const struct super_operations cifs_super_ops = {
 	function unless later we add lazy close of inodes or unless the
 	kernel forgets to call us with the same number of releases (closes)
 	as opens */
+	.show_devname	= cifs_show_devname,
 	.show_options = cifs_show_options,
 	.umount_begin   = cifs_umount_begin,
 	.remount_fs = cifs_remount,
