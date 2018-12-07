@@ -208,6 +208,34 @@ int match_u64(substring_t *s, u64 *result)
 EXPORT_SYMBOL(match_u64);
 
 /**
+ * match_ul: - scan a decimal representation of an unsigned long from
+ *                  a substring_t
+ * @s: substring_t to be scanned
+ * @result: resulting unsigned long on success
+ *
+ * Description: Attempts to parse the &substring_t @s as an unsigned long
+ * decimal integer. On success, sets @result to the integer represented by the
+ * string and returns 0.
+ * Returns -ENOMEM, -EINVAL, or -ERANGE on failure.
+ */
+int match_ul(substring_t *s, unsigned long *result)
+{
+	char *buf;
+	int ret;
+	unsigned long val;
+
+	buf = match_strdup(s);
+	if (!buf)
+		return -ENOMEM;
+
+	ret = kstrtoul(buf, 0, &val);
+	if (!ret)
+		*result = val;
+	kfree(buf);
+	return ret;
+}
+
+/**
  * match_octal: - scan an octal representation of an integer from a substring_t
  * @s: substring_t to be scanned
  * @result: resulting integer on success

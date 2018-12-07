@@ -8948,14 +8948,12 @@ perf_event_parse_addr_filter(struct perf_event *event, char *fstr,
 			if (state != IF_STATE_SOURCE)
 				goto fail;
 
-			*args[0].to = 0;
-			ret = kstrtoul(args[0].from, 0, &filter->offset);
+			ret = match_ul(&args[0], &filter->offset);
 			if (ret)
 				goto fail;
 
 			if (token == IF_SRC_KERNEL || token == IF_SRC_FILE) {
-				*args[1].to = 0;
-				ret = kstrtoul(args[1].from, 0, &filter->size);
+				ret = match_ul(&args[1], &filter->size);
 				if (ret)
 					goto fail;
 			}
