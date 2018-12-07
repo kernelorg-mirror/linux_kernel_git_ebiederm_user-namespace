@@ -23,7 +23,7 @@
  * match extremely simple token=arg style patterns. If the pattern is found,
  * the location(s) of the arguments will be returned in the @args array.
  */
-static int match_one(char *s, const char *p, substring_t args[])
+static int match_one(const char *s, const char *p, substring_t args[])
 {
 	char *meta;
 	int argc = 0;
@@ -68,16 +68,16 @@ static int match_one(char *s, const char *p, substring_t args[])
 			break;
 		}
 		case 'd':
-			simple_strtol(s, &args[argc].to, 0);
+			simple_strtol(s, (char **)&args[argc].to, 0);
 			goto num;
 		case 'u':
-			simple_strtoul(s, &args[argc].to, 0);
+			simple_strtoul(s, (char **)&args[argc].to, 0);
 			goto num;
 		case 'o':
-			simple_strtoul(s, &args[argc].to, 8);
+			simple_strtoul(s, (char **)&args[argc].to, 8);
 			goto num;
 		case 'x':
-			simple_strtoul(s, &args[argc].to, 16);
+			simple_strtoul(s, (char **)&args[argc].to, 16);
 		num:
 			if (args[argc].to == args[argc].from)
 				return 0;
@@ -104,7 +104,7 @@ static int match_one(char *s, const char *p, substring_t args[])
  * format identifiers which will be taken into account when matching the
  * tokens, and whose locations will be returned in the @args array.
  */
-int match_token(char *s, const struct match_table table[], substring_t args[])
+int match_token(const char *s, const struct match_table table[], substring_t args[])
 {
 	const struct match_table *p;
 

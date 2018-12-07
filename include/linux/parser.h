@@ -20,13 +20,13 @@ enum {MAX_OPT_ARGS = 3};
 
 /* Describe the location within a string of a substring */
 typedef struct {
-	char *from;
-	char *to;
+	const char *from;
+	const char *to;
 } substring_t;
 
 #define MATCH_FAILURE	-1
 
-int match_token(char *, const struct match_table table[], substring_t args[]);
+int match_token(const char *, const struct match_table table[], substring_t args[]);
 int match_int(substring_t *, int *result);
 int match_u64(substring_t *, u64 *result);
 int match_ul(substring_t *s, unsigned long *result);
