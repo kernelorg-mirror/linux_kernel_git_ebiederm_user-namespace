@@ -653,7 +653,8 @@ static int ima_lsm_rule_init(struct ima_rule_entry *entry,
 	return result;
 }
 
-static void ima_log_string_op(struct audit_buffer *ab, char *key, char *value,
+static void ima_log_string_op(struct audit_buffer *ab, const char *key,
+			      const char *value,
 			      bool (*rule_operator)(kuid_t, kuid_t))
 {
 	if (!ab)
@@ -667,7 +668,8 @@ static void ima_log_string_op(struct audit_buffer *ab, char *key, char *value,
 		audit_log_format(ab, "%s=", key);
 	audit_log_format(ab, "%s ", value);
 }
-static void ima_log_string(struct audit_buffer *ab, char *key, char *value)
+static void ima_log_string(struct audit_buffer *ab, const char *key,
+			   const char *value)
 {
 	ima_log_string_op(ab, key, value, NULL);
 }
@@ -675,7 +677,7 @@ static void ima_log_string(struct audit_buffer *ab, char *key, char *value)
 static int ima_parse_rule(char *rule, struct ima_rule_entry *entry)
 {
 	struct audit_buffer *ab;
-	char *from;
+	const char *from;
 	char *p;
 	bool uid_token;
 	int result = 0;
