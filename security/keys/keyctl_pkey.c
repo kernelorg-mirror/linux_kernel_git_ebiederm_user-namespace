@@ -42,7 +42,8 @@ static int keyctl_pkey_params_parse(struct kernel_pkey_params *params)
 {
 	unsigned long token_mask = 0;
 	substring_t args[MAX_OPT_ARGS];
-	char *c = params->info, *p, *q;
+	char *c = params->info, *p;
+	const char *q;
 	int token;
 
 	while ((p = strsep(&c, " \t"))) {
