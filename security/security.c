@@ -425,14 +425,12 @@ int security_sb_set_mnt_opts(struct super_block *sb, const char *optv[])
 	return call_int_hook(sb_set_mnt_opts,
 				optv[0] ? -EOPNOTSUPP : 0, sb, optv);
 }
-EXPORT_SYMBOL(security_sb_set_mnt_opts);
 
 int security_sb_clone_mnt_opts(const struct super_block *oldsb,
 				struct super_block *newsb)
 {
 	return call_int_hook(sb_clone_mnt_opts, 0, oldsb, newsb);
 }
-EXPORT_SYMBOL(security_sb_clone_mnt_opts);
 
 int security_inode_alloc(struct inode *inode)
 {
