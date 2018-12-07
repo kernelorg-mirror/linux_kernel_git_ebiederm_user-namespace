@@ -437,6 +437,24 @@ static inline int inode_doinit(struct inode *inode)
 	return inode_doinit_with_dentry(inode, NULL);
 }
 
+static char *match_dequote_strdup(const substring_t *str)
+{
+	const char *end = str->to, *from = str->from;
+	char *new, *to;
+	to = new = kmalloc((end - from) + 1, GFP_KERNEL);
+	if (to) {
+		for (;from < end; from++) {
+			int ch = *from;
+			if (ch == '"')
+				continue;
+			*to = ch;
+			to++;
+		}
+		*to = '\0';
+	}
+	return new;
+}
+
 enum {
 	Opt_context = 1,
 	Opt_fscontext = 2,
@@ -993,7 +1011,7 @@ static int selinux_parse_opts_str(char *options,
 				pr_warn(SEL_MOUNT_FAIL_MSG);
 				goto out_err;
 			}
-			context = match_strdup(&args[0]);
+			context = match_dequote_strdup(&args[0]);
 			if (!context) {
 				rc = -ENOMEM;
 				goto out_err;
@@ -1006,7 +1024,7 @@ static int selinux_parse_opts_str(char *options,
 				pr_warn(SEL_MOUNT_FAIL_MSG);
 				goto out_err;
 			}
-			fscontext = match_strdup(&args[0]);
+			fscontext = match_dequote_strdup(&args[0]);
 			if (!fscontext) {
 				rc = -ENOMEM;
 				goto out_err;
@@ -1019,7 +1037,7 @@ static int selinux_parse_opts_str(char *options,
 				pr_warn(SEL_MOUNT_FAIL_MSG);
 				goto out_err;
 			}
-			rootcontext = match_strdup(&args[0]);
+			rootcontext = match_dequote_strdup(&args[0]);
 			if (!rootcontext) {
 				rc = -ENOMEM;
 				goto out_err;
@@ -1032,7 +1050,7 @@ static int selinux_parse_opts_str(char *options,
 				pr_warn(SEL_MOUNT_FAIL_MSG);
 				goto out_err;
 			}
-			defcontext = match_strdup(&args[0]);
+			defcontext = match_dequote_strdup(&args[0]);
 			if (!defcontext) {
 				rc = -ENOMEM;
 				goto out_err;
@@ -2641,22 +2659,13 @@ static inline void take_option(char **to, char *from, int *first, int len)
 static inline void take_selinux_option(char **to, char *from, int *first,
 				       int len)
 {
-	int current_size = 0;
-
 	if (!*first) {
 		**to = '|';
 		*to += 1;
 	} else
 		*first = 0;
-
-	while (current_size < len) {
-		if (*from != '"') {
-			**to = *from;
-			*to += 1;
-		}
-		from += 1;
-		current_size += 1;
-	}
+	memcpy(*to, from, len);
+	*to += len;
 }
 
 static int selinux_sb_copy_data(char *orig, char *copy)
