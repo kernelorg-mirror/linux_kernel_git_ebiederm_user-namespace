@@ -402,13 +402,14 @@ static int parse_opts(char *opts, kuid_t *uid, kgid_t *gid, umode_t *umask,
 		case Opt_timeshift:
 		{
 			int m = 1;
-			char *rhs = args[0].from;
+			const char *rhs = args[0].from;
+			char *end;
 			if (!rhs || !*rhs)
 				return 0;
 			if (*rhs == '-') m = -1;
 			if (*rhs == '+' || *rhs == '-') rhs++;
-			*timeshift = simple_strtoul(rhs, &rhs, 0) * m;
-			if (*rhs)
+			*timeshift = simple_strtoul(rhs, &end, 0) * m;
+			if (*end)
 				return 0;
 			break;
 		}
