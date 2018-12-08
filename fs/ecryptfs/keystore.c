@@ -2523,7 +2523,7 @@ struct kmem_cache *ecryptfs_global_auth_tok_cache;
 
 int
 ecryptfs_add_global_auth_tok(struct ecryptfs_mount_crypt_stat *mount_crypt_stat,
-			     char *sig, u32 global_auth_tok_flags)
+			     const char *sig, u32 global_auth_tok_flags)
 {
 	struct ecryptfs_global_auth_tok *new_auth_tok;
 

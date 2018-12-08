@@ -663,7 +663,7 @@ ecryptfs_write_header_metadata(char *virt,
 int ecryptfs_add_keysig(struct ecryptfs_crypt_stat *crypt_stat, char *sig);
 int
 ecryptfs_add_global_auth_tok(struct ecryptfs_mount_crypt_stat *mount_crypt_stat,
-			   char *sig, u32 global_auth_tok_flags);
+			     const char *sig, u32 global_auth_tok_flags);
 int ecryptfs_get_global_auth_tok_for_sig(
 	struct ecryptfs_global_auth_tok **global_auth_tok,
 	struct ecryptfs_mount_crypt_stat *mount_crypt_stat, char *sig);

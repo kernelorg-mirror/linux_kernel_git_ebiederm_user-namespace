@@ -269,15 +269,15 @@ static int ecryptfs_parse_options(struct ecryptfs_sb_info *sbi, char *options,
 		&sbi->mount_crypt_stat;
 	substring_t args[MAX_OPT_ARGS];
 	int token;
-	char *sig_src;
+	const char *sig_src;
 	char *cipher_name_dst;
-	char *cipher_name_src;
+	const char *cipher_name_src;
 	char *fn_cipher_name_dst;
-	char *fn_cipher_name_src;
+	const char *fn_cipher_name_src;
 	char *fnek_dst;
-	char *fnek_src;
-	char *cipher_key_bytes_src;
-	char *fn_cipher_key_bytes_src;
+	const char *fnek_src;
+	const char *cipher_key_bytes_src;
+	const char *fn_cipher_key_bytes_src;
 	u8 cipher_code;
 
 	*check_ruid = 0;
@@ -319,7 +319,7 @@ static int ecryptfs_parse_options(struct ecryptfs_sb_info *sbi, char *options,
 			cipher_key_bytes_src = args[0].from;
 			cipher_key_bytes =
 				(int)simple_strtol(cipher_key_bytes_src,
-						   &cipher_key_bytes_src, 0);
+						   NULL, 0);
 			mount_crypt_stat->global_default_cipher_key_size =
 				cipher_key_bytes;
 			cipher_key_bytes_set = 1;
@@ -374,7 +374,7 @@ static int ecryptfs_parse_options(struct ecryptfs_sb_info *sbi, char *options,
 			fn_cipher_key_bytes_src = args[0].from;
 			fn_cipher_key_bytes =
 				(int)simple_strtol(fn_cipher_key_bytes_src,
-						   &fn_cipher_key_bytes_src, 0);
+						   NULL, 0);
 			mount_crypt_stat->global_default_fn_cipher_key_bytes =
 				fn_cipher_key_bytes;
 			fn_cipher_key_bytes_set = 1;
