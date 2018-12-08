@@ -759,6 +759,27 @@ static int smack_set_mnt_opts(struct super_block *sb,
 	int i;
 	int num_opts = opts->num_mnt_opts;
 	int transmute = 0;
+	int seen = 0;
+
+	/* Verify mount options are known and appear at most once */
+	for (i = 0; i < num_opts; i++) {
+		int flag = opts->mnt_opts_flags[i];
+
+		switch(flag) {
+		case FSDEFAULT_MNT:
+		case FSFLOOR_MNT:
+		case FSHAT_MNT:
+		case FSROOT_MNT:
+		case FSTRANS_MNT:
+			break;
+		default:
+			goto unknown_mount_opt;
+		}
+
+		if (seen & flag)
+			goto dup_mount_opt;
+		seen |= flag;
+	}
 
 	if (sp->smk_flags & SMK_SB_INITIALIZED)
 		return 0;
@@ -844,6 +865,13 @@ static int smack_set_mnt_opts(struct super_block *sb,
 		isp->smk_flags |= SMK_INODE_TRANSMUTE;
 
 	return 0;
+
+unknown_mount_opt:
+	pr_warn("Smack:  unknown mount option\n");
+	return -EINVAL;
+dup_mount_opt:
+	pr_warn("Smack: duplicate mount options\n");
+	return -EINVAL;
 }
 
 /**
