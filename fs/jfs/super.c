@@ -304,7 +304,7 @@ static int parse_options(char *options, struct super_block *sb, s64 *newLVSize,
 			break;
 		case Opt_resize:
 		{
-			char *resize = args[0].from;
+			const char *resize = args[0].from;
 			int rc = kstrtoll(resize, 0, newLVSize);
 
 			if (rc)
@@ -321,7 +321,7 @@ static int parse_options(char *options, struct super_block *sb, s64 *newLVSize,
 		}
 		case Opt_errors:
 		{
-			char *errors = args[0].from;
+			const char *errors = args[0].from;
 			if (!errors || !*errors)
 				goto cleanup;
 			if (!strcmp(errors, "continue")) {
@@ -361,7 +361,7 @@ static int parse_options(char *options, struct super_block *sb, s64 *newLVSize,
 #endif
 		case Opt_uid:
 		{
-			char *uid = args[0].from;
+			const char *uid = args[0].from;
 			uid_t val;
 			int rc = kstrtouint(uid, 0, &val);
 
@@ -375,7 +375,7 @@ static int parse_options(char *options, struct super_block *sb, s64 *newLVSize,
 
 		case Opt_gid:
 		{
-			char *gid = args[0].from;
+			const char *gid = args[0].from;
 			gid_t val;
 			int rc = kstrtouint(gid, 0, &val);
 
@@ -389,7 +389,7 @@ static int parse_options(char *options, struct super_block *sb, s64 *newLVSize,
 
 		case Opt_umask:
 		{
-			char *umask = args[0].from;
+			const char *umask = args[0].from;
 			int rc = kstrtouint(umask, 8, &sbi->umask);
 
 			if (rc)
@@ -423,7 +423,7 @@ static int parse_options(char *options, struct super_block *sb, s64 *newLVSize,
 		case Opt_discard_minblk:
 		{
 			struct request_queue *q = bdev_get_queue(sb->s_bdev);
-			char *minblks_trim = args[0].from;
+			const char *minblks_trim = args[0].from;
 			int rc;
 			if (blk_queue_discard(q)) {
 				*flag |= JFS_DISCARD;
