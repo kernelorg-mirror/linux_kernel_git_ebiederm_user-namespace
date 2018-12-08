@@ -629,6 +629,44 @@ static int bad_option(struct superblock_security_struct *sbsec, char flag,
 	return 0;
 }
 
+static int selinux_vet_mnt_opts(struct security_mnt_opts *opts)
+{
+	int *flags = opts->mnt_opts_flags;
+	int num_opts = opts->num_mnt_opts;
+	int seen = 0;
+	int i;
+
+	/* Verify mount options are known and appear at most once */
+	for (i = 0; i < num_opts; i++) {
+		switch (flags[i]) {
+		case CONTEXT_MNT:
+		case DEFCONTEXT_MNT:
+			if (seen & (CONTEXT_MNT | DEFCONTEXT_MNT))
+				goto out_bad_mount_opt;
+			seen |= flags[i];
+			break;
+		case FSCONTEXT_MNT:
+		case ROOTCONTEXT_MNT:
+			if (seen & flags[i])
+				goto out_bad_mount_opt;
+			seen |= flags[i];
+			break;
+		case SBLABEL_MNT:
+			break;
+		default:
+			goto out_unknown_mount_opt;
+		}
+	}
+	return 0;
+
+out_bad_mount_opt:
+	pr_warn(SEL_MOUNT_FAIL_MSG);
+	return -EINVAL;
+out_unknown_mount_opt:
+	pr_warn("SELinux:  unknown mount option\n");
+	return -EINVAL;
+}
+
 /*
  * Allow filesystems with binary mount data to explicitly set mount point
  * labeling information.
@@ -647,6 +685,10 @@ static int selinux_set_mnt_opts(struct super_block *sb,
 	char **mount_options = opts->mnt_opts;
 	int *flags = opts->mnt_opts_flags;
 	int num_opts = opts->num_mnt_opts;
+
+	rc = selinux_vet_mnt_opts(opts);
+	if (rc)
+		return rc;
 
 	mutex_lock(&sbsec->lock);
 
@@ -687,6 +729,9 @@ static int selinux_set_mnt_opts(struct super_block *sb,
 	 */
 	for (i = 0; i < num_opts; i++) {
 		u32 sid;
+
+		if (flags[i] == SBLABEL_MNT)
+			continue;
 
 		rc = security_context_str_to_sid(&selinux_state,
 						 mount_options[i], &sid,
@@ -736,9 +781,6 @@ static int selinux_set_mnt_opts(struct super_block *sb,
 			sbsec->flags |= DEFCONTEXT_MNT;
 
 			break;
-		default:
-			rc = -EINVAL;
-			goto out;
 		}
 	}
 
@@ -2716,11 +2758,18 @@ static int selinux_sb_remount(struct super_block *sb, struct security_mnt_opts *
 	char **mount_options = opts->mnt_opts;
 	struct superblock_security_struct *sbsec = sb->s_security;
 
+	rc = selinux_vet_mnt_opts(opts);
+	if (rc)
+		return rc;
+
 	if (!(sbsec->flags & SE_SBINITIALIZED))
 		return 0;
 
 	for (i = 0; i < opts->num_mnt_opts; i++) {
 		u32 sid;
+
+		if (flags[i] == SBLABEL_MNT)
+			continue;
 
 		rc = security_context_str_to_sid(&selinux_state,
 						 mount_options[i], &sid,
@@ -2753,8 +2802,6 @@ static int selinux_sb_remount(struct super_block *sb, struct security_mnt_opts *
 			if (bad_option(sbsec, DEFCONTEXT_MNT, sbsec->def_sid, sid))
 				goto out_bad_option;
 			break;
-		default:
-			goto out;
 		}
 	}
 
