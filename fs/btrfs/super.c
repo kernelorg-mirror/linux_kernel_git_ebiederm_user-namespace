@@ -1401,11 +1401,18 @@ static inline int is_subvolume_inode(struct inode *inode)
 	return 0;
 }
 
-static struct dentry *mount_subvol(const char *subvol_name, u64 subvol_objectid,
-				   struct vfsmount *mnt)
+static struct dentry *mount_subvol(struct vfsmount *mnt, const char *data)
 {
+	char *subvol_name = NULL;
+	u64 subvol_objectid = 0;
 	struct dentry *root;
 	int ret;
+
+	ret = btrfs_parse_subvol_options(data, &subvol_name, &subvol_objectid);
+	if (ret) {
+		root = ERR_PTR(ret);
+		goto out;
+	}
 
 	if (!subvol_name) {
 		if (!subvol_objectid) {
@@ -1609,9 +1616,7 @@ error_sec_opts:
  * be mounted internally in any case.
  *
  * Operation flow:
- *   1. Parse subvol id related options for later use in mount_subvol().
- *
- *   2. Mount device's root (/) by calling vfs_kern_mount().
+ *   1. Mount device's root (/) by calling vfs_kern_mount().
  *
  *      NOTE: vfs_kern_mount() is used by VFS to call btrfs_mount() in the
  *      first place. In order to avoid calling btrfs_mount() again, we use
@@ -1620,7 +1625,7 @@ error_sec_opts:
  *      btrfs_mount_root() is called. The return value will be used by
  *      mount_subtree() in mount_subvol().
  *
- *   3. Call mount_subvol() to get the dentry of subvolume. Since there is
+ *   2. Call mount_subvol() to get the dentry of subvolume. Since there is
  *      "btrfs subvolume set-default", mount_subvol() is called always.
  */
 static struct dentry *btrfs_mount(struct file_system_type *fs_type, int flags,
@@ -1628,27 +1633,16 @@ static struct dentry *btrfs_mount(struct file_system_type *fs_type, int flags,
 {
 	struct vfsmount *mnt_root;
 	struct dentry *root;
-	char *subvol_name = NULL;
-	u64 subvol_objectid = 0;
-	int error = 0;
-
-	error = btrfs_parse_subvol_options(data, &subvol_name,
-					&subvol_objectid);
-	if (error) {
-		kfree(subvol_name);
-		return ERR_PTR(error);
-	}
 
 	/* mount device's root (/) */
 	mnt_root = vfs_kern_mount(&btrfs_root_fs_type, flags, device_name, data);
 	if (IS_ERR(mnt_root)) {
 		root = ERR_CAST(mnt_root);
-		kfree(subvol_name);
 		goto out;
 	}
 
 	/* mount_subvol() will free subvol_name and mnt_root */
-	root = mount_subvol(subvol_name, subvol_objectid, mnt_root);
+	root = mount_subvol(mnt_root, data);
 
 out:
 	return root;
