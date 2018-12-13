@@ -1401,8 +1401,9 @@ static inline int is_subvolume_inode(struct inode *inode)
 	return 0;
 }
 
-static struct dentry *mount_subvol(struct vfsmount *mnt, const char *data)
+static struct dentry *mount_subvol(struct dentry *mnt_root, const char *data)
 {
+	struct super_block *mnt_sb = mnt_root->d_sb;
 	char *subvol_name = NULL;
 	u64 subvol_objectid = 0;
 	struct dentry *root;
@@ -1416,14 +1417,14 @@ static struct dentry *mount_subvol(struct vfsmount *mnt, const char *data)
 
 	if (!subvol_name) {
 		if (!subvol_objectid) {
-			ret = get_default_subvol_objectid(btrfs_sb(mnt->mnt_sb),
+			ret = get_default_subvol_objectid(btrfs_sb(mnt_sb),
 							  &subvol_objectid);
 			if (ret) {
 				root = ERR_PTR(ret);
 				goto out;
 			}
 		}
-		subvol_name = get_subvol_name_from_objectid(btrfs_sb(mnt->mnt_sb),
+		subvol_name = get_subvol_name_from_objectid(btrfs_sb(mnt_sb),
 							    subvol_objectid);
 		if (IS_ERR(subvol_name)) {
 			root = ERR_CAST(subvol_name);
@@ -1433,9 +1434,10 @@ static struct dentry *mount_subvol(struct vfsmount *mnt, const char *data)
 
 	}
 
-	root = mount_subtree(mnt, subvol_name);
+	root = mount_subtree(mnt_root, subvol_name);
 	/* mount_subtree() drops our reference on the vfsmount. */
-	mnt = NULL;
+	mnt_root = NULL;
+	mnt_sb = NULL;
 
 	if (!IS_ERR(root)) {
 		struct super_block *s = root->d_sb;
@@ -1468,7 +1470,10 @@ static struct dentry *mount_subvol(struct vfsmount *mnt, const char *data)
 	}
 
 out:
-	mntput(mnt);
+	if (mnt_root) {
+		dput(mnt_root);
+		deactivate_super(mnt_sb);
+	}
 	kfree(subvol_name);
 	return root;
 }
@@ -1590,7 +1595,7 @@ error_sec_opts:
  * Mount function which is called by VFS layer.
  *
  * In order to allow mounting a subvolume directly, btrfs uses mount_subtree()
- * which needs vfsmount* of device's root (/).  This means device's root has to
+ * which needs dentry* of device's root (/).  This means device's root has to
  * be mounted internally in any case.
  *
  * Operation flow:
@@ -1619,8 +1624,13 @@ static struct dentry *btrfs_mount(struct file_system_type *fs_type, int flags,
 		goto out;
 	}
 
+	/* trade a vfsmount reference for an active sb one */
+	atomic_inc(&mnt_root->mnt_sb->s_active);
+	root = dget(mnt_root->mnt_root);
+	mntput(mnt_root);
+
 	/* mount_subvol() will free subvol_name and mnt_root */
-	root = mount_subvol(mnt_root, data);
+	root = mount_subvol(root, data);
 
 out:
 	return root;

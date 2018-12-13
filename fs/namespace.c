@@ -3048,12 +3048,17 @@ static struct mnt_namespace *create_mnt_ns(struct vfsmount *m)
 	return new_ns;
 }
 
-struct dentry *mount_subtree(struct vfsmount *mnt, const char *name)
+struct dentry *mount_subtree(struct dentry *root, const char *name)
 {
 	struct mnt_namespace *ns;
 	struct super_block *s;
+	struct vfsmount *mnt;
 	struct path path;
 	int err;
+
+	mnt = sb_mount(root, "subtree", 0);
+	if (IS_ERR(mnt))
+		return ERR_CAST(mnt);
 
 	ns = create_mnt_ns(mnt);
 	if (IS_ERR(ns))

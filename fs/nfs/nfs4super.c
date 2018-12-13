@@ -126,10 +126,12 @@ out:
 	return mntroot;
 }
 
-static struct vfsmount *nfs_do_root_mount(struct file_system_type *fs_type,
+static struct dentry *nfs_do_root_mount(struct file_system_type *fs_type,
 		int flags, void *data, const char *hostname)
+
 {
 	struct vfsmount *root_mnt;
+	struct dentry *root;
 	char *root_devname;
 	size_t len;
 
@@ -144,7 +146,13 @@ static struct vfsmount *nfs_do_root_mount(struct file_system_type *fs_type,
 		snprintf(root_devname, len, "%s:/", hostname);
 	root_mnt = vfs_kern_mount(fs_type, flags, root_devname, data);
 	kfree(root_devname);
-	return root_mnt;
+
+	/* trade a vfsmount reference for an active sb one */
+	atomic_inc(&root_mnt->mnt_sb->s_active);
+	root = dget(root_mnt->mnt_root);
+	mntput(root_mnt);
+
+	return root;
 }
 
 struct nfs_referral_count {
@@ -213,22 +221,24 @@ static void nfs_referral_loop_unprotect(void)
 	kfree(p);
 }
 
-static struct dentry *nfs_follow_remote_path(struct vfsmount *root_mnt,
+static struct dentry *nfs_follow_remote_path(struct dentry *root,
 		const char *export_path)
 {
 	struct dentry *dentry;
 	int err;
 
-	if (IS_ERR(root_mnt))
-		return ERR_CAST(root_mnt);
+	if (IS_ERR(root))
+		return ERR_CAST(root);
 
 	err = nfs_referral_loop_protect();
 	if (err) {
-		mntput(root_mnt);
+		struct super_block *sb = root->d_sb;
+		dput(root);
+		deactivate_super(sb);
 		return ERR_PTR(err);
 	}
 
-	dentry = mount_subtree(root_mnt, export_path);
+	dentry = mount_subtree(root, export_path);
 	nfs_referral_loop_unprotect();
 
 	return dentry;
@@ -239,19 +249,18 @@ struct dentry *nfs4_try_mount(int flags, const char *dev_name,
 			      struct nfs_subversion *nfs_mod)
 {
 	char *export_path;
-	struct vfsmount *root_mnt;
-	struct dentry *res;
+	struct dentry *res, *root;
 	struct nfs_parsed_mount_data *data = mount_info->parsed;
 
 	dfprintk(MOUNT, "--> nfs4_try_mount()\n");
 
 	export_path = data->nfs_server.export_path;
 	data->nfs_server.export_path = "/";
-	root_mnt = nfs_do_root_mount(&nfs4_remote_fs_type, flags, mount_info,
+	root = nfs_do_root_mount(&nfs4_remote_fs_type, flags, mount_info,
 			data->nfs_server.hostname);
 	data->nfs_server.export_path = export_path;
 
-	res = nfs_follow_remote_path(root_mnt, export_path);
+	res = nfs_follow_remote_path(root, export_path);
 
 	dfprintk(MOUNT, "<-- nfs4_try_mount() = %d%s\n",
 		 PTR_ERR_OR_ZERO(res),
@@ -298,19 +307,18 @@ static struct dentry *nfs4_referral_mount(struct file_system_type *fs_type,
 {
 	struct nfs_clone_mount *data = raw_data;
 	char *export_path;
-	struct vfsmount *root_mnt;
-	struct dentry *res;
+	struct dentry *res, *root;
 
 	dprintk("--> nfs4_referral_mount()\n");
 
 	export_path = data->mnt_path;
 	data->mnt_path = "/";
 
-	root_mnt = nfs_do_root_mount(&nfs4_remote_referral_fs_type,
+	root = nfs_do_root_mount(&nfs4_remote_referral_fs_type,
 			flags, data, data->hostname);
 	data->mnt_path = export_path;
 
-	res = nfs_follow_remote_path(root_mnt, export_path);
+	res = nfs_follow_remote_path(root, export_path);
 	dprintk("<-- nfs4_referral_mount() = %d%s\n",
 		PTR_ERR_OR_ZERO(res),
 		IS_ERR(res) ? " [error]" : "");
