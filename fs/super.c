@@ -1279,7 +1279,11 @@ mount_fs(struct file_system_type *type, const char *subtype, int flags,
 		if (IS_ERR(sb))
 			goto out;
 
-		if (subtype && !sb->s_subtype) {
+		if (sb->s_subtype) {
+			error = -EBUSY;
+			if (!subtype || (strcmp(sb->s_subtype, subtype) != 0))
+				goto out_sb;
+		} else if (subtype) {
 			sb->s_subtype = kstrdup(subtype, GFP_KERNEL);
 			error = -ENOMEM;
 			if (!sb->s_subtype)
@@ -1322,7 +1326,11 @@ mount_fs(struct file_system_type *type, const char *subtype, int flags,
 		BUG_ON(!sb);
 		WARN_ON(!sb->s_bdi);
 
-		if (subtype && !sb->s_subtype) {
+		if (sb->s_subtype) {
+			error = -EBUSY;
+			if (!subtype || (strcmp(sb->s_subtype, subtype) != 0))
+				goto out_root;
+		} else if (subtype) {
 			sb->s_subtype = kstrdup(subtype, GFP_KERNEL);
 			error = -ENOMEM;
 			if (!sb->s_subtype)
