@@ -61,7 +61,7 @@ static const struct super_operations btrfs_super_ops;
  */
 static struct file_system_type btrfs_fs_type;
 
-static int btrfs_remount(struct super_block *sb, int *flags, char *data);
+static int btrfs_reconfigure(struct super_block *, int *, const char *[]);
 
 const char *btrfs_decode_error(int errno)
 {
@@ -1512,7 +1512,7 @@ static struct dentry *btrfs_mount_root(struct file_system_type *fs_type,
 		btrfs_close_devices(fs_devices);
 		free_fs_info(fs_info);
 		if (!(flags & SB_RDONLY) && (s->s_flags & SB_RDONLY))
-			error = btrfs_remount(s, &flags, NULL);
+			error = btrfs_reconfigure(s, &flags, empty_optv);
 		if (!error && ((flags ^ s->s_flags) & SB_RDONLY))
 			error = -EBUSY;
 	} else {
@@ -1644,7 +1644,8 @@ static inline void btrfs_remount_cleanup(struct btrfs_fs_info *fs_info,
 	clear_bit(BTRFS_FS_STATE_REMOUNTING, &fs_info->fs_state);
 }
 
-static int btrfs_remount(struct super_block *sb, int *flags, char *data)
+static int btrfs_reconfigure(struct super_block *sb, int *flags,
+			     const char *optv[])
 {
 	struct btrfs_fs_info *fs_info = btrfs_sb(sb);
 	struct btrfs_root *root = fs_info->tree_root;
@@ -1654,21 +1655,10 @@ static int btrfs_remount(struct super_block *sb, int *flags, char *data)
 	u64 old_max_inline = fs_info->max_inline;
 	u32 old_thread_pool_size = fs_info->thread_pool_size;
 	u32 old_metadata_ratio = fs_info->metadata_ratio;
-	const char **secv = NULL, **optv = NULL;
 	int ret;
-
-	ret = split_options(data, security_tokens, NULL, &secv, NULL, &optv);
-	if (ret)
-		return ret;
 
 	sync_filesystem(sb);
 	btrfs_remount_prepare(fs_info);
-
-	if (data) {
-		ret = security_sb_set_mnt_opts(sb, secv);
-		if (ret)
-			goto restore;
-	}
 
 	ret = btrfs_parse_options(fs_info, optv, *flags);
 	if (ret)
@@ -1789,6 +1779,26 @@ restore:
 		old_thread_pool_size, fs_info->thread_pool_size);
 	fs_info->metadata_ratio = old_metadata_ratio;
 	btrfs_remount_cleanup(fs_info, old_opts);
+	return ret;
+}
+
+static int btrfs_remount(struct super_block *sb, int *flags, char *data)
+{
+	const char **secv = NULL, **optv = NULL;
+	int ret;
+
+	ret = split_options(data, security_tokens, NULL, &secv, NULL, &optv);
+	if (ret)
+		goto out;
+
+	if (data) {
+		ret = security_sb_set_mnt_opts(sb, secv);
+		if (ret)
+			goto out;
+	}
+
+	ret = btrfs_reconfigure(sb, flags, optv);
+out:
 	kfree(secv);
 	kfree(optv);
 	return ret;
