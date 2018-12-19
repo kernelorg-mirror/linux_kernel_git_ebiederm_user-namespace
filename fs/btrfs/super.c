@@ -56,10 +56,9 @@ static const struct super_operations btrfs_super_ops;
  * don't have to play tricks with the mount options and recursive calls to
  * btrfs_mount.
  *
- * The new btrfs_root_fs_type also servers as a tag for the bdev_holder.
+ * The btrfs_fs_type also servers as a tag for the bdev_holder.
  */
 static struct file_system_type btrfs_fs_type;
-static struct file_system_type btrfs_root_fs_type;
 
 static int btrfs_remount(struct super_block *sb, int *flags, char *data);
 
@@ -1601,14 +1600,7 @@ error_sec_opts:
  * be mounted internally in any case.
  *
  * Operation flow:
- *   1. Mount device's root (/) by calling vfs_kern_mount().
- *
- *      NOTE: vfs_kern_mount() is used by VFS to call btrfs_mount() in the
- *      first place. In order to avoid calling btrfs_mount() again, we use
- *      different file_system_type which is not registered to VFS by
- *      register_filesystem() (btrfs_root_fs_type). As a result,
- *      btrfs_mount_root() is called. The return value will be used by
- *      mount_subtree() in mount_subvol().
+ *   1. Mount device's root (/) by calling btrfs_mount_root().
  *
  *   2. Call mount_subvol() to get the dentry of subvolume. Since there is
  *      "btrfs subvolume set-default", mount_subvol() is called always.
@@ -1616,26 +1608,15 @@ error_sec_opts:
 static struct dentry *btrfs_mount(struct file_system_type *fs_type, int flags,
 		const char *device_name, void *data)
 {
-	struct vfsmount *mnt_root;
 	struct dentry *root;
 
 	/* mount device's root (/) */
-	mnt_root = vfs_kern_mount(&btrfs_root_fs_type, flags, device_name, data);
-	if (IS_ERR(mnt_root)) {
-		root = ERR_CAST(mnt_root);
-		goto out;
-	}
+	root = btrfs_mount_root(fs_type, flags, device_name, data);
+	if (IS_ERR(root))
+		return root;
 
-	/* trade a vfsmount reference for an active sb one */
-	atomic_inc(&mnt_root->mnt_sb->s_active);
-	root = dget(mnt_root->mnt_root);
-	mntput(mnt_root);
-
-	/* mount_subvol() will free subvol_name and mnt_root */
-	root = mount_subvol(root, data);
-
-out:
-	return root;
+	finish_super(root->d_sb);
+	return mount_subvol(root, data);
 }
 
 static void btrfs_resize_thread_pool(struct btrfs_fs_info *fs_info,
@@ -2133,14 +2114,6 @@ static struct file_system_type btrfs_fs_type = {
 	.fs_flags	= FS_REQUIRES_DEV | FS_BINARY_MOUNTDATA,
 };
 
-static struct file_system_type btrfs_root_fs_type = {
-	.owner		= THIS_MODULE,
-	.name		= "btrfs",
-	.mount		= btrfs_mount_root,
-	.kill_sb	= btrfs_kill_super,
-	.fs_flags	= FS_REQUIRES_DEV | FS_BINARY_MOUNTDATA,
-};
-
 MODULE_ALIAS_FS("btrfs");
 
 static int btrfs_control_open(struct inode *inode, struct file *file)
@@ -2175,14 +2148,14 @@ static long btrfs_control_ioctl(struct file *file, unsigned int cmd,
 	case BTRFS_IOC_SCAN_DEV:
 		mutex_lock(&uuid_mutex);
 		device = btrfs_scan_one_device(vol->name, FMODE_READ,
-					       &btrfs_root_fs_type);
+					       &btrfs_fs_type);
 		ret = PTR_ERR_OR_ZERO(device);
 		mutex_unlock(&uuid_mutex);
 		break;
 	case BTRFS_IOC_DEVICES_READY:
 		mutex_lock(&uuid_mutex);
 		device = btrfs_scan_one_device(vol->name, FMODE_READ,
-					       &btrfs_root_fs_type);
+					       &btrfs_fs_type);
 		if (IS_ERR(device)) {
 			mutex_unlock(&uuid_mutex);
 			ret = PTR_ERR(device);
