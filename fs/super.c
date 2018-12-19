@@ -1321,11 +1321,9 @@ mount_fs(struct file_system_type *type, int flags,
 		else
 			root = dget(sb->s_root);
 	} else {
-		if (!(type->fs_flags & FS_BINARY_MOUNTDATA)) {
-			error = security_parse_options(data, &secv);
-			if (error)
-				goto out;
-		}
+		error = security_parse_options(data, &secv);
+		if (error)
+			goto out;
 
 		root = type->mount(type, flags, name, data);
 		if (IS_ERR(root)) {

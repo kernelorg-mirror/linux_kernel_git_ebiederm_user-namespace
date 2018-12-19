@@ -2185,7 +2185,6 @@ struct file_system_type {
 	int fs_flags;
 	int sb_flags_mask;
 #define FS_REQUIRES_DEV		1 
-#define FS_BINARY_MOUNTDATA	2
 #define FS_HAS_SUBTYPE		4
 #define FS_RENAME_DOES_D_MOVE	32768	/* FS will handle d_move() during rename() internally. */
 	int (*permission)(void);

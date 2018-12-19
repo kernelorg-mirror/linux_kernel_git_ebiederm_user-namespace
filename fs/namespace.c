@@ -2319,11 +2319,10 @@ static int do_remount(struct path *path, int sb_flags,
 	if (!can_change_locked_flags(mnt, mnt_flags))
 		return -EPERM;
 
-	if (!(sb->s_type->fs_flags & FS_BINARY_MOUNTDATA)) {
-		err = security_parse_options(data, &lsm_opts);
-		if (err)
-			goto out_err;
-	}
+	err = security_parse_options(data, &lsm_opts);
+	if (err)
+		goto out_err;
+
 	err = security_sb_remount(sb, lsm_opts);
 	if (err)
 		goto out_err;

@@ -242,7 +242,7 @@ static const char * const mnt_info_table[] = {
 static int do_match_mnt(struct aa_dfa *dfa, unsigned int start,
 			const char *mntpnt, const char *devname,
 			const char *type, unsigned long flags,
-			void *data, bool binary, struct aa_perms *perms)
+			void *data, struct aa_perms *perms)
 {
 	unsigned int state;
 
@@ -273,8 +273,8 @@ static int do_match_mnt(struct aa_dfa *dfa, unsigned int start,
 	if (perms->allow & AA_MAY_MOUNT)
 		return 0;
 
-	/* only match data if not binary and the DFA flags data is expected */
-	if (data && !binary && (perms->allow & AA_MNT_CONT_MATCH)) {
+	/* only match data if the DFA flags data is expected */
+	if (data && (perms->allow & AA_MNT_CONT_MATCH)) {
 		state = aa_dfa_null_transition(dfa, state);
 		if (!state)
 			return 4;
@@ -310,7 +310,6 @@ static int path_flags(struct aa_profile *profile, const struct path *path)
  * @type: string for the dev type (MAYBE NULL)
  * @flags: mount flags to match
  * @data: fs mount data (MAYBE NULL)
- * @binary: whether @data is binary
  * @devinfo: error str if (IS_ERR(@devname))
  *
  * Returns: 0 on success else error
@@ -318,7 +317,7 @@ static int path_flags(struct aa_profile *profile, const struct path *path)
 static int match_mnt_path_str(struct aa_profile *profile,
 			      const struct path *mntpath, char *buffer,
 			      const char *devname, const char *type,
-			      unsigned long flags, void *data, bool binary,
+			      unsigned long flags, void *data,
 			      const char *devinfo)
 {
 	struct aa_perms perms = { };
@@ -346,7 +345,7 @@ static int match_mnt_path_str(struct aa_profile *profile,
 	error = -EACCES;
 	pos = do_match_mnt(profile->policy.dfa,
 			   profile->policy.start[AA_CLASS_MOUNT],
-			   mntpnt, devname, type, flags, data, binary, &perms);
+			   mntpnt, devname, type, flags, data, &perms);
 	if (pos) {
 		info = mnt_info_table[pos];
 		goto audit;
@@ -368,14 +367,12 @@ audit:
  * @type: string for the dev type (MAYBE NULL)
  * @flags: mount flags to match
  * @data: fs mount data (MAYBE NULL)
- * @binary: whether @data is binary
  *
  * Returns: 0 on success else error
  */
 static int match_mnt(struct aa_profile *profile, const struct path *path,
 		     char *buffer, struct path *devpath, char *devbuffer,
-		     const char *type, unsigned long flags, void *data,
-		     bool binary)
+		     const char *type, unsigned long flags, void *data)
 {
 	const char *devname = NULL, *info = NULL;
 	int error = -EACCES;
@@ -395,7 +392,7 @@ static int match_mnt(struct aa_profile *profile, const struct path *path,
 	}
 
 	return match_mnt_path_str(profile, path, buffer, devname, type, flags,
-				  data, binary, info);
+				  data, info);
 }
 
 int aa_remount(struct aa_label *label, const struct path *path,
@@ -403,18 +400,16 @@ int aa_remount(struct aa_label *label, const struct path *path,
 {
 	struct aa_profile *profile;
 	char *buffer = NULL;
-	bool binary;
 	int error;
 
 	AA_BUG(!label);
 	AA_BUG(!path);
 
-	binary = path->dentry->d_sb->s_type->fs_flags & FS_BINARY_MOUNTDATA;
 
 	get_buffers(buffer);
 	error = fn_for_each_confined(label, profile,
 			match_mnt(profile, path, buffer, NULL, NULL, NULL,
-				  flags, data, binary));
+				  flags, data));
 	put_buffers(buffer);
 
 	return error;
@@ -443,7 +438,7 @@ int aa_bind_mount(struct aa_label *label, const struct path *path,
 	get_buffers(buffer, old_buffer);
 	error = fn_for_each_confined(label, profile,
 			match_mnt(profile, path, buffer, &old_path, old_buffer,
-				  NULL, flags, NULL, false));
+				  NULL, flags, NULL));
 	put_buffers(buffer, old_buffer);
 	path_put(&old_path);
 
@@ -467,7 +462,7 @@ int aa_mount_change_type(struct aa_label *label, const struct path *path,
 	get_buffers(buffer);
 	error = fn_for_each_confined(label, profile,
 			match_mnt(profile, path, buffer, NULL, NULL, NULL,
-				  flags, NULL, false));
+				  flags, NULL));
 	put_buffers(buffer);
 
 	return error;
@@ -494,7 +489,7 @@ int aa_move_mount(struct aa_label *label, const struct path *path,
 	get_buffers(buffer, old_buffer);
 	error = fn_for_each_confined(label, profile,
 			match_mnt(profile, path, buffer, &old_path, old_buffer,
-				  NULL, MS_MOVE, NULL, false));
+				  NULL, MS_MOVE, NULL));
 	put_buffers(buffer, old_buffer);
 	path_put(&old_path);
 
@@ -507,7 +502,6 @@ int aa_new_mount(struct aa_label *label, const char *dev_name,
 {
 	struct aa_profile *profile;
 	char *buffer = NULL, *dev_buffer = NULL;
-	bool binary = true;
 	int error;
 	int requires_dev = 0;
 	struct path tmp_path, *dev_path = NULL;
@@ -521,7 +515,6 @@ int aa_new_mount(struct aa_label *label, const char *dev_name,
 		fstype = get_fs_type(type);
 		if (!fstype)
 			return -ENODEV;
-		binary = fstype->fs_flags & FS_BINARY_MOUNTDATA;
 		requires_dev = fstype->fs_flags & FS_REQUIRES_DEV;
 		put_filesystem(fstype);
 
@@ -540,11 +533,11 @@ int aa_new_mount(struct aa_label *label, const char *dev_name,
 	if (dev_path) {
 		error = fn_for_each_confined(label, profile,
 			match_mnt(profile, path, buffer, dev_path, dev_buffer,
-				  type, flags, data, binary));
+				  type, flags, data));
 	} else {
 		error = fn_for_each_confined(label, profile,
 			match_mnt_path_str(profile, path, buffer, dev_name,
-					   type, flags, data, binary, NULL));
+					   type, flags, data, NULL));
 	}
 	put_buffers(buffer, dev_buffer);
 	if (dev_path)
