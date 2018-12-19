@@ -4,6 +4,9 @@
 #include <linux/parser.h>
 #include <linux/fsoptions.h>
 
+const char *empty_optv[] = { NULL };
+EXPORT_SYMBOL(empty_optv);
+
 const struct match_table no_tokens[] = {
 	{ }
 };

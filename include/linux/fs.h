@@ -1893,6 +1893,7 @@ extern loff_t vfs_dedupe_file_range_one(struct file *src_file, loff_t src_pos,
 					struct file *dst_file, loff_t dst_pos,
 					loff_t len, unsigned int remap_flags);
 
+extern const char *empty_optv[];
 
 struct super_operations {
    	struct inode *(*alloc_inode)(struct super_block *sb);
