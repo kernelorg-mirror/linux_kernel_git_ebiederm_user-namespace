@@ -2599,7 +2599,7 @@ out:
 
 int open_ctree(struct super_block *sb,
 	       struct btrfs_fs_devices *fs_devices,
-	       const char *options)
+	       const char *optv[])
 {
 	u32 sectorsize;
 	u32 nodesize;
@@ -2851,7 +2851,7 @@ int open_ctree(struct super_block *sb,
 	 */
 	fs_info->compress_type = BTRFS_COMPRESS_ZLIB;
 
-	ret = btrfs_parse_options(fs_info, options, sb->s_flags);
+	ret = btrfs_parse_options(fs_info, optv, sb->s_flags);
 	if (ret) {
 		err = ret;
 		goto fail_alloc;

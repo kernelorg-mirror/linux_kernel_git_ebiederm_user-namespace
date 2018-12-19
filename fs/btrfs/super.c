@@ -18,6 +18,7 @@
 #include <linux/statfs.h>
 #include <linux/compat.h>
 #include <linux/parser.h>
+#include <linux/fsoptions.h>
 #include <linux/ctype.h>
 #include <linux/namei.h>
 #include <linux/miscdevice.h>
@@ -419,11 +420,11 @@ static const struct match_table tokens[] = {
  * reading in a new superblock is parsed here.
  * XXX JDM: This needs to be cleaned up for remount.
  */
-int btrfs_parse_options(struct btrfs_fs_info *info, const char *options,
+int btrfs_parse_options(struct btrfs_fs_info *info, const char *optv[],
 			unsigned long new_flags)
 {
 	substring_t args[MAX_OPT_ARGS];
-	char *p, *num, *opts, *orig = NULL;
+	char *num;
 	u64 cache_gen;
 	int intarg;
 	int ret = 0;
@@ -432,6 +433,7 @@ int btrfs_parse_options(struct btrfs_fs_info *info, const char *options,
 	enum btrfs_compression_type saved_compress_type;
 	bool saved_compress_force;
 	int no_compress = 0;
+	const char **opt;
 
 	cache_gen = btrfs_super_cache_generation(info->super_copy);
 	if (btrfs_fs_compat_ro(info, FREE_SPACE_TREE))
@@ -439,28 +441,12 @@ int btrfs_parse_options(struct btrfs_fs_info *info, const char *options,
 	else if (cache_gen)
 		btrfs_set_opt(info->mount_opt, SPACE_CACHE);
 
-	/*
-	 * Even the options are empty, we still need to do extra check
-	 * against new flags
-	 */
-	if (!options)
-		goto check;
-
-	/*
-	 * strsep changes the string, duplicate it so the original
-	 * string is left unmodified.
-	 */
-	ret = -ENOMEM;
-	orig = opts = kstrdup(options, GFP_KERNEL);
-	if (!opts)
-		goto out;
-
-	while ((p = strsep(&opts, ",")) != NULL) {
+	for (opt = optv; *opt; opt++) {
 		int token;
-		if (!*p)
+		if (!**opt)
 			continue;
 
-		token = match_token(p, tokens, args);
+		token = match_token(*opt, tokens, args);
 		switch (token) {
 		case Opt_degraded:
 			btrfs_info(info, "allowing degraded mounts");
@@ -852,14 +838,14 @@ int btrfs_parse_options(struct btrfs_fs_info *info, const char *options,
 			break;
 #endif
 		case MATCH_FAILURE:
-			btrfs_info(info, "unrecognized mount option '%s'", p);
+			btrfs_info(info, "unrecognized mount option '%s'", *opt);
 			ret = -EINVAL;
 			goto out;
 		default:
 			break;
 		}
 	}
-check:
+
 	/*
 	 * Extra check for current option against current flag
 	 */
@@ -880,7 +866,6 @@ out:
 		btrfs_info(info, "disk space caching is enabled");
 	if (!ret && btrfs_test_opt(info, FREE_SPACE_TREE))
 		btrfs_info(info, "using free space tree");
-	kfree(orig);
 	return ret;
 }
 
@@ -890,35 +875,24 @@ out:
  * All other options will be parsed on much later in the mount process and
  * only when we need to allocate a new super block.
  */
-static int btrfs_parse_device_options(const char *options, fmode_t flags,
+static int btrfs_parse_device_options(const char *optv[], fmode_t flags,
 				      void *holder)
 {
 	substring_t args[MAX_OPT_ARGS];
-	char *device_name, *opts, *orig, *p;
+	char *device_name;
 	struct btrfs_device *device = NULL;
+	const char **opt;
 	int error = 0;
 
 	lockdep_assert_held(&uuid_mutex);
 
-	if (!options)
-		return 0;
-
-	/*
-	 * strsep changes the string, duplicate it because btrfs_parse_options
-	 * gets called later
-	 */
-	opts = kstrdup(options, GFP_KERNEL);
-	if (!opts)
-		return -ENOMEM;
-	orig = opts;
-
-	while ((p = strsep(&opts, ",")) != NULL) {
+	for (opt = optv; *opt; opt++) {
 		int token;
 
-		if (!*p)
+		if (!**opt)
 			continue;
 
-		token = match_token(p, tokens, args);
+		token = match_token(*opt, tokens, args);
 		if (token == Opt_device) {
 			device_name = match_strdup(&args[0]);
 			if (!device_name) {
@@ -936,7 +910,6 @@ static int btrfs_parse_device_options(const char *options, fmode_t flags,
 	}
 
 out:
-	kfree(orig);
 	return error;
 }
 
@@ -945,32 +918,20 @@ out:
  *
  * The value is later passed to mount_subvol()
  */
-static int btrfs_parse_subvol_options(const char *options, char **subvol_name,
+static int btrfs_parse_subvol_options(const char *optv[], char **subvol_name,
 		u64 *subvol_objectid)
 {
 	substring_t args[MAX_OPT_ARGS];
-	char *opts, *orig, *p;
+	const char **opt;
 	int error = 0;
 	u64 subvolid;
 
-	if (!options)
-		return 0;
-
-	/*
-	 * strsep changes the string, duplicate it because
-	 * btrfs_parse_device_options gets called later
-	 */
-	opts = kstrdup(options, GFP_KERNEL);
-	if (!opts)
-		return -ENOMEM;
-	orig = opts;
-
-	while ((p = strsep(&opts, ",")) != NULL) {
+	for (opt = optv; *opt; opt++) {
 		int token;
-		if (!*p)
+		if (!**opt)
 			continue;
 
-		token = match_token(p, tokens, args);
+		token = match_token(*opt, tokens, args);
 		switch (token) {
 		case Opt_subvol:
 			kfree(*subvol_name);
@@ -1000,7 +961,6 @@ static int btrfs_parse_subvol_options(const char *options, char **subvol_name,
 	}
 
 out:
-	kfree(orig);
 	return error;
 }
 
@@ -1181,7 +1141,7 @@ static int get_default_subvol_objectid(struct btrfs_fs_info *fs_info, u64 *objec
 	return 0;
 }
 
-static int btrfs_fill_super(struct super_block *sb, const char *data)
+static int btrfs_fill_super(struct super_block *sb, const char *optv[])
 {
 	struct inode *inode;
 	struct btrfs_fs_info *fs_info = btrfs_sb(sb);
@@ -1208,7 +1168,7 @@ static int btrfs_fill_super(struct super_block *sb, const char *data)
 		return err;
 	}
 
-	err = open_ctree(sb, fs_devices, (char *)data);
+	err = open_ctree(sb, fs_devices, optv);
 	if (err) {
 		btrfs_err(fs_info, "open_ctree failed");
 		return err;
@@ -1400,7 +1360,7 @@ static inline int is_subvolume_inode(struct inode *inode)
 	return 0;
 }
 
-static struct dentry *mount_subvol(struct dentry *mnt_root, const char *data)
+static struct dentry *mount_subvol(struct dentry *mnt_root, const char *optv[])
 {
 	struct super_block *mnt_sb = mnt_root->d_sb;
 	char *subvol_name = NULL;
@@ -1408,7 +1368,7 @@ static struct dentry *mount_subvol(struct dentry *mnt_root, const char *data)
 	struct dentry *root;
 	int ret;
 
-	ret = btrfs_parse_subvol_options(data, &subvol_name, &subvol_objectid);
+	ret = btrfs_parse_subvol_options(optv, &subvol_name, &subvol_objectid);
 	if (ret) {
 		root = ERR_PTR(ret);
 		goto out;
@@ -1486,23 +1446,19 @@ out:
  *       for multiple device setup.  Make sure to keep it in sync.
  */
 static struct dentry *btrfs_mount_root(struct file_system_type *fs_type,
-		int flags, const char *device_name, void *data)
+		int flags, const char *device_name,
+		const char *optv[], const char *new_sec_opts[])
 {
 	struct block_device *bdev = NULL;
 	struct super_block *s;
 	struct btrfs_device *device = NULL;
 	struct btrfs_fs_devices *fs_devices = NULL;
 	struct btrfs_fs_info *fs_info = NULL;
-	const char **new_sec_opts = NULL;
 	fmode_t mode = FMODE_READ;
 	int error = 0;
 
 	if (!(flags & SB_RDONLY))
 		mode |= FMODE_WRITE;
-
-	error = security_parse_options(data, &new_sec_opts);
-	if (error)
-		return ERR_PTR(error);
 
 	/*
 	 * Setup a dummy root and fs_info for test/set super.  This is because
@@ -1513,7 +1469,7 @@ static struct dentry *btrfs_mount_root(struct file_system_type *fs_type,
 	fs_info = kvzalloc(sizeof(struct btrfs_fs_info), GFP_KERNEL);
 	if (!fs_info) {
 		error = -ENOMEM;
-		goto error_sec_opts;
+		goto error;
 	}
 
 	fs_info->super_copy = kzalloc(BTRFS_SUPER_INFO_SIZE, GFP_KERNEL);
@@ -1524,7 +1480,7 @@ static struct dentry *btrfs_mount_root(struct file_system_type *fs_type,
 	}
 
 	mutex_lock(&uuid_mutex);
-	error = btrfs_parse_device_options(data, mode, fs_type);
+	error = btrfs_parse_device_options(optv, mode, fs_type);
 	if (error) {
 		mutex_unlock(&uuid_mutex);
 		goto error_fs_info;
@@ -1568,27 +1524,25 @@ static struct dentry *btrfs_mount_root(struct file_system_type *fs_type,
 	} else {
 		snprintf(s->s_id, sizeof(s->s_id), "%pg", bdev);
 		btrfs_sb(s)->bdev_holder = fs_type;
-		error = btrfs_fill_super(s, data);
+		error = btrfs_fill_super(s, optv);
 	}
 	if (error) {
 		deactivate_locked_super(s);
-		goto error_sec_opts;
+		goto error;
 	}
 
 	error = security_sb_set_mnt_opts(s, new_sec_opts);
 	if (error) {
 		deactivate_locked_super(s);
-		goto error_sec_opts;
+		goto error;
 	}
-	kfree(new_sec_opts);
 	return dget(s->s_root);
 
 error_close_devices:
 	btrfs_close_devices(fs_devices);
 error_fs_info:
 	free_fs_info(fs_info);
-error_sec_opts:
-	kfree(new_sec_opts);
+error:
 	return ERR_PTR(error);
 }
 
@@ -1608,15 +1562,25 @@ error_sec_opts:
 static struct dentry *btrfs_mount(struct file_system_type *fs_type, int flags,
 		const char *device_name, void *data)
 {
+	const char **secv = NULL, **optv = NULL;
 	struct dentry *root;
+	int error;
+
+	error = split_options(data, security_tokens, NULL, &secv, NULL, &optv);
+	if (error)
+		return ERR_PTR(error);
 
 	/* mount device's root (/) */
-	root = btrfs_mount_root(fs_type, flags, device_name, data);
+	root = btrfs_mount_root(fs_type, flags, device_name, optv, secv);
 	if (IS_ERR(root))
-		return root;
+		goto out;
 
 	finish_super(root->d_sb);
-	return mount_subvol(root, data);
+	root = mount_subvol(root, optv);
+out:
+	kfree(secv);
+	kfree(optv);
+	return root;
 }
 
 static void btrfs_resize_thread_pool(struct btrfs_fs_info *fs_info,
@@ -1690,24 +1654,23 @@ static int btrfs_remount(struct super_block *sb, int *flags, char *data)
 	u64 old_max_inline = fs_info->max_inline;
 	u32 old_thread_pool_size = fs_info->thread_pool_size;
 	u32 old_metadata_ratio = fs_info->metadata_ratio;
+	const char **secv = NULL, **optv = NULL;
 	int ret;
+
+	ret = split_options(data, security_tokens, NULL, &secv, NULL, &optv);
+	if (ret)
+		return ret;
 
 	sync_filesystem(sb);
 	btrfs_remount_prepare(fs_info);
 
 	if (data) {
-		const char **new_sec_opts = NULL;
-
-		ret = security_parse_options(data, &new_sec_opts);
-		if (ret)
-			goto restore;
-		ret = security_sb_set_mnt_opts(sb, new_sec_opts);
-		kfree(new_sec_opts);
+		ret = security_sb_set_mnt_opts(sb, secv);
 		if (ret)
 			goto restore;
 	}
 
-	ret = btrfs_parse_options(fs_info, data, *flags);
+	ret = btrfs_parse_options(fs_info, optv, *flags);
 	if (ret)
 		goto restore;
 
@@ -1826,6 +1789,8 @@ restore:
 		old_thread_pool_size, fs_info->thread_pool_size);
 	fs_info->metadata_ratio = old_metadata_ratio;
 	btrfs_remount_cleanup(fs_info, old_opts);
+	kfree(secv);
+	kfree(optv);
 	return ret;
 }
 

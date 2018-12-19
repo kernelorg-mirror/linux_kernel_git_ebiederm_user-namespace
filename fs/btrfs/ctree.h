@@ -3241,7 +3241,7 @@ int btrfs_sysfs_add_mounted(struct btrfs_fs_info *fs_info);
 void btrfs_sysfs_remove_mounted(struct btrfs_fs_info *fs_info);
 
 /* super.c */
-int btrfs_parse_options(struct btrfs_fs_info *info, const char *options,
+int btrfs_parse_options(struct btrfs_fs_info *info, const char *optv[],
 			unsigned long new_flags);
 int btrfs_sync_fs(struct super_block *sb, int wait);
 
