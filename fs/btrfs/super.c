@@ -1360,9 +1360,8 @@ static inline int is_subvolume_inode(struct inode *inode)
 	return 0;
 }
 
-static struct dentry *mount_subvol(struct dentry *mnt_root, const char *optv[])
+static struct dentry *mount_subvol(struct super_block *mnt_sb, const char *optv[])
 {
-	struct super_block *mnt_sb = mnt_root->d_sb;
 	char *subvol_name = NULL;
 	u64 subvol_objectid = 0;
 	struct dentry *root;
@@ -1393,9 +1392,8 @@ static struct dentry *mount_subvol(struct dentry *mnt_root, const char *optv[])
 
 	}
 
-	root = mount_subtree(mnt_root, subvol_name);
+	root = mount_subtree(dget(mnt_sb->s_root), subvol_name);
 	/* mount_subtree() drops our reference on the vfsmount. */
-	mnt_root = NULL;
 	mnt_sb = NULL;
 
 	if (!IS_ERR(root)) {
@@ -1421,20 +1419,16 @@ static struct dentry *mount_subvol(struct dentry *mnt_root, const char *optv[])
 				  subvol_name, subvol_objectid);
 			ret = -EINVAL;
 		}
-		/* Lock the super so mount_fs can unlock it */
-		down_write(&s->s_umount);
 		if (ret) {
 			dput(root);
 			root = ERR_PTR(ret);
-			deactivate_locked_super(s);
+			deactivate_super(s);
 		}
 	}
 
 out:
-	if (mnt_root) {
-		dput(mnt_root);
+	if (mnt_sb)
 		deactivate_super(mnt_sb);
-	}
 	kfree(subvol_name);
 	return root;
 }
@@ -1563,6 +1557,7 @@ static struct dentry *btrfs_mount(struct file_system_type *fs_type, int flags,
 		const char *device_name, void *data)
 {
 	const char **secv = NULL, **optv = NULL;
+	struct super_block *sb;
 	struct dentry *root;
 	int error;
 
@@ -1575,8 +1570,13 @@ static struct dentry *btrfs_mount(struct file_system_type *fs_type, int flags,
 	if (IS_ERR(root))
 		goto out;
 
-	finish_super(root->d_sb);
-	root = mount_subvol(root, optv);
+	sb = root->d_sb;
+	dput(root);
+	finish_super(sb);
+	root = mount_subvol(sb, optv);
+	/* Lock the super so mount_fs can unlock it */
+	if (!IS_ERR(root))
+		down_write(&root->d_sb->s_umount);
 out:
 	kfree(secv);
 	kfree(optv);
