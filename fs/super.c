@@ -1260,6 +1260,20 @@ int security_parse_options(char *options, const char ***opts)
 }
 EXPORT_SYMBOL(security_parse_options);
 
+void finish_super(struct super_block *sb)
+{
+	/*
+	 * Write barrier is for super_cache_count(). We place it before setting
+	 * SB_BORN as the data dependency between the two functions is the
+	 * superblock structure contents that we just set up, not the SB_BORN
+	 * flag.
+	 */
+	smp_wmb();
+	sb->s_flags |= SB_BORN;
+	up_write(&sb->s_umount);
+}
+EXPORT_SYMBOL(finish_super);
+
 struct dentry *
 mount_fs(struct file_system_type *type, int flags, const char *name, void *data)
 {
@@ -1287,15 +1301,7 @@ mount_fs(struct file_system_type *type, int flags, const char *name, void *data)
 	if (error)
 		goto out_sb;
 
-	/*
-	 * Write barrier is for super_cache_count(). We place it before setting
-	 * SB_BORN as the data dependency between the two functions is the
-	 * superblock structure contents that we just set up, not the SB_BORN
-	 * flag.
-	 */
-	smp_wmb();
-	sb->s_flags |= SB_BORN;
-	up_write(&sb->s_umount);
+	finish_super(sb);
 	kfree(lsm_opts);
 	return root;
 out_sb:
