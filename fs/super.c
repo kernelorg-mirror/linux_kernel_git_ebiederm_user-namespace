@@ -815,7 +815,8 @@ rescan:
  *
  *	Alters the mount options of a mounted file system.
  */
-int do_remount_sb(struct super_block *sb, int sb_flags, void *data, int force)
+int do_remount_sb(struct super_block *sb, int sb_flags, const char *optv[],
+		  int force)
 {
 	int retval;
 	int remount_ro;
@@ -860,12 +861,13 @@ int do_remount_sb(struct super_block *sb, int sb_flags, void *data, int force)
 
 	retval = 0;
 	if (sb->s_op->reconfigure) {
-		const char **optv = NULL;
-		retval = split_options(data, NULL, NULL, NULL, NULL, &optv);
-		if (!retval)
-			retval = sb->s_op->reconfigure(sb, &sb_flags, optv);
+		retval = sb->s_op->reconfigure(sb, &sb_flags, optv);
 	} else if (sb->s_op->remount_fs) {
-		retval = sb->s_op->remount_fs(sb, &sb_flags, data);
+		char *options = join_options(optv);
+		retval = -ENOMEM;
+		if (options)
+			retval = sb->s_op->remount_fs(sb, &sb_flags, options);
+		kfree(options);
 	}
 	if (retval) {
 		if (!force)
@@ -904,7 +906,7 @@ static void do_emergency_remount_callback(struct super_block *sb)
 		/*
 		 * What lock protects sb->s_flags??
 		 */
-		do_remount_sb(sb, SB_RDONLY, NULL, 1);
+		do_remount_sb(sb, SB_RDONLY, empty_optv, 1);
 	}
 	up_write(&sb->s_umount);
 }
@@ -1209,7 +1211,10 @@ struct dentry *mount_single(struct file_system_type *fs_type,
 		}
 		s->s_flags |= SB_ACTIVE;
 	} else {
-		do_remount_sb(s, flags, data, 0);
+		const char **optv = NULL;
+		if (split_options(data, NULL, NULL,  NULL, NULL, &optv) == 0)
+			do_remount_sb(s, flags, optv, 0);
+		kfree(optv);
 	}
 	return dget(s->s_root);
 }

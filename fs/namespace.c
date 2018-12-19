@@ -1528,7 +1528,7 @@ static int do_umount(struct mount *mnt, int flags)
 			return -EPERM;
 		down_write(&sb->s_umount);
 		if (!sb_rdonly(sb))
-			retval = do_remount_sb(sb, SB_RDONLY, NULL, 0);
+			retval = do_remount_sb(sb, SB_RDONLY, empty_optv, 0);
 		up_write(&sb->s_umount);
 		return retval;
 	}
@@ -2308,7 +2308,7 @@ static int do_remount(struct path *path, int sb_flags,
 	int err;
 	struct super_block *sb = path->mnt->mnt_sb;
 	struct mount *mnt = real_mount(path->mnt);
-	const char **lsm_opts = NULL;
+	const char **secv = NULL, **optv = NULL;
 
 	if (!check_mnt(mnt))
 		return -EINVAL;
@@ -2319,24 +2319,25 @@ static int do_remount(struct path *path, int sb_flags,
 	if (!can_change_locked_flags(mnt, mnt_flags))
 		return -EPERM;
 
-	err = security_parse_options(data, &lsm_opts);
+	err = split_options(data, security_tokens, NULL, &secv, NULL, &optv);
 	if (err)
 		goto out_err;
 
-	err = security_sb_remount(sb, lsm_opts);
+	err = security_sb_remount(sb, secv);
 	if (err)
 		goto out_err;
 
 	down_write(&sb->s_umount);
 	err = -EPERM;
 	if (ns_capable(sb->s_user_ns, CAP_SYS_ADMIN)) {
-		err = do_remount_sb(sb, sb_flags, data, 0);
+		err = do_remount_sb(sb, sb_flags, optv, 0);
 		if (!err)
 			set_mount_attributes(mnt, mnt_flags);
 	}
 	up_write(&sb->s_umount);
 out_err:
-	kfree(lsm_opts);
+	kfree(secv);
+	kfree(optv);
 	return err;
 }
 
