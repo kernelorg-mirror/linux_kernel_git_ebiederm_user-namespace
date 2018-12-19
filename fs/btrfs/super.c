@@ -345,6 +345,11 @@ enum {
 #endif
 };
 
+static const struct match_table open_tokens[] = {
+	{Opt_device, "device=%s"},
+	{ }
+};
+
 static const struct match_table tokens[] = {
 	{Opt_acl, "acl"},
 	{Opt_noacl, "noacl"},
@@ -355,7 +360,6 @@ static const struct match_table tokens[] = {
 	{Opt_compress_force, "compress-force"},
 	{Opt_compress_force_type, "compress-force=%s"},
 	{Opt_degraded, "degraded"},
-	{Opt_device, "device=%s"},
 	{Opt_fatal_errors, "fatal_errors=%s"},
 	{Opt_flushoncommit, "flushoncommit"},
 	{Opt_noflushoncommit, "noflushoncommit"},
@@ -456,7 +460,6 @@ int btrfs_parse_options(struct btrfs_fs_info *info, const char *optv[],
 		case Opt_subvol_empty:
 		case Opt_subvolid:
 		case Opt_subvolrootid:
-		case Opt_device:
 			/*
 			 * These are parsed by btrfs_parse_subvol_options or
 			 * btrfs_parse_device_options and can be ignored here.
@@ -1439,9 +1442,9 @@ out:
  * Note: This is based on mount_bdev from fs/super.c with a few additions
  *       for multiple device setup.  Make sure to keep it in sync.
  */
-static struct dentry *btrfs_mount_root(struct file_system_type *fs_type,
-		int flags, const char *device_name,
-		const char *optv[], const char *new_sec_opts[])
+static struct super_block *btrfs_open(struct file_system_type *fs_type,
+	int flags, struct user_namespace *user_ns, const char *device_name,
+	const char *optv[], void **state)
 {
 	struct block_device *bdev = NULL;
 	struct super_block *s;
@@ -1508,29 +1511,20 @@ static struct dentry *btrfs_mount_root(struct file_system_type *fs_type,
 		goto error_close_devices;
 	}
 
-	if (s->s_root) {
+	if (s->s_op->init) {
 		btrfs_close_devices(fs_devices);
 		free_fs_info(fs_info);
-		if (!(flags & SB_RDONLY) && (s->s_flags & SB_RDONLY))
-			error = btrfs_reconfigure(s, &flags, empty_optv);
-		if (!error && ((flags ^ s->s_flags) & SB_RDONLY))
-			error = -EBUSY;
 	} else {
 		snprintf(s->s_id, sizeof(s->s_id), "%pg", bdev);
 		btrfs_sb(s)->bdev_holder = fs_type;
-		error = btrfs_fill_super(s, optv);
+		s->s_op = &btrfs_super_ops;
 	}
 	if (error) {
 		deactivate_locked_super(s);
 		goto error;
 	}
 
-	error = security_sb_set_mnt_opts(s, new_sec_opts);
-	if (error) {
-		deactivate_locked_super(s);
-		goto error;
-	}
-	return dget(s->s_root);
+	return s;
 
 error_close_devices:
 	btrfs_close_devices(fs_devices);
@@ -1548,30 +1542,49 @@ error:
  * be mounted internally in any case.
  *
  * Operation flow:
- *   1. Mount device's root (/) by calling btrfs_mount_root().
+ *   1. Fill in the super block and make it ready for use.
  *
- *   2. Call mount_subvol() to get the dentry of subvolume. Since there is
+ *   2. Start with the device's root (/) setup by btrfs_fill_super().
+ *
+ *   3. Call mount_subvol() to get the dentry of subvolume. Since there is
  *      "btrfs subvolume set-default", mount_subvol() is called always.
  */
 static struct dentry *btrfs_mount(struct file_system_type *fs_type, int flags,
 		const char *device_name, void *data)
 {
-	const char **secv = NULL, **optv = NULL;
+	const char **secv = NULL, **openv = NULL, **optv = NULL;
+	unsigned long configure_seq;
 	struct super_block *sb;
 	struct dentry *root;
 	int error;
 
-	error = split_options(data, security_tokens, NULL, &secv, NULL, &optv);
+	error = split_options(data, security_tokens, open_tokens,
+			      &secv, &openv, &optv);
 	if (error)
 		return ERR_PTR(error);
 
-	/* mount device's root (/) */
-	root = btrfs_mount_root(fs_type, flags, device_name, optv, secv);
-	if (IS_ERR(root))
+	sb = btrfs_open(fs_type, flags, &init_user_ns, device_name, openv, NULL);
+	root = ERR_CAST(sb);
+	if (IS_ERR(sb))
 		goto out;
 
-	sb = root->d_sb;
-	dput(root);
+	configure_seq = sb->s_configure_seq;
+	sb->s_configure_seq++;
+	if (configure_seq == 1) {
+		error = btrfs_fill_super(sb, optv);
+		if (error)
+			goto error_sb;
+	} else {
+		if (!(flags & SB_RDONLY) && (s->s_flags & SB_RDONLY))
+			error = btrfs_reconfigure(s, &flags, empty_optv);
+		if (!error && ((flags ^ s->s_flags) & SB_RDONLY))
+			error = -EBUSY;
+	}
+
+	error = security_sb_set_mnt_opts(sb, secv);
+	if (error)
+		goto error_sb;
+
 	finish_super(sb);
 	root = mount_subvol(sb, optv);
 	/* Lock the super so mount_fs can unlock it */
@@ -1579,8 +1592,13 @@ static struct dentry *btrfs_mount(struct file_system_type *fs_type, int flags,
 		down_write(&root->d_sb->s_umount);
 out:
 	kfree(secv);
+	kfree(openv);
 	kfree(optv);
 	return root;
+error_sb:
+	deactivate_locked_super(sb);
+	root = ERR_PTR(error);
+	goto out;
 }
 
 static void btrfs_resize_thread_pool(struct btrfs_fs_info *fs_info,
