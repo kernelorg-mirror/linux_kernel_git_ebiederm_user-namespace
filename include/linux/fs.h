@@ -61,6 +61,7 @@ struct workqueue_struct;
 struct iov_iter;
 struct fscrypt_info;
 struct fscrypt_operations;
+struct match_table;
 
 extern void __init inode_init(void);
 extern void __init inode_init_early(void);
@@ -1906,6 +1907,11 @@ extern loff_t vfs_dedupe_file_range_one(struct file *src_file, loff_t src_pos,
 extern const char *empty_optv[];
 
 struct super_operations {
+	int (*init)(struct super_block *, void *, const char *[]);
+	int (*reinit)(struct super_block *, void *, int, const char *[]);
+	struct dentry *(*root)(struct super_block *, void *, const char *[]);
+	void (*release_state)(void *);
+
    	struct inode *(*alloc_inode)(struct super_block *sb);
 	void (*destroy_inode)(struct inode *);
 
@@ -1921,6 +1927,7 @@ struct super_operations {
 	int (*unfreeze_fs) (struct super_block *);
 	int (*statfs) (struct dentry *, struct kstatfs *);
 	int (*remount_fs) (struct super_block *, int *, char *);
+	int (*reconfigure) (struct super_block *, int *, const char *[]);
 	void (*umount_begin) (struct super_block *);
 
 	int (*show_options)(struct seq_file *, struct dentry *);
@@ -2176,15 +2183,20 @@ int sync_inode_metadata(struct inode *inode, int wait);
 struct file_system_type {
 	const char *name;
 	int fs_flags;
+	int sb_flags_mask;
 #define FS_REQUIRES_DEV		1 
 #define FS_BINARY_MOUNTDATA	2
 #define FS_HAS_SUBTYPE		4
 #define FS_RENAME_DOES_D_MOVE	32768	/* FS will handle d_move() during rename() internally. */
 	int (*permission)(void);
+	struct super_block *(*open)(struct file_system_type *, int,
+				    struct user_namespace *,
+				    const char *, const char *[], void **);
 	struct dentry *(*mount) (struct file_system_type *, int,
 		       const char *, void *);
 	void (*kill_sb) (struct super_block *);
 	const char *(*text_options) (const char *, void *, size_t);
+	const struct match_table *open_tokens;
 	struct module *owner;
 	struct file_system_type * next;
 	struct hlist_head fs_supers;

@@ -858,15 +858,21 @@ int do_remount_sb(struct super_block *sb, int sb_flags, void *data, int force)
 		}
 	}
 
-	if (sb->s_op->remount_fs) {
+	retval = 0;
+	if (sb->s_op->reconfigure) {
+		const char **optv = NULL;
+		retval = split_options(data, NULL, NULL, NULL, NULL, &optv);
+		if (!retval)
+			retval = sb->s_op->reconfigure(sb, &sb_flags, optv);
+	} else if (sb->s_op->remount_fs) {
 		retval = sb->s_op->remount_fs(sb, &sb_flags, data);
-		if (retval) {
-			if (!force)
-				goto cancel_readonly;
-			/* If forced remount, go ahead despite any errors */
-			WARN(1, "forced remount of a %s fs returned %i\n",
-			     sb->s_type->name, retval);
-		}
+	}
+	if (retval) {
+		if (!force)
+			goto cancel_readonly;
+		/* If forced remount, go ahead despite any errors */
+		WARN(1, "forced remount of a %s fs returned %i\n",
+		     sb->s_type->name, retval);
 	}
 	sb->s_flags = (sb->s_flags & ~MS_RMT_MASK) | (sb_flags & MS_RMT_MASK);
 	/* Needs to be ordered wrt mnt_is_readonly() */
@@ -1274,38 +1280,82 @@ struct dentry *
 mount_fs(struct file_system_type *type, int flags,
 	 struct user_namespace *user_ns, const char *name, void *data)
 {
-	const char **lsm_opts = NULL;
+	const char **secv = NULL, **openv = NULL, **optv = NULL;
 	struct dentry *root;
 	struct super_block *sb;
 	int error = -ENOMEM;
+	void *state = NULL;
 
-	if (!(type->fs_flags & FS_BINARY_MOUNTDATA)) {
-		error = security_parse_options(data, &lsm_opts);
+	if (type->open) {
+		int oflags = flags & (type->sb_flags_mask | SB_RDONLY);
+		unsigned long configure_seq;
+
+		error = split_options(data, security_tokens, type->open_tokens,
+				      &secv, &openv, &optv);
 		if (error)
 			goto out;
+
+		sb = type->open(type, oflags, user_ns, name, openv, &state);
+		error = PTR_ERR(sb);
+		if (IS_ERR(sb))
+			goto out;
+
+		error = -EBUSY;
+		configure_seq = sb->s_configure_seq;
+		sb->s_configure_seq++;
+		if (configure_seq == 1) {
+			sb->s_flags = (sb->s_flags & ~SB_OPT_FLAGS) | flags;
+			error = sb->s_op->init(sb, state, optv);
+		} else if (sb->s_op->reinit)
+			error = sb->s_op->reinit(sb, state, flags, optv);
+		if (error)
+			goto out_sb;
+
+		error = security_sb_set_mnt_opts(sb, secv);
+		if (error)
+			goto out_sb;
+
+		finish_super(sb);
+		if (sb->s_op->root)
+			root = sb->s_op->root(sb, state, optv);
+		else
+			root = dget(sb->s_root);
+	} else {
+		if (!(type->fs_flags & FS_BINARY_MOUNTDATA)) {
+			error = security_parse_options(data, &secv);
+			if (error)
+				goto out;
+		}
+
+		root = type->mount(type, flags, name, data);
+		if (IS_ERR(root)) {
+			error = PTR_ERR(root);
+			goto out;
+		}
+		sb = root->d_sb;
+		BUG_ON(!sb);
+		WARN_ON(!sb->s_bdi);
+
+		error = security_sb_set_mnt_opts(sb, secv);
+		if (error)
+			goto out_root;
+
+		finish_super(sb);
 	}
-
-	root = type->mount(type, flags, name, data);
-	if (IS_ERR(root)) {
-		error = PTR_ERR(root);
-		goto out;
-	}
-	sb = root->d_sb;
-	BUG_ON(!sb);
-	WARN_ON(!sb->s_bdi);
-
-	error = security_sb_set_mnt_opts(sb, lsm_opts);
-	if (error)
-		goto out_sb;
-
-	finish_super(sb);
-	kfree(lsm_opts);
+	kfree(secv);
+	kfree(openv);
+	kfree(optv);
 	return root;
-out_sb:
+out_root:
 	dput(root);
+out_sb:
+	if (state && sb->s_op->release_state)
+		sb->s_op->release_state(state);
 	deactivate_locked_super(sb);
 out:
-	kfree(lsm_opts);
+	kfree(secv);
+	kfree(openv);
+	kfree(optv);
 	return ERR_PTR(error);
 }
 
