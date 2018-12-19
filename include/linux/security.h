@@ -1186,6 +1186,8 @@ static inline int security_inode_getsecctx(struct inode *inode, void **ctx, u32 
 }
 #endif	/* CONFIG_SECURITY */
 
+int security_parse_options(char *options, struct security_mnt_opts *opts);
+
 #ifdef CONFIG_SECURITY_NETWORK
 
 int security_unix_stream_connect(struct sock *sock, struct sock *other, struct sock *newsk);

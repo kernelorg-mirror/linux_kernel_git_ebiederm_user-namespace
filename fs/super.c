@@ -1232,6 +1232,23 @@ struct dentry *mount_single(struct file_system_type *fs_type,
 }
 EXPORT_SYMBOL(mount_single);
 
+int security_parse_options(char *options, struct security_mnt_opts *opts)
+{
+	int ret = 0;
+
+	if (options) {
+		char *secdata = alloc_secdata();
+		if (!secdata)
+			return -ENOMEM;
+		ret = security_sb_copy_data(options, secdata);
+		if (!ret)
+			ret = security_sb_parse_opts_str(secdata, opts);
+		free_secdata(secdata);
+	}
+	return ret;
+}
+EXPORT_SYMBOL(security_parse_options);
+
 struct dentry *
 mount_fs(struct file_system_type *type, int flags, const char *name, void *data)
 {
@@ -1241,16 +1258,8 @@ mount_fs(struct file_system_type *type, int flags, const char *name, void *data)
 	int error = -ENOMEM;
 
 	security_init_mnt_opts(&lsm_opts);
-	if (data && !(type->fs_flags & FS_BINARY_MOUNTDATA)) {
-		char *secdata = alloc_secdata();
-		if (!secdata)
-			goto out;
-
-		error = security_sb_copy_data(data, secdata);
-		if (!error)
-			error = security_sb_parse_opts_str(secdata, &lsm_opts);
-
-		free_secdata(secdata);
+	if (!(type->fs_flags & FS_BINARY_MOUNTDATA)) {
+		error = security_parse_options(data, &lsm_opts);
 		if (error)
 			goto out;
 	}

@@ -1473,25 +1473,6 @@ out:
 	return root;
 }
 
-static int parse_security_options(char *orig_opts,
-				  struct security_mnt_opts *sec_opts)
-{
-	char *secdata = NULL;
-	int ret = 0;
-
-	secdata = alloc_secdata();
-	if (!secdata)
-		return -ENOMEM;
-	ret = security_sb_copy_data(orig_opts, secdata);
-	if (ret) {
-		free_secdata(secdata);
-		return ret;
-	}
-	ret = security_sb_parse_opts_str(secdata, sec_opts);
-	free_secdata(secdata);
-	return ret;
-}
-
 /*
  * Find a superblock for the given device / mount point.
  *
@@ -1514,11 +1495,9 @@ static struct dentry *btrfs_mount_root(struct file_system_type *fs_type,
 		mode |= FMODE_WRITE;
 
 	security_init_mnt_opts(&new_sec_opts);
-	if (data) {
-		error = parse_security_options(data, &new_sec_opts);
-		if (error)
-			return ERR_PTR(error);
-	}
+	error = security_parse_options(data, &new_sec_opts);
+	if (error)
+		return ERR_PTR(error);
 
 	/*
 	 * Setup a dummy root and fs_info for test/set super.  This is because
@@ -1728,7 +1707,7 @@ static int btrfs_remount(struct super_block *sb, int *flags, char *data)
 		struct security_mnt_opts new_sec_opts;
 
 		security_init_mnt_opts(&new_sec_opts);
-		ret = parse_security_options(data, &new_sec_opts);
+		ret = security_parse_options(data, &new_sec_opts);
 		if (ret)
 			goto restore;
 		ret = security_sb_set_mnt_opts(sb, &new_sec_opts);

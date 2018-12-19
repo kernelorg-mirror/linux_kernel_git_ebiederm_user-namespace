@@ -1356,7 +1356,7 @@ static int nfs_parse_mount_options(char *raw,
 				   struct nfs_parsed_mount_data *mnt,
 				   struct nfs_fh *mntfh)
 {
-	char *p, *string, *secdata;
+	char *p, *string;
 	int rc, sloppy = 0, invalid_option = 0;
 	unsigned short protofamily = AF_UNSPEC;
 	unsigned short mountfamily = AF_UNSPEC;
@@ -1367,19 +1367,9 @@ static int nfs_parse_mount_options(char *raw,
 	}
 	dfprintk(MOUNT, "NFS: nfs mount opts='%s'\n", raw);
 
-	secdata = alloc_secdata();
-	if (!secdata)
-		goto out_nomem;
-
-	rc = security_sb_copy_data(raw, secdata);
+	rc = security_parse_options(raw, &mnt->lsm_opts);
 	if (rc)
 		goto out_security_failure;
-
-	rc = security_sb_parse_opts_str(secdata, &mnt->lsm_opts);
-	if (rc)
-		goto out_security_failure;
-
-	free_secdata(secdata);
 
 	while ((p = strsep(&raw, ",")) != NULL) {
 		substring_t args[MAX_OPT_ARGS];
@@ -1859,7 +1849,6 @@ out_nomem:
 	printk(KERN_INFO "NFS: not enough memory to parse option\n");
 	return 0;
 out_security_failure:
-	free_secdata(secdata);
 	printk(KERN_INFO "NFS: security options invalid: %d\n", rc);
 	return 0;
 }
