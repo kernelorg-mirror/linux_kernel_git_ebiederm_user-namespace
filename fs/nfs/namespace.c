@@ -182,16 +182,6 @@ const struct inode_operations nfs_referral_inode_operations = {
 	.setattr	= nfs_namespace_setattr,
 };
 
-/*
- * Clone a mountpoint of the appropriate type
- */
-static struct dentry *nfs_do_clone_mount(struct nfs_server *server,
-					   const char *devname,
-					   struct nfs_clone_mount *mountdata)
-{
-	return vfs_submount(mountdata->dentry, &nfs_xdev_fs_type, devname, mountdata);
-}
-
 /**
  * nfs_do_submount - set up mountpoint when crossing a filesystem boundary
  * @dentry - parent directory
@@ -221,7 +211,7 @@ struct dentry *nfs_do_submount(struct dentry *dentry, struct nfs_fh *fh,
 	if (IS_ERR(devname))
 		root = ERR_CAST(devname);
 	else
-		root = nfs_do_clone_mount(NFS_SB(dentry->d_sb), devname, &mountdata);
+		root = nfs_xdev_mount(devname, &mountdata);
 
 	free_page((unsigned long)page);
 	return root;

@@ -402,11 +402,11 @@ extern int nfs_wait_atomic_killable(atomic_t *p, unsigned int mode);
 /* super.c */
 extern const struct super_operations nfs_sops;
 extern struct file_system_type nfs_fs_type;
-extern struct file_system_type nfs_xdev_fs_type;
+struct dentry *nfs_xdev_mount(const char *dev_name, struct nfs_clone_mount *data);
 #if IS_ENABLED(CONFIG_NFS_V4)
-extern struct file_system_type nfs4_xdev_fs_type;
-extern struct file_system_type nfs4_referral_fs_type;
+struct dentry *nfs4_referral_mount(const char *dev_name, struct nfs_clone_mount *data);
 #endif
+
 bool nfs_auth_info_match(const struct nfs_auth_info *, rpc_authflavor_t);
 struct dentry *nfs_try_mount(int, const char *, struct nfs_mount_info *,
 			struct nfs_subversion *);

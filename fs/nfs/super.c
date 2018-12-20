@@ -272,8 +272,6 @@ static const struct match_table nfs_vers_tokens[] = {
 	{ }
 };
 
-static struct dentry *nfs_xdev_mount(struct file_system_type *fs_type,
-		int flags, const char *dev_name, void *raw_data);
 static const char *nfs23_text_options(const char *name, void *opt, size_t size);
 
 struct file_system_type nfs_fs_type = {
@@ -286,14 +284,6 @@ struct file_system_type nfs_fs_type = {
 };
 MODULE_ALIAS_FS("nfs");
 EXPORT_SYMBOL_GPL(nfs_fs_type);
-
-struct file_system_type nfs_xdev_fs_type = {
-	.owner		= THIS_MODULE,
-	.name		= "nfs",
-	.mount		= nfs_xdev_mount,
-	.kill_sb	= nfs_kill_super,
-	.fs_flags	= FS_RENAME_DOES_D_MOVE|FS_BINARY_MOUNTDATA,
-};
 
 const struct super_operations nfs_sops = {
 	.alloc_inode	= nfs_alloc_inode,
@@ -2678,11 +2668,8 @@ EXPORT_SYMBOL_GPL(nfs_kill_super);
 /*
  * Clone an NFS2/3/4 server record on xdev traversal (FSID-change)
  */
-static struct dentry *
-nfs_xdev_mount(struct file_system_type *fs_type, int flags,
-		const char *dev_name, void *raw_data)
+struct dentry *nfs_xdev_mount(const char *dev_name, struct nfs_clone_mount *data)
 {
-	struct nfs_clone_mount *data = raw_data;
 	struct nfs_mount_info mount_info = {
 		.fill_super = nfs_clone_super,
 		.set_security = nfs_clone_sb_security,
@@ -2702,8 +2689,9 @@ nfs_xdev_mount(struct file_system_type *fs_type, int flags,
 	if (IS_ERR(server))
 		mntroot = ERR_CAST(server);
 	else
-		mntroot = nfs_fs_mount_common(server, flags,
+		mntroot = nfs_fs_mount_common(server, SB_SUBMOUNT,
 				dev_name, &mount_info, nfs_mod);
+	mntroot = finish_subsuper(data->sb, mntroot);
 
 	dprintk("<-- nfs_xdev_mount() = %ld\n",
 			IS_ERR(mntroot) ? PTR_ERR(mntroot) : 0L);

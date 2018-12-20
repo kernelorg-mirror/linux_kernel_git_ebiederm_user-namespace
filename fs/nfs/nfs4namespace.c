@@ -278,7 +278,7 @@ static struct dentry *try_location(struct nfs_clone_mount *mountdata,
 				mountdata->hostname,
 				mountdata->mnt_path);
 
-		root = vfs_submount(mountdata->dentry, &nfs4_referral_fs_type, page, mountdata);
+		root = nfs4_referral_mount(page, mountdata);
 		if (!IS_ERR(root))
 			break;
 	}
