@@ -1476,24 +1476,6 @@ static int parse_security_options(char *orig_opts,
 	return ret;
 }
 
-static int setup_security_options(struct btrfs_fs_info *fs_info,
-				  struct super_block *sb,
-				  struct security_mnt_opts *sec_opts)
-{
-	int ret = 0;
-
-	/*
-	 * Call security_sb_set_mnt_opts() to check whether new sec_opts
-	 * is valid.
-	 */
-	ret = security_sb_set_mnt_opts(sb, sec_opts);
-	if (ret)
-		return ret;
-
-	security_free_mnt_opts(sec_opts);
-	return ret;
-}
-
 /*
  * Find a superblock for the given device / mount point.
  *
@@ -1593,13 +1575,12 @@ static struct dentry *btrfs_mount_root(struct file_system_type *fs_type,
 		goto error_sec_opts;
 	}
 
-	fs_info = btrfs_sb(s);
-	error = setup_security_options(fs_info, s, &new_sec_opts);
+	error = security_sb_set_mnt_opts(s, &new_sec_opts);
 	if (error) {
 		deactivate_locked_super(s);
 		goto error_sec_opts;
 	}
-
+	security_free_mnt_opts(&new_sec_opts);
 	return dget(s->s_root);
 
 error_close_devices:
@@ -1751,12 +1732,10 @@ static int btrfs_remount(struct super_block *sb, int *flags, char *data)
 		ret = parse_security_options(data, &new_sec_opts);
 		if (ret)
 			goto restore;
-		ret = setup_security_options(fs_info, sb,
-					     &new_sec_opts);
-		if (ret) {
-			security_free_mnt_opts(&new_sec_opts);
+		ret = security_sb_set_mnt_opts(sb, &new_sec_opts);
+		security_free_mnt_opts(&new_sec_opts);
+		if (ret)
 			goto restore;
-		}
 	}
 
 	ret = btrfs_parse_options(fs_info, data, *flags);
