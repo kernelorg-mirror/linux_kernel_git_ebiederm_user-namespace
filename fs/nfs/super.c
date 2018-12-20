@@ -2554,9 +2554,6 @@ int nfs_clone_sb_security(struct super_block *s, struct dentry *mntroot,
 	unsigned long kflags = 0, kflags_out = 0;
 
 	/* clone any lsm security options from the parent to the new sb */
-	if (d_inode(mntroot)->i_op != NFS_SB(s)->nfs_client->rpc_ops->dir_inode_ops)
-		return -ESTALE;
-
 	if (NFS_SB(s)->caps & NFS_CAP_SECURITY_LABEL)
 		kflags |= SECURITY_LSM_NATIVE_LABELS;
 
@@ -2631,6 +2628,11 @@ struct dentry *nfs_fs_mount_common(struct nfs_server *server,
 	mntroot = nfs_get_root(s, mount_info->mntfh, dev_name);
 	if (IS_ERR(mntroot))
 		goto error_splat_super;
+
+	error = -ESTALE;
+	if (mount_info->cloned &&
+	    (d_inode(mntroot)->i_op != server->nfs_client->rpc_ops->dir_inode_ops))
+		goto error_splat_root;
 
 	error = mount_info->set_security(s, mntroot, mount_info);
 	if (error)
