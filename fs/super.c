@@ -1274,6 +1274,27 @@ void finish_super(struct super_block *sb)
 }
 EXPORT_SYMBOL(finish_super);
 
+struct dentry *finish_subsuper(const struct super_block *old_sb,
+			       struct dentry *root)
+{
+	struct super_block *sb;
+	int error;
+
+	if (IS_ERR(root))
+		return root;
+
+	sb = root->d_sb;
+	error = security_sb_set_mnt_opts(sb, empty_optv);
+	if (error) {
+		dput(root);
+		deactivate_locked_super(sb);
+		return ERR_PTR(error);
+	}
+	finish_super(sb);
+	return root;
+}
+EXPORT_SYMBOL(finish_subsuper);
+
 struct dentry *
 mount_fs(struct file_system_type *type, int flags, const char *name, void *data)
 {

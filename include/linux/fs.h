@@ -2215,6 +2215,8 @@ extern struct dentry *mount_nodev(struct file_system_type *fs_type,
 	int flags, void *data,
 	int (*fill_super)(struct super_block *, void *, int));
 void finish_super(struct super_block *sb);
+struct dentry *finish_subsuper(const struct super_block *old_sb,
+			       struct dentry *root);
 struct dentry *mount_subtree(struct dentry *root, const char *path);
 void generic_shutdown_super(struct super_block *sb);
 #ifdef CONFIG_BLOCK
