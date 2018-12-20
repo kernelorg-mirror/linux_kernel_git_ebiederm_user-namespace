@@ -715,9 +715,7 @@ static int bad_option(struct superblock_security_struct *sbsec, char flag,
  * labeling information.
  */
 static int selinux_set_mnt_opts(struct super_block *sb,
-				struct security_mnt_opts *opts,
-				unsigned long kern_flags,
-				unsigned long *set_kern_flags)
+				struct security_mnt_opts *opts)
 {
 	const struct cred *cred = current_cred();
 	int rc = 0, i;
@@ -743,12 +741,6 @@ static int selinux_set_mnt_opts(struct super_block *sb,
 		rc = -EINVAL;
 		pr_warn("SELinux: Unable to set superblock options "
 			"before the security server is initialized\n");
-		goto out;
-	}
-	if (kern_flags && !set_kern_flags) {
-		/* Specifying internal flags without providing a place to
-		 * place the results is not allowed */
-		rc = -EINVAL;
 		goto out;
 	}
 
@@ -1005,9 +997,7 @@ mismatch:
 }
 
 static int selinux_sb_clone_mnt_opts(const struct super_block *oldsb,
-					struct super_block *newsb,
-					unsigned long kern_flags,
-					unsigned long *set_kern_flags)
+					struct super_block *newsb)
 {
 	int rc = 0;
 	const struct superblock_security_struct *oldsbsec = oldsb->s_security;
@@ -1023,13 +1013,6 @@ static int selinux_sb_clone_mnt_opts(const struct super_block *oldsb,
 	 */
 	if (!selinux_state.initialized)
 		return 0;
-
-	/*
-	 * Specifying internal flags without providing a place to
-	 * place the results is not allowed.
-	 */
-	if (kern_flags && !set_kern_flags)
-		return -EINVAL;
 
 	/* how can we clone if the old one wasn't set up?? */
 	BUG_ON(!(oldsbsec->flags & SE_SBINITIALIZED));
@@ -1225,7 +1208,7 @@ static int superblock_doinit(struct super_block *sb, void *data)
 		goto out_err;
 
 out:
-	rc = selinux_set_mnt_opts(sb, &opts, 0, NULL);
+	rc = selinux_set_mnt_opts(sb, &opts);
 
 out_err:
 	security_free_mnt_opts(&opts);

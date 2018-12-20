@@ -742,8 +742,6 @@ out_err:
  * smack_set_mnt_opts - set Smack specific mount options
  * @sb: the file system superblock
  * @opts: Smack mount options
- * @kern_flags: mount option from kernel space or user space
- * @set_kern_flags: where to store converted mount opts
  *
  * Returns 0 on success, an error code on failure
  *
@@ -751,9 +749,7 @@ out_err:
  * labels.
  */
 static int smack_set_mnt_opts(struct super_block *sb,
-		struct security_mnt_opts *opts,
-		unsigned long kern_flags,
-		unsigned long *set_kern_flags)
+		struct security_mnt_opts *opts)
 {
 	struct dentry *root = sb->s_root;
 	struct inode *inode = d_backing_inode(root);
@@ -874,7 +870,7 @@ static int smack_sb_kern_mount(struct super_block *sb, int flags, void *data)
 		goto out_err;
 
 out:
-	rc = smack_set_mnt_opts(sb, &opts, 0, NULL);
+	rc = smack_set_mnt_opts(sb, &opts);
 
 out_err:
 	security_free_mnt_opts(&opts);

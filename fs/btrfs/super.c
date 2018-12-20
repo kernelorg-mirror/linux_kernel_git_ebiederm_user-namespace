@@ -1486,7 +1486,7 @@ static int setup_security_options(struct btrfs_fs_info *fs_info,
 	 * Call security_sb_set_mnt_opts() to check whether new sec_opts
 	 * is valid.
 	 */
-	ret = security_sb_set_mnt_opts(sb, sec_opts, 0, NULL);
+	ret = security_sb_set_mnt_opts(sb, sec_opts);
 	if (ret)
 		return ret;
 

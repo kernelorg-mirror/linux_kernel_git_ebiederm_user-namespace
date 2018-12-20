@@ -2531,7 +2531,7 @@ static void nfs_get_cache_cookie(struct super_block *sb,
 int nfs_set_sb_security(struct super_block *s, struct dentry *mntroot,
 			struct nfs_mount_info *mount_info)
 {
-	return security_sb_set_mnt_opts(s, &mount_info->parsed->lsm_opts, 0, NULL);
+	return security_sb_set_mnt_opts(s, &mount_info->parsed->lsm_opts);
 }
 EXPORT_SYMBOL_GPL(nfs_set_sb_security);
 
@@ -2539,7 +2539,7 @@ int nfs_clone_sb_security(struct super_block *s, struct dentry *mntroot,
 			  struct nfs_mount_info *mount_info)
 {
 	/* clone any lsm security options from the parent to the new sb */
-	return security_sb_clone_mnt_opts(mount_info->cloned->sb, s, 0, NULL);
+	return security_sb_clone_mnt_opts(mount_info->cloned->sb, s);
 }
 EXPORT_SYMBOL_GPL(nfs_clone_sb_security);
 

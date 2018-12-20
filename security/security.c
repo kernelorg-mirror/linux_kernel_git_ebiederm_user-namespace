@@ -427,23 +427,17 @@ int security_sb_pivotroot(const struct path *old_path, const struct path *new_pa
 }
 
 int security_sb_set_mnt_opts(struct super_block *sb,
-				struct security_mnt_opts *opts,
-				unsigned long kern_flags,
-				unsigned long *set_kern_flags)
+				struct security_mnt_opts *opts)
 {
 	return call_int_hook(sb_set_mnt_opts,
-				opts->num_mnt_opts ? -EOPNOTSUPP : 0, sb,
-				opts, kern_flags, set_kern_flags);
+				opts->num_mnt_opts ? -EOPNOTSUPP : 0, sb, opts);
 }
 EXPORT_SYMBOL(security_sb_set_mnt_opts);
 
 int security_sb_clone_mnt_opts(const struct super_block *oldsb,
-				struct super_block *newsb,
-				unsigned long kern_flags,
-				unsigned long *set_kern_flags)
+				struct super_block *newsb)
 {
-	return call_int_hook(sb_clone_mnt_opts, 0, oldsb, newsb,
-				kern_flags, set_kern_flags);
+	return call_int_hook(sb_clone_mnt_opts, 0, oldsb, newsb);
 }
 EXPORT_SYMBOL(security_sb_clone_mnt_opts);
 
