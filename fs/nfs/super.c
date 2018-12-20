@@ -2514,14 +2514,6 @@ int nfs_set_sb_security(struct super_block *s, struct dentry *mntroot,
 }
 EXPORT_SYMBOL_GPL(nfs_set_sb_security);
 
-int nfs_clone_sb_security(struct super_block *s, struct dentry *mntroot,
-			  struct nfs_mount_info *mount_info)
-{
-	/* clone any lsm security options from the parent to the new sb */
-	return security_sb_clone_mnt_opts(mount_info->cloned->sb, s);
-}
-EXPORT_SYMBOL_GPL(nfs_clone_sb_security);
-
 struct dentry *nfs_fs_mount_common(struct nfs_server *server,
 				   int flags, const char *dev_name,
 				   struct nfs_mount_info *mount_info,
@@ -2673,7 +2665,6 @@ struct dentry *nfs_xdev_mount(const char *dev_name, struct nfs_clone_mount *data
 {
 	struct nfs_mount_info mount_info = {
 		.fill_super = nfs_clone_super,
-		.set_security = nfs_clone_sb_security,
 		.cloned = data,
 	};
 	struct nfs_server *server;

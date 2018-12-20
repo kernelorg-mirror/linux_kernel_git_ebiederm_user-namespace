@@ -267,7 +267,6 @@ nfs4_remote_referral_mount(int flags, const char *dev_name,
 {
 	struct nfs_mount_info mount_info = {
 		.fill_super = nfs_fill_super,
-		.set_security = nfs_clone_sb_security,
 		.cloned = cloned,
 	};
 	struct nfs_server *server;

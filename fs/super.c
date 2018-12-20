@@ -1257,7 +1257,7 @@ struct dentry *finish_subsuper(const struct super_block *old_sb,
 		return root;
 
 	sb = root->d_sb;
-	error = security_sb_set_mnt_opts(sb, empty_optv);
+	error = security_sb_clone_mnt_opts(old_sb, sb);
 	if (error) {
 		dput(root);
 		deactivate_locked_super(sb);
