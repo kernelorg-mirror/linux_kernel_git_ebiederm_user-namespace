@@ -568,214 +568,36 @@ static void smack_sb_free_security(struct super_block *sb)
 }
 
 /**
- * smack_sb_copy_data - copy mount options data for processing
- * @orig: where to start
- * @smackopts: mount options string
- *
- * Returns 0 on success or -ENOMEM on error.
- *
- * Copy the Smack specific mount options out of the mount
- * options list.
- */
-static int smack_sb_copy_data(char *orig, char *smackopts)
-{
-	char *cp, *commap, *otheropts, *dp;
-
-	otheropts = (char *)get_zeroed_page(GFP_KERNEL);
-	if (otheropts == NULL)
-		return -ENOMEM;
-
-	for (cp = orig, commap = orig; commap != NULL; cp = commap + 1) {
-		if (strstr(cp, SMK_FSDEFAULT) == cp)
-			dp = smackopts;
-		else if (strstr(cp, SMK_FSFLOOR) == cp)
-			dp = smackopts;
-		else if (strstr(cp, SMK_FSHAT) == cp)
-			dp = smackopts;
-		else if (strstr(cp, SMK_FSROOT) == cp)
-			dp = smackopts;
-		else if (strstr(cp, SMK_FSTRANS) == cp)
-			dp = smackopts;
-		else
-			dp = otheropts;
-
-		commap = strchr(cp, ',');
-		if (commap != NULL)
-			*commap = '\0';
-
-		if (*dp != '\0')
-			strcat(dp, ",");
-		strcat(dp, cp);
-	}
-
-	strcpy(orig, otheropts);
-	free_page((unsigned long)otheropts);
-
-	return 0;
-}
-
-/**
- * smack_parse_opts_str - parse Smack specific mount options
- * @options: mount options string
- * @opts: where to store converted mount opts
- *
- * Returns 0 on success or -ENOMEM on error.
- *
- * converts Smack specific mount options to generic security option format
- */
-static int smack_parse_opts_str(char *options,
-		struct security_mnt_opts *opts)
-{
-	char *p;
-	char *fsdefault = NULL;
-	char *fsfloor = NULL;
-	char *fshat = NULL;
-	char *fsroot = NULL;
-	char *fstransmute = NULL;
-	int rc = -ENOMEM;
-	int num_mnt_opts = 0;
-	int token;
-
-	opts->num_mnt_opts = 0;
-
-	if (!options)
-		return 0;
-
-	while ((p = strsep(&options, ",")) != NULL) {
-		substring_t args[MAX_OPT_ARGS];
-
-		if (!*p)
-			continue;
-
-		token = match_token(p, smk_mount_tokens, args);
-
-		switch (token) {
-		case Opt_fsdefault:
-			if (fsdefault)
-				goto out_opt_err;
-			fsdefault = match_strdup(&args[0]);
-			if (!fsdefault)
-				goto out_err;
-			break;
-		case Opt_fsfloor:
-			if (fsfloor)
-				goto out_opt_err;
-			fsfloor = match_strdup(&args[0]);
-			if (!fsfloor)
-				goto out_err;
-			break;
-		case Opt_fshat:
-			if (fshat)
-				goto out_opt_err;
-			fshat = match_strdup(&args[0]);
-			if (!fshat)
-				goto out_err;
-			break;
-		case Opt_fsroot:
-			if (fsroot)
-				goto out_opt_err;
-			fsroot = match_strdup(&args[0]);
-			if (!fsroot)
-				goto out_err;
-			break;
-		case Opt_fstransmute:
-			if (fstransmute)
-				goto out_opt_err;
-			fstransmute = match_strdup(&args[0]);
-			if (!fstransmute)
-				goto out_err;
-			break;
-		default:
-			rc = -EINVAL;
-			pr_warn("Smack:  unknown mount option\n");
-			goto out_err;
-		}
-	}
-
-	opts->mnt_opts = kcalloc(NUM_SMK_MNT_OPTS, sizeof(char *), GFP_KERNEL);
-	if (!opts->mnt_opts)
-		goto out_err;
-
-	opts->mnt_opts_flags = kcalloc(NUM_SMK_MNT_OPTS, sizeof(int),
-			GFP_KERNEL);
-	if (!opts->mnt_opts_flags)
-		goto out_err;
-
-	if (fsdefault) {
-		opts->mnt_opts[num_mnt_opts] = fsdefault;
-		opts->mnt_opts_flags[num_mnt_opts++] = FSDEFAULT_MNT;
-	}
-	if (fsfloor) {
-		opts->mnt_opts[num_mnt_opts] = fsfloor;
-		opts->mnt_opts_flags[num_mnt_opts++] = FSFLOOR_MNT;
-	}
-	if (fshat) {
-		opts->mnt_opts[num_mnt_opts] = fshat;
-		opts->mnt_opts_flags[num_mnt_opts++] = FSHAT_MNT;
-	}
-	if (fsroot) {
-		opts->mnt_opts[num_mnt_opts] = fsroot;
-		opts->mnt_opts_flags[num_mnt_opts++] = FSROOT_MNT;
-	}
-	if (fstransmute) {
-		opts->mnt_opts[num_mnt_opts] = fstransmute;
-		opts->mnt_opts_flags[num_mnt_opts++] = FSTRANS_MNT;
-	}
-
-	opts->num_mnt_opts = num_mnt_opts;
-	return 0;
-
-out_opt_err:
-	rc = -EINVAL;
-	pr_warn("Smack: duplicate mount options\n");
-
-out_err:
-	kfree(fsdefault);
-	kfree(fsfloor);
-	kfree(fshat);
-	kfree(fsroot);
-	kfree(fstransmute);
-	return rc;
-}
-
-/**
  * smack_set_mnt_opts - set Smack specific mount options
  * @sb: the file system superblock
  * @opts: Smack mount options
  *
  * Returns 0 on success, an error code on failure
  *
- * Allow filesystems with binary mount data to explicitly set Smack mount
- * labels.
+ * Allow setting Smack mount labels.
  */
-static int smack_set_mnt_opts(struct super_block *sb,
-		struct security_mnt_opts *opts)
+static int smack_set_mnt_opts(struct super_block *sb, const char *optv[])
 {
 	struct dentry *root = sb->s_root;
 	struct inode *inode = d_backing_inode(root);
 	struct superblock_smack *sp = sb->s_security;
 	struct inode_smack *isp;
 	struct smack_known *skp;
-	int i;
-	int num_opts = opts->num_mnt_opts;
 	int transmute = 0;
+	const char **opt;
 	int seen = 0;
 
 	/* Verify mount options are known and appear at most once */
-	for (i = 0; i < num_opts; i++) {
-		int flag = opts->mnt_opts_flags[i];
+	for (opt = optv; *opt; opt++) {
+		substring_t args[MAX_OPT_ARGS];
+		int token;
+		int flag;
 
-		switch(flag) {
-		case FSDEFAULT_MNT:
-		case FSFLOOR_MNT:
-		case FSHAT_MNT:
-		case FSROOT_MNT:
-		case FSTRANS_MNT:
-			break;
-		default:
+		token = match_token(*opt, smk_mount_tokens, args);
+		if (token == MATCH_FAILURE)
 			goto unknown_mount_opt;
-		}
 
+		flag = 1 << token;
 		if (seen & flag)
 			goto dup_mount_opt;
 		seen |= flag;
@@ -788,7 +610,7 @@ static int smack_set_mnt_opts(struct super_block *sb,
 		/*
 		 * Unprivileged mounts don't get to specify Smack values.
 		 */
-		if (num_opts)
+		if (optv[0])
 			return -EPERM;
 		/*
 		 * Unprivileged mounts get root and default from the caller.
@@ -811,40 +633,42 @@ static int smack_set_mnt_opts(struct super_block *sb,
 
 	sp->smk_flags |= SMK_SB_INITIALIZED;
 
-	for (i = 0; i < num_opts; i++) {
-		switch (opts->mnt_opts_flags[i]) {
-		case FSDEFAULT_MNT:
-			skp = smk_import_entry(opts->mnt_opts[i], 0);
+	for (opt = optv; *opt; opt++) {
+		substring_t args[MAX_OPT_ARGS];
+		int token;
+
+		token = match_token(*opt, smk_mount_tokens, args);
+		switch (token) {
+		case Opt_fsdefault:
+			skp = smk_import_entry(args[0].from, 0);
 			if (IS_ERR(skp))
 				return PTR_ERR(skp);
 			sp->smk_default = skp;
 			break;
-		case FSFLOOR_MNT:
-			skp = smk_import_entry(opts->mnt_opts[i], 0);
+		case Opt_fsfloor:
+			skp = smk_import_entry(args[0].from, 0);
 			if (IS_ERR(skp))
 				return PTR_ERR(skp);
 			sp->smk_floor = skp;
 			break;
-		case FSHAT_MNT:
-			skp = smk_import_entry(opts->mnt_opts[i], 0);
+		case Opt_fshat:
+			skp = smk_import_entry(args[0].from, 0);
 			if (IS_ERR(skp))
 				return PTR_ERR(skp);
 			sp->smk_hat = skp;
 			break;
-		case FSROOT_MNT:
-			skp = smk_import_entry(opts->mnt_opts[i], 0);
+		case Opt_fsroot:
+			skp = smk_import_entry(args[0].from, 0);
 			if (IS_ERR(skp))
 				return PTR_ERR(skp);
 			sp->smk_root = skp;
 			break;
-		case FSTRANS_MNT:
-			skp = smk_import_entry(opts->mnt_opts[i], 0);
+		case Opt_fstransmute:
+			skp = smk_import_entry(args[0].from, 0);
 			if (IS_ERR(skp))
 				return PTR_ERR(skp);
 			sp->smk_root = skp;
 			transmute = 1;
-			break;
-		default:
 			break;
 		}
 	}
@@ -4660,10 +4484,8 @@ static struct security_hook_list smack_hooks[] __lsm_ro_after_init = {
 
 	LSM_HOOK_INIT(sb_alloc_security, smack_sb_alloc_security),
 	LSM_HOOK_INIT(sb_free_security, smack_sb_free_security),
-	LSM_HOOK_INIT(sb_copy_data, smack_sb_copy_data),
 	LSM_HOOK_INIT(sb_statfs, smack_sb_statfs),
 	LSM_HOOK_INIT(sb_set_mnt_opts, smack_set_mnt_opts),
-	LSM_HOOK_INIT(sb_parse_opts_str, smack_parse_opts_str),
 
 	LSM_HOOK_INIT(bprm_set_creds, smack_bprm_set_creds),
 

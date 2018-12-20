@@ -11,6 +11,25 @@ const struct match_table no_tokens[] = {
 	{ }
 };
 
+enum {
+	selinux = 1,
+	smack = 2,
+};
+const struct match_table security_tokens[] = {
+	{ selinux, "context=%s" },
+	{ selinux, "fscontext=%s" },
+	{ selinux, "rootcontext=%s" },
+	{ selinux, "defcontext=%s" },
+	{ selinux, "seclabel" },
+	{ smack,   "smackfsdef=%s" },
+	{ smack,   "smackfsfloor=%s" },
+	{ smack,   "smackfshat=%s" },
+	{ smack,   "smackfsroot=%s" },
+	{ smack,   "smackfstransmute=%s" },
+	{ }
+};
+EXPORT_SYMBOL(security_tokens);
+
 static char *parse_mnt_opt(char *opt, char *end)
 {
 	char *p, *equal = NULL;

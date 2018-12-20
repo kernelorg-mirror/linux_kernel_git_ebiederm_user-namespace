@@ -35,6 +35,8 @@
 #include <linux/fsnotify.h>
 #include <linux/lockdep.h>
 #include <linux/user_namespace.h>
+#include <linux/parser.h>
+#include <linux/fsoptions.h>
 #include "internal.h"
 
 static int thaw_super_locked(struct super_block *sb);
@@ -1232,32 +1234,40 @@ struct dentry *mount_single(struct file_system_type *fs_type,
 }
 EXPORT_SYMBOL(mount_single);
 
-int security_parse_options(char *options, struct security_mnt_opts *opts)
+int security_parse_options(char *options, const char ***opts)
 {
-	int ret = 0;
+	const char **secv = NULL, **optv = NULL;
+	char *noptions;
+	int ret;
 
-	if (options) {
-		char *secdata = alloc_secdata();
-		if (!secdata)
-			return -ENOMEM;
-		ret = security_sb_copy_data(options, secdata);
-		if (!ret)
-			ret = security_sb_parse_opts_str(secdata, opts);
-		free_secdata(secdata);
+	ret = split_options(options, security_tokens, NULL, &secv, NULL, &optv);
+	if (ret)
+		return ret;
+
+	noptions = join_options(optv);
+	if (!noptions) {
+		kfree(secv);
+		kfree(optv);
+		return -ENOMEM;
 	}
-	return ret;
+
+	if (options)
+		strcpy(options, noptions);
+	kfree(noptions);
+	kfree(optv);
+	*opts = secv;
+	return 0;
 }
 EXPORT_SYMBOL(security_parse_options);
 
 struct dentry *
 mount_fs(struct file_system_type *type, int flags, const char *name, void *data)
 {
-	struct security_mnt_opts lsm_opts;
+	const char **lsm_opts = NULL;
 	struct dentry *root;
 	struct super_block *sb;
 	int error = -ENOMEM;
 
-	security_init_mnt_opts(&lsm_opts);
 	if (!(type->fs_flags & FS_BINARY_MOUNTDATA)) {
 		error = security_parse_options(data, &lsm_opts);
 		if (error)
@@ -1282,18 +1292,18 @@ mount_fs(struct file_system_type *type, int flags, const char *name, void *data)
 	smp_wmb();
 	sb->s_flags |= SB_BORN;
 
-	error = security_sb_set_mnt_opts(sb, &lsm_opts);
+	error = security_sb_set_mnt_opts(sb, lsm_opts);
 	if (error)
 		goto out_sb;
 
 	up_write(&sb->s_umount);
-	security_free_mnt_opts(&lsm_opts);
+	kfree(lsm_opts);
 	return root;
 out_sb:
 	dput(root);
 	deactivate_locked_super(sb);
 out:
-	security_free_mnt_opts(&lsm_opts);
+	kfree(lsm_opts);
 	return ERR_PTR(error);
 }
 

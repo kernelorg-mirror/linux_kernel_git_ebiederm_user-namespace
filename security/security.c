@@ -384,15 +384,9 @@ void security_sb_free(struct super_block *sb)
 	call_void_hook(sb_free_security, sb);
 }
 
-int security_sb_copy_data(char *orig, char *copy)
+int security_sb_remount(struct super_block *sb, const char *optv[])
 {
-	return call_int_hook(sb_copy_data, 0, orig, copy);
-}
-EXPORT_SYMBOL(security_sb_copy_data);
-
-int security_sb_remount(struct super_block *sb, struct security_mnt_opts *opts)
-{
-	return call_int_hook(sb_remount, 0, sb, opts);
+	return call_int_hook(sb_remount, 0, sb, optv);
 }
 
 int security_sb_may_mount(struct super_block *sb)
@@ -426,11 +420,10 @@ int security_sb_pivotroot(const struct path *old_path, const struct path *new_pa
 	return call_int_hook(sb_pivotroot, 0, old_path, new_path);
 }
 
-int security_sb_set_mnt_opts(struct super_block *sb,
-				struct security_mnt_opts *opts)
+int security_sb_set_mnt_opts(struct super_block *sb, const char *optv[])
 {
 	return call_int_hook(sb_set_mnt_opts,
-				opts->num_mnt_opts ? -EOPNOTSUPP : 0, sb, opts);
+				optv[0] ? -EOPNOTSUPP : 0, sb, optv);
 }
 EXPORT_SYMBOL(security_sb_set_mnt_opts);
 
@@ -440,12 +433,6 @@ int security_sb_clone_mnt_opts(const struct super_block *oldsb,
 	return call_int_hook(sb_clone_mnt_opts, 0, oldsb, newsb);
 }
 EXPORT_SYMBOL(security_sb_clone_mnt_opts);
-
-int security_sb_parse_opts_str(char *options, struct security_mnt_opts *opts)
-{
-	return call_int_hook(sb_parse_opts_str, 0, options, opts);
-}
-EXPORT_SYMBOL(security_sb_parse_opts_str);
 
 int security_inode_alloc(struct inode *inode)
 {

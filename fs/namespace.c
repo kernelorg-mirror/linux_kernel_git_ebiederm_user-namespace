@@ -26,6 +26,8 @@
 #include <linux/memblock.h>
 #include <linux/task_work.h>
 #include <linux/sched/task.h>
+#include <linux/parser.h>
+#include <linux/fsoptions.h>
 
 #include "pnode.h"
 #include "internal.h"
@@ -2310,7 +2312,7 @@ static int do_remount(struct path *path, int sb_flags,
 	int err;
 	struct super_block *sb = path->mnt->mnt_sb;
 	struct mount *mnt = real_mount(path->mnt);
-	struct security_mnt_opts lsm_opts;
+	const char **lsm_opts = NULL;
 
 	if (!check_mnt(mnt))
 		return -EINVAL;
@@ -2321,13 +2323,12 @@ static int do_remount(struct path *path, int sb_flags,
 	if (!can_change_locked_flags(mnt, mnt_flags))
 		return -EPERM;
 
-	security_init_mnt_opts(&lsm_opts);
 	if (!(sb->s_type->fs_flags & FS_BINARY_MOUNTDATA)) {
 		err = security_parse_options(data, &lsm_opts);
 		if (err)
 			goto out_err;
 	}
-	err = security_sb_remount(sb, &lsm_opts);
+	err = security_sb_remount(sb, lsm_opts);
 	if (err)
 		goto out_err;
 
@@ -2340,7 +2341,7 @@ static int do_remount(struct path *path, int sb_flags,
 	}
 	up_write(&sb->s_umount);
 out_err:
-	security_free_mnt_opts(&lsm_opts);
+	kfree(lsm_opts);
 	return err;
 }
 

@@ -1056,7 +1056,7 @@ static struct nfs_parsed_mount_data *nfs_alloc_parsed_mount_data(void)
 		data->minorversion	= 0;
 		data->need_mount	= true;
 		data->net		= current->nsproxy->net_ns;
-		security_init_mnt_opts(&data->lsm_opts);
+		data->lsm_opts		= NULL;
 	}
 	return data;
 }
@@ -1069,7 +1069,7 @@ static void nfs_free_parsed_mount_data(struct nfs_parsed_mount_data *data)
 		kfree(data->nfs_server.export_path);
 		kfree(data->nfs_server.hostname);
 		kfree(data->fscache_uniq);
-		security_free_mnt_opts(&data->lsm_opts);
+		kfree(data->lsm_opts);
 		kfree(data);
 	}
 }
@@ -2520,7 +2520,7 @@ static void nfs_get_cache_cookie(struct super_block *sb,
 int nfs_set_sb_security(struct super_block *s, struct dentry *mntroot,
 			struct nfs_mount_info *mount_info)
 {
-	return security_sb_set_mnt_opts(s, &mount_info->parsed->lsm_opts);
+	return security_sb_set_mnt_opts(s, mount_info->parsed->lsm_opts);
 }
 EXPORT_SYMBOL_GPL(nfs_set_sb_security);
 

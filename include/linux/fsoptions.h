@@ -1,4 +1,5 @@
 extern const struct match_table no_tokens[];
+extern const struct match_table security_tokens[];
 
 extern int split_options(char *options,
 			 const struct match_table *mtable,
