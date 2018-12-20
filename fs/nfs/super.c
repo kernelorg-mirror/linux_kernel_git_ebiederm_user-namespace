@@ -2532,7 +2532,7 @@ int nfs_set_sb_security(struct super_block *s, struct dentry *mntroot,
 	int error;
 	unsigned long kflags = 0, kflags_out = 0;
 	if (NFS_SB(s)->caps & NFS_CAP_SECURITY_LABEL)
-		kflags |= SECURITY_LSM_NATIVE_LABELS;
+		s->s_iflags |= SB_I_NATIVE_SECURITY_LABELS;
 
 	error = security_sb_set_mnt_opts(s, &mount_info->parsed->lsm_opts,
 						kflags, &kflags_out);
@@ -2540,7 +2540,7 @@ int nfs_set_sb_security(struct super_block *s, struct dentry *mntroot,
 		goto err;
 
 	if (NFS_SB(s)->caps & NFS_CAP_SECURITY_LABEL &&
-		!(kflags_out & SECURITY_LSM_NATIVE_LABELS))
+		!(s->s_iflags & SB_I_NATIVE_SECURITY_LABELS))
 		NFS_SB(s)->caps &= ~NFS_CAP_SECURITY_LABEL;
 err:
 	return error;
@@ -2555,7 +2555,7 @@ int nfs_clone_sb_security(struct super_block *s, struct dentry *mntroot,
 
 	/* clone any lsm security options from the parent to the new sb */
 	if (NFS_SB(s)->caps & NFS_CAP_SECURITY_LABEL)
-		kflags |= SECURITY_LSM_NATIVE_LABELS;
+		s->s_iflags |= SB_I_NATIVE_SECURITY_LABELS;
 
 	error = security_sb_clone_mnt_opts(mount_info->cloned->sb, s, kflags,
 			&kflags_out);
@@ -2563,7 +2563,7 @@ int nfs_clone_sb_security(struct super_block *s, struct dentry *mntroot,
 		return error;
 
 	if (NFS_SB(s)->caps & NFS_CAP_SECURITY_LABEL &&
-		!(kflags_out & SECURITY_LSM_NATIVE_LABELS))
+		!(s->s_iflags & SB_I_NATIVE_SECURITY_LABELS))
 		NFS_SB(s)->caps &= ~NFS_CAP_SECURITY_LABEL;
 	return 0;
 }

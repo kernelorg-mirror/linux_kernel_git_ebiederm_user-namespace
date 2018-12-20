@@ -906,9 +906,11 @@ static int selinux_set_mnt_opts(struct super_block *sb,
 	 * sets the label used on all file below the mountpoint, and will set
 	 * the superblock context if not already set.
 	 */
-	if (kern_flags & SECURITY_LSM_NATIVE_LABELS && !context_sid) {
-		sbsec->behavior = SECURITY_FS_USE_NATIVE;
-		*set_kern_flags |= SECURITY_LSM_NATIVE_LABELS;
+	if (sb->s_iflags & SB_I_NATIVE_SECURITY_LABELS) {
+		if (!context_sid)
+			sbsec->behavior = SECURITY_FS_USE_NATIVE;
+		else
+			sb->s_iflags &= ~SB_I_NATIVE_SECURITY_LABELS;
 	}
 
 	if (context_sid) {
@@ -1045,15 +1047,17 @@ static int selinux_sb_clone_mnt_opts(const struct super_block *oldsb,
 	newsbsec->behavior = oldsbsec->behavior;
 
 	if (newsbsec->behavior == SECURITY_FS_USE_NATIVE &&
-		!(kern_flags & SECURITY_LSM_NATIVE_LABELS) && !set_context) {
+	    !(newsb->s_iflags & SB_I_NATIVE_SECURITY_LABELS) && !set_context) {
 		rc = security_fs_use(&selinux_state, newsb);
 		if (rc)
 			goto out;
 	}
 
-	if (kern_flags & SECURITY_LSM_NATIVE_LABELS && !set_context) {
-		newsbsec->behavior = SECURITY_FS_USE_NATIVE;
-		*set_kern_flags |= SECURITY_LSM_NATIVE_LABELS;
+	if (newsb->s_iflags & SB_I_NATIVE_SECURITY_LABELS) {
+		if (!set_context)
+			newsbsec->behavior = SECURITY_FS_USE_NATIVE;
+		else
+			newsb->s_iflags &= ~SB_I_NATIVE_SECURITY_LABELS;
 	}
 
 	if (set_context) {
