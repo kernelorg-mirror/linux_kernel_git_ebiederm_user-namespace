@@ -1283,6 +1283,10 @@ mount_fs(struct file_system_type *type, int flags, const char *name, void *data)
 	BUG_ON(!sb);
 	WARN_ON(!sb->s_bdi);
 
+	error = security_sb_set_mnt_opts(sb, lsm_opts);
+	if (error)
+		goto out_sb;
+
 	/*
 	 * Write barrier is for super_cache_count(). We place it before setting
 	 * SB_BORN as the data dependency between the two functions is the
@@ -1291,11 +1295,6 @@ mount_fs(struct file_system_type *type, int flags, const char *name, void *data)
 	 */
 	smp_wmb();
 	sb->s_flags |= SB_BORN;
-
-	error = security_sb_set_mnt_opts(sb, lsm_opts);
-	if (error)
-		goto out_sb;
-
 	up_write(&sb->s_umount);
 	kfree(lsm_opts);
 	return root;
