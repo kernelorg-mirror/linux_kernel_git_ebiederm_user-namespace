@@ -699,6 +699,31 @@ dup_mount_opt:
 }
 
 /**
+ * smack_clone_mnt_opts - copy Smack specific mount options
+ * @oldsb: the superblock of the parent filesystem
+ * @newsb: the superblock of the filesystem being mounted
+ *
+ * Returns 0 on success, an error code on failure
+ *
+ * Allow setting Smack mount labels.
+ */
+static int smack_clone_mnt_opts(const struct super_block *oldsb,
+				struct super_block *newsb)
+{
+	/*
+	 * This is a placeholder implementing historic behavior, and
+	 * smack should be able to do much better.
+	 *
+	 * This implementation is sufficient so that filesystem
+	 * submounts which have been calling security_sb_set_mnt_opts
+	 * by way of mount_fs and security_sb_kern_mount will continue
+	 * to get the same behavior when they switch to properly calling
+	 * security_sb_clone_mnt_opts.
+	 */
+	return smack_set_mnt_opts(newsb, empty_optv);
+}
+
+/**
  * smack_sb_statfs - Smack check on statfs
  * @dentry: identifies the file system in question
  *
@@ -4486,6 +4511,7 @@ static struct security_hook_list smack_hooks[] __lsm_ro_after_init = {
 	LSM_HOOK_INIT(sb_free_security, smack_sb_free_security),
 	LSM_HOOK_INIT(sb_statfs, smack_sb_statfs),
 	LSM_HOOK_INIT(sb_set_mnt_opts, smack_set_mnt_opts),
+	LSM_HOOK_INIT(sb_clone_mnt_opts, smack_clone_mnt_opts),
 
 	LSM_HOOK_INIT(bprm_set_creds, smack_bprm_set_creds),
 
