@@ -2909,15 +2909,10 @@ out_bad_option:
 	goto out_free_opts;
 }
 
-static int selinux_sb_kern_mount(struct super_block *sb, int flags, void *data)
+static int selinux_sb_kern_mount(struct super_block *sb, int flags)
 {
 	const struct cred *cred = current_cred();
 	struct common_audit_data ad;
-	int rc;
-
-	rc = superblock_doinit(sb, data);
-	if (rc)
-		return rc;
 
 	/* Allow all mounts performed by the kernel */
 	if (flags & MS_KERNMOUNT)
