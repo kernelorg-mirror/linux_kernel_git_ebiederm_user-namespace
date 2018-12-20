@@ -112,28 +112,6 @@ static char *nfs4_root_devname(const char *hostname)
 	return root_devname;
 }
 
-static struct dentry *nfs_do_root_mount(struct file_system_type *fs_type,
-               int flags, void *data, const char *hostname)
-
-{
-	struct vfsmount *root_mnt;
-	struct dentry *root;
-	char *root_devname;
-
-	root_devname = nfs4_root_devname(hostname);
-	if (IS_ERR(root_devname))
-		return ERR_CAST(root_devname);
-	root_mnt = vfs_kern_mount(fs_type, flags, root_devname, data);
-	kfree(root_devname);
-
-	/* trade a vfsmount reference for an active sb one */
-	atomic_inc(&root_mnt->mnt_sb->s_active);
-	root = dget(root_mnt->mnt_root);
-	mntput(root_mnt);
-
-	return root;
-}
-
 struct nfs_referral_count {
 	struct list_head list;
 	const struct task_struct *task;
