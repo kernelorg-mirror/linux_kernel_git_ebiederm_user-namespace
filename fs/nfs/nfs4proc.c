@@ -118,7 +118,7 @@ nfs4_label_init_security(struct inode *dir, struct dentry *dentry,
 	if (label == NULL)
 		return NULL;
 
-	if (nfs_server_capable(dir, NFS_CAP_SECURITY_LABEL) == 0)
+	if (!nfs_security_labels(dir))
 		return NULL;
 
 	err = security_dentry_init_security(dentry, sattr->ia_mode,
@@ -5624,7 +5624,7 @@ static int nfs4_get_security_label(struct inode *inode, void *buf,
 	struct nfs4_exception exception = { };
 	int err;
 
-	if (!nfs_server_capable(inode, NFS_CAP_SECURITY_LABEL))
+	if (!nfs_security_labels(inode))
 		return -EOPNOTSUPP;
 
 	do {
@@ -5699,7 +5699,7 @@ nfs4_set_security_label(struct inode *inode, const void *buf, size_t buflen)
 	struct rpc_cred *cred;
 	int status;
 
-	if (!nfs_server_capable(inode, NFS_CAP_SECURITY_LABEL))
+	if (!nfs_security_labels(inode))
 		return -EOPNOTSUPP;
 
 	nfs_fattr_init(&fattr);
@@ -7156,7 +7156,7 @@ nfs4_listxattr_nfs4_label(struct inode *inode, char *list, size_t list_len)
 {
 	int len = 0;
 
-	if (nfs_server_capable(inode, NFS_CAP_SECURITY_LABEL)) {
+	if (nfs_security_labels(inode)) {
 		len = security_inode_listsecurity(inode, list, list_len);
 		if (list_len && len > list_len)
 			return -ERANGE;

@@ -2319,6 +2319,8 @@ static void nfs_initialise_sb(struct super_block *sb)
 						 &sb->s_blocksize_bits);
 
 	nfs_super_set_maxbytes(sb, server->maxfilesize);
+	if (server->caps & NFS_CAP_SECURITY_LABEL)
+		sb->s_iflags |= SB_I_NATIVE_SECURITY_LABELS;
 }
 
 /*
@@ -2529,43 +2531,15 @@ static void nfs_get_cache_cookie(struct super_block *sb,
 int nfs_set_sb_security(struct super_block *s, struct dentry *mntroot,
 			struct nfs_mount_info *mount_info)
 {
-	int error;
-	unsigned long kflags = 0, kflags_out = 0;
-	if (NFS_SB(s)->caps & NFS_CAP_SECURITY_LABEL)
-		s->s_iflags |= SB_I_NATIVE_SECURITY_LABELS;
-
-	error = security_sb_set_mnt_opts(s, &mount_info->parsed->lsm_opts,
-						kflags, &kflags_out);
-	if (error)
-		goto err;
-
-	if (NFS_SB(s)->caps & NFS_CAP_SECURITY_LABEL &&
-		!(s->s_iflags & SB_I_NATIVE_SECURITY_LABELS))
-		NFS_SB(s)->caps &= ~NFS_CAP_SECURITY_LABEL;
-err:
-	return error;
+	return security_sb_set_mnt_opts(s, &mount_info->parsed->lsm_opts, 0, NULL);
 }
 EXPORT_SYMBOL_GPL(nfs_set_sb_security);
 
 int nfs_clone_sb_security(struct super_block *s, struct dentry *mntroot,
 			  struct nfs_mount_info *mount_info)
 {
-	int error;
-	unsigned long kflags = 0, kflags_out = 0;
-
 	/* clone any lsm security options from the parent to the new sb */
-	if (NFS_SB(s)->caps & NFS_CAP_SECURITY_LABEL)
-		s->s_iflags |= SB_I_NATIVE_SECURITY_LABELS;
-
-	error = security_sb_clone_mnt_opts(mount_info->cloned->sb, s, kflags,
-			&kflags_out);
-	if (error)
-		return error;
-
-	if (NFS_SB(s)->caps & NFS_CAP_SECURITY_LABEL &&
-		!(s->s_iflags & SB_I_NATIVE_SECURITY_LABELS))
-		NFS_SB(s)->caps &= ~NFS_CAP_SECURITY_LABEL;
-	return 0;
+	return security_sb_clone_mnt_opts(mount_info->cloned->sb, s, 0, NULL);
 }
 EXPORT_SYMBOL_GPL(nfs_clone_sb_security);
 

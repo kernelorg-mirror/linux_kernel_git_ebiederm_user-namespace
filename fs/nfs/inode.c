@@ -365,7 +365,7 @@ struct nfs4_label *nfs4_label_alloc(struct nfs_server *server, gfp_t flags)
 	if (minor_version < 2)
 		return label;
 
-	if (!(server->caps & NFS_CAP_SECURITY_LABEL))
+	if (!(server->super->s_iflags & SB_I_NATIVE_SECURITY_LABELS))
 		return label;
 
 	label = kzalloc(sizeof(struct nfs4_label), flags);

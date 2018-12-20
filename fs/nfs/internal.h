@@ -325,14 +325,23 @@ static inline void nfs4_label_free(struct nfs4_label *label)
 	return;
 }
 
+static inline bool nfs_security_labels(struct inode *inode)
+{
+	return inode->i_sb->s_iflags & SB_I_NATIVE_SECURITY_LABELS;
+}
+
 static inline void nfs_zap_label_cache_locked(struct nfs_inode *nfsi)
 {
-	if (nfs_server_capable(&nfsi->vfs_inode, NFS_CAP_SECURITY_LABEL))
+	if (nfs_security_labels(&nfsi->vfs_inode))
 		nfsi->cache_validity |= NFS_INO_INVALID_LABEL;
 }
 #else
 static inline struct nfs4_label *nfs4_label_alloc(struct nfs_server *server, gfp_t flags) { return NULL; }
 static inline void nfs4_label_free(void *label) {}
+static inline bool nfs_security_labels(struct inode *inode)
+{
+	return false;
+}
 static inline void nfs_zap_label_cache_locked(struct nfs_inode *nfsi)
 {
 }
