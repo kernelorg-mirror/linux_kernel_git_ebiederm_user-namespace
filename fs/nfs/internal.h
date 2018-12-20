@@ -414,8 +414,6 @@ int nfs_set_sb_security(struct super_block *, struct dentry *, struct nfs_mount_
 struct dentry *nfs_fs_mount_common(struct nfs_server *, int, const char *,
 				   struct nfs_mount_info *, struct nfs_subversion *);
 struct dentry *nfs_fs_mount(struct file_system_type *, int, const char *, void *);
-struct dentry * nfs_xdev_mount_common(struct file_system_type *, int,
-		const char *, struct nfs_mount_info *);
 void nfs_kill_super(struct super_block *);
 void nfs_fill_super(struct super_block *, struct nfs_mount_info *);
 
