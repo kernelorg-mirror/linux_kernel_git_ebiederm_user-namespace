@@ -241,10 +241,6 @@ static struct dentry *nfs_follow_remote_path(struct dentry *root,
 	dentry = mount_subtree(root, export_path);
 	nfs_referral_loop_unprotect();
 
-	/* Lock the super so mount_fs can unlock it */
-	if (!IS_ERR(dentry))
-		down_write(&dentry->d_sb->s_umount);
-
 	return dentry;
 }
 
@@ -265,6 +261,9 @@ struct dentry *nfs4_try_mount(int flags, const char *dev_name,
 	data->nfs_server.export_path = export_path;
 
 	res = nfs_follow_remote_path(root, export_path);
+	/* Lock the super so mount_fs can unlock it */
+	if (!IS_ERR(res))
+		down_write(&res->d_sb->s_umount);
 
 	dfprintk(MOUNT, "<-- nfs4_try_mount() = %d%s\n",
 		 PTR_ERR_OR_ZERO(res),
@@ -323,6 +322,10 @@ static struct dentry *nfs4_referral_mount(struct file_system_type *fs_type,
 	data->mnt_path = export_path;
 
 	res = nfs_follow_remote_path(root, export_path);
+	/* Lock the super so mount_fs can unlock it */
+	if (!IS_ERR(res))
+		down_write(&res->d_sb->s_umount);
+
 	dprintk("<-- nfs4_referral_mount() = %d%s\n",
 		PTR_ERR_OR_ZERO(res),
 		IS_ERR(res) ? " [error]" : "");
