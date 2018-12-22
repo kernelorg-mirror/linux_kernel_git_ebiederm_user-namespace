@@ -2507,12 +2507,11 @@ static void nfs_get_cache_cookie(struct super_block *sb,
 }
 #endif
 
-int nfs_set_sb_security(struct super_block *s, struct dentry *mntroot,
+static int nfs_set_sb_security(struct super_block *s, struct dentry *mntroot,
 			struct nfs_mount_info *mount_info)
 {
 	return security_sb_set_mnt_opts(s, mount_info->parsed->lsm_opts);
 }
-EXPORT_SYMBOL_GPL(nfs_set_sb_security);
 
 struct dentry *nfs_fs_mount_common(struct nfs_server *server,
 				   int flags, const char *dev_name,
