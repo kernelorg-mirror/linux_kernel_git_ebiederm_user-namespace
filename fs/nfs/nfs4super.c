@@ -78,19 +78,13 @@ nfs4_remote_mount(int flags, const char *dev_name,
 		  struct nfs_mount_info *mount_info)
 {
 	struct nfs_server *server;
-	struct dentry *mntroot = ERR_PTR(-ENOMEM);
 
 	/* Get a volume representation */
 	server = nfs4_create_server(mount_info, &nfs_v4);
-	if (IS_ERR(server)) {
-		mntroot = ERR_CAST(server);
-		goto out;
-	}
+	if (IS_ERR(server))
+		return ERR_CAST(server);
 
-	mntroot = nfs_fs_mount_common(server, flags, dev_name, mount_info, &nfs_v4);
-
-out:
-	return mntroot;
+	return nfs_fs_mount_common(server, flags, dev_name, mount_info, &nfs_v4);
 }
 
 static char *nfs4_root_devname(const char *hostname)
