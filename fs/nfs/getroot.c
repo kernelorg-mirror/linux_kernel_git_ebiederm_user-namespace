@@ -102,6 +102,13 @@ struct dentry *nfs_get_root(struct super_block *sb, struct nfs_fh *mntfh,
 		goto out;
 	}
 
+	/* Do the simple thing for filesystems with a unique root */
+	if (!(sb->s_iflags & SB_I_MULTIROOT)) {
+		sb->s_root = d_make_root(inode);
+		ret = dget(sb->s_root);
+		goto out_set_d_fsdata;
+	}
+
 	error = nfs_superblock_set_dummy_root(sb, inode);
 	if (error != 0) {
 		ret = ERR_PTR(error);
@@ -119,6 +126,7 @@ struct dentry *nfs_get_root(struct super_block *sb, struct nfs_fh *mntfh,
 	}
 
 	security_d_instantiate(ret, inode);
+out_set_d_fsdata:
 	spin_lock(&ret->d_lock);
 	if (IS_ROOT(ret) && !ret->d_fsdata &&
 	    !(ret->d_flags & DCACHE_NFSFS_RENAMED)) {
