@@ -148,6 +148,7 @@ struct nfs_mount_info {
 	struct nfs_parsed_mount_data *parsed;
 	struct nfs_clone_mount *cloned;
 	struct nfs_fh *mntfh;
+	void *state;
 };
 
 extern int nfs_mount(struct nfs_mount_request *info);
@@ -408,8 +409,8 @@ struct dentry *nfs4_referral_mount(const char *dev_name, struct nfs_clone_mount 
 #endif
 
 bool nfs_auth_info_match(const struct nfs_auth_info *, rpc_authflavor_t);
-struct dentry *nfs_try_mount(int, const char *, struct nfs_mount_info *,
-			struct nfs_subversion *);
+struct super_block *nfs_try_open(int, const char *, struct nfs_mount_info *,
+				 struct nfs_subversion *);
 struct dentry *nfs_fs_mount_common(struct nfs_server *, int, const char *,
 				   struct nfs_mount_info *, struct nfs_subversion *);
 struct dentry *nfs_fs_mount(struct file_system_type *, int, const char *, void *);

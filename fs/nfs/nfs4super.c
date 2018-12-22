@@ -17,8 +17,11 @@
 
 static int nfs4_write_inode(struct inode *inode, struct writeback_control *wbc);
 static void nfs4_evict_inode(struct inode *inode);
+static struct dentry *nfs4_root(struct super_block *sb, void *state,
+				const char *optv[]);
 
 static const struct super_operations nfs4_sops = {
+	.root		= nfs4_root,
 	.alloc_inode	= nfs_alloc_inode,
 	.destroy_inode	= nfs_destroy_inode,
 	.write_inode	= nfs4_write_inode,
@@ -193,33 +196,53 @@ static struct dentry *nfs_follow_remote_path(struct dentry *root,
 	return dentry;
 }
 
-struct dentry *nfs4_try_mount(int flags, const char *dev_name,
-			      struct nfs_mount_info *mount_info,
-			      struct nfs_subversion *nfs_mod)
+struct super_block *nfs4_try_open(int flags, const char *dev_name,
+				  struct nfs_mount_info *mount_info,
+				  struct nfs_subversion *nfs_mod)
 {
-	struct dentry *res, *root;
 	struct nfs_parsed_mount_data *data = mount_info->parsed;
 	const char *root_devname;
+	struct super_block *res;
+	struct dentry *root;
+	char *export_path;
 
-	dfprintk(MOUNT, "--> nfs4_try_mount()\n");
+	dfprintk(MOUNT, "--> nfs4_try_open()\n");
+
+	export_path = kstrdup(data->nfs_server.export_path, GFP_KERNEL);
+	if (!export_path)
+		return ERR_PTR(-ENOMEM);
 
 	root_devname = nfs4_root_devname(data->nfs_server.hostname);
-	if (IS_ERR(root_devname))
+	if (IS_ERR(root_devname)) {
+		kfree(export_path);
 		return ERR_CAST(root_devname);
+	}
 
 	root = nfs4_remote_mount(flags, root_devname, mount_info);
+	res = ERR_CAST(root);
+	if (!IS_ERR(root)) {
+		res = root->d_sb;
+		dput(root);
+		mount_info->state = export_path;
+		export_path = NULL;
+	}
 	kfree(root_devname);
-	if (!IS_ERR(root))
-		finish_super(root->d_sb);
+	kfree(export_path);
 
-	res = nfs_follow_remote_path(root, data->nfs_server.export_path);
-	/* Lock the super so mount_fs can unlock it */
-	if (!IS_ERR(res))
-		down_write(&res->d_sb->s_umount);
-
-	dfprintk(MOUNT, "<-- nfs4_try_mount() = %d%s\n",
+	dfprintk(MOUNT, "<-- nfs4_try_open() = %d%s\n",
 		 PTR_ERR_OR_ZERO(res),
 		 IS_ERR(res) ? " [error]" : "");
+	return res;
+}
+
+static struct dentry *nfs4_root(struct super_block *sb, void *state,
+				const char *optv[])
+{
+	const char *export_path = state;
+	struct dentry *res;
+
+	res = nfs_follow_remote_path(dget(sb->s_root), export_path);
+	kfree(export_path);
 	return res;
 }
 

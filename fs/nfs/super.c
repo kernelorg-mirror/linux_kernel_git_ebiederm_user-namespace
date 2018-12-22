@@ -273,6 +273,7 @@ static const struct match_table nfs_vers_tokens[] = {
 };
 
 static const char *nfs23_text_options(const char *name, void *opt, size_t size);
+static struct dentry *nfs23_root(struct super_block *, void *, const char *[]);
 
 struct file_system_type nfs_fs_type = {
 	.owner		= THIS_MODULE,
@@ -286,6 +287,7 @@ MODULE_ALIAS_FS("nfs");
 EXPORT_SYMBOL_GPL(nfs_fs_type);
 
 const struct super_operations nfs_sops = {
+	.root		= nfs23_root,
 	.alloc_inode	= nfs_alloc_inode,
 	.destroy_inode	= nfs_destroy_inode,
 	.write_inode	= nfs_write_inode,
@@ -2028,11 +2030,13 @@ static struct nfs_server *nfs_try_mount_request(struct nfs_mount_info *mount_inf
 	return nfs_mod->rpc_ops->create_server(mount_info, nfs_mod);
 }
 
-struct dentry *nfs_try_mount(int flags, const char *dev_name,
-			     struct nfs_mount_info *mount_info,
-			     struct nfs_subversion *nfs_mod)
+struct super_block *nfs_try_open(int flags, const char *dev_name,
+				 struct nfs_mount_info *mount_info,
+				 struct nfs_subversion *nfs_mod)
 {
 	struct nfs_server *server;
+	struct super_block *sb;
+	struct dentry *root;
 
 	if (mount_info->parsed->need_mount)
 		server = nfs_try_mount_request(mount_info, nfs_mod);
@@ -2042,9 +2046,22 @@ struct dentry *nfs_try_mount(int flags, const char *dev_name,
 	if (IS_ERR(server))
 		return ERR_CAST(server);
 
-	return nfs_fs_mount_common(server, flags, dev_name, mount_info, nfs_mod);
+	root = nfs_fs_mount_common(server, flags, dev_name, mount_info, nfs_mod);
+	sb = ERR_CAST(root);
+	if (!IS_ERR(root)) {
+		sb = root->d_sb;
+		mount_info->state = root;
+	}
+	return sb;
 }
-EXPORT_SYMBOL_GPL(nfs_try_mount);
+EXPORT_SYMBOL_GPL(nfs_try_open);
+
+static struct dentry *nfs23_root(struct super_block *sb, void *state,
+				 const char *optv[])
+{
+	struct dentry *root = state;
+	return root;
+}
 
 /*
  * Split "dev_name" into "hostname:export_path".
@@ -2610,6 +2627,7 @@ struct dentry *nfs_fs_mount(struct file_system_type *fs_type,
 	};
 	struct dentry *mntroot = ERR_PTR(-ENOMEM);
 	struct nfs_subversion *nfs_mod;
+	struct super_block *sb;
 	int error;
 
 	mount_info.parsed = nfs_alloc_parsed_mount_data();
@@ -2630,9 +2648,17 @@ struct dentry *nfs_fs_mount(struct file_system_type *fs_type,
 		goto out;
 	}
 
-	mntroot = nfs_mod->rpc_ops->try_mount(flags, dev_name, &mount_info, nfs_mod);
-
+	sb = nfs_mod->rpc_ops->try_open(flags, dev_name, &mount_info, nfs_mod);
 	put_nfs_version(nfs_mod);
+	mntroot = ERR_CAST(sb);
+	if (IS_ERR(sb))
+		goto out;
+
+	finish_super(sb);
+	mntroot = sb->s_op->root(sb, mount_info.state, empty_optv);
+	/* Lock the super so mount_fs can unlock it */
+	if (!IS_ERR(mntroot))
+		down_write(&mntroot->d_sb->s_umount);
 out:
 	nfs_free_parsed_mount_data(mount_info.parsed);
 	nfs_free_fhandle(mount_info.mntfh);
