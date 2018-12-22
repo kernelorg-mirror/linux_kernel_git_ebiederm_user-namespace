@@ -2631,7 +2631,9 @@ struct dentry *nfs_fs_mount_common(struct nfs_server *server,
 		/* initial superblock/root creation */
 		mount_info->fill_super(s, mount_info);
 		nfs_get_cache_cookie(s, mount_info->parsed, mount_info->cloned);
-		if (!(server->flags & NFS_MOUNT_UNSHARED))
+		/* Only nfs 2 and 3 may have multiple roots */
+		if (!(server->flags & NFS_MOUNT_UNSHARED) &&
+		    (s->s_type == &nfs_fs_type))
 			s->s_iflags |= SB_I_MULTIROOT;
 	}
 
