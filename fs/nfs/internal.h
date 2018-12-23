@@ -123,7 +123,6 @@ struct nfs_parsed_mount_data {
 		unsigned short		protocol;
 	} nfs_server;
 
-	const char 		**lsm_opts;
 	struct net		*net;
 };
 

@@ -52,6 +52,7 @@
 #include <linux/nfs_xdr.h>
 #include <linux/magic.h>
 #include <linux/parser.h>
+#include <linux/fsoptions.h>
 #include <linux/nsproxy.h>
 #include <linux/rcupdate.h>
 
@@ -1048,7 +1049,6 @@ static struct nfs_parsed_mount_data *nfs_alloc_parsed_mount_data(void)
 		data->minorversion	= 0;
 		data->need_mount	= true;
 		data->net		= current->nsproxy->net_ns;
-		data->lsm_opts		= NULL;
 	}
 	return data;
 }
@@ -1061,7 +1061,6 @@ static void nfs_free_parsed_mount_data(struct nfs_parsed_mount_data *data)
 		kfree(data->nfs_server.export_path);
 		kfree(data->nfs_server.hostname);
 		kfree(data->fscache_uniq);
-		kfree(data->lsm_opts);
 		kfree(data);
 	}
 }
@@ -1344,36 +1343,33 @@ static int nfs_get_option_ul_bound(substring_t args[], unsigned long *option,
  * skipped as they are encountered.  If there were no errors, return 1;
  * otherwise return 0 (zero).
  */
-static int nfs_parse_mount_options(char *raw,
+static int nfs_parse_mount_options(const char *optv[],
 				   struct nfs_parsed_mount_data *mnt,
 				   struct nfs_fh *mntfh)
 {
-	char *p, *string;
+	char *string;
+	const char **opt;
 	int rc, sloppy = 0, invalid_option = 0;
 	unsigned short protofamily = AF_UNSPEC;
 	unsigned short mountfamily = AF_UNSPEC;
 
-	if (!raw) {
+	if (!optv[0]) {
 		dfprintk(MOUNT, "NFS: mount options string was NULL.\n");
 		return 1;
 	}
-	dfprintk(MOUNT, "NFS: nfs mount opts='%s'\n", raw);
+	dfprintk(MOUNT, "NFS: nfs mount\n");
 
-	rc = security_parse_options(raw, &mnt->lsm_opts);
-	if (rc)
-		goto out_security_failure;
-
-	while ((p = strsep(&raw, ",")) != NULL) {
+	for (opt = optv; *opt; opt++) {
 		substring_t args[MAX_OPT_ARGS];
 		unsigned long option;
 		int token;
 
-		if (!*p)
+		if (!**opt)
 			continue;
 
-		dfprintk(MOUNT, "NFS:   parsing nfs mount option '%s'\n", p);
+		dfprintk(MOUNT, "NFS:   parsing nfs mount option '%s'\n", *opt);
 
-		token = match_token(p, nfs_mount_option_tokens, args);
+		token = match_token(*opt, nfs_mount_option_tokens, args);
 		switch (token) {
 
 		/*
@@ -1424,7 +1420,7 @@ static int nfs_parse_mount_options(char *raw,
 		case Opt_rdma:
 			mnt->flags |= NFS_MOUNT_TCP; /* for side protocols */
 			mnt->nfs_server.protocol = XPRT_TRANSPORT_RDMA;
-			xprt_load_transport(p);
+			xprt_load_transport(*opt);
 			break;
 		case Opt_acl:
 			mnt->flags &= ~NFS_MOUNT_NOACL;
@@ -1761,13 +1757,13 @@ static int nfs_parse_mount_options(char *raw,
 		case Opt_userspace:
 		case Opt_deprecated:
 			dfprintk(MOUNT, "NFS:   ignoring mount option "
-					"'%s'\n", p);
+					"'%s'\n", *opt);
 			break;
 
 		default:
 			invalid_option = 1;
 			dfprintk(MOUNT, "NFS:   unrecognized mount option "
-					"'%s'\n", p);
+					"'%s'\n", *opt);
 		}
 	}
 
@@ -1824,10 +1820,10 @@ out_proto_mismatch:
 	printk(KERN_INFO "NFS: server address does not match proto= option\n");
 	return 0;
 out_invalid_address:
-	printk(KERN_INFO "NFS: bad IP address specified: %s\n", p);
+	printk(KERN_INFO "NFS: bad IP address specified: %s\n", *opt);
 	return 0;
 out_invalid_value:
-	printk(KERN_INFO "NFS: bad mount option value specified: %s\n", p);
+	printk(KERN_INFO "NFS: bad mount option value specified: %s\n", *opt);
 	return 0;
 out_minorversion_mismatch:
 	printk(KERN_INFO "NFS: mount option vers=%u does not support "
@@ -1839,9 +1835,6 @@ out_migration_misuse:
 	return 0;
 out_nomem:
 	printk(KERN_INFO "NFS: not enough memory to parse option\n");
-	return 0;
-out_security_failure:
-	printk(KERN_INFO "NFS: security options invalid: %d\n", rc);
 	return 0;
 }
 
@@ -2135,7 +2128,7 @@ out_path:
 	return -ENAMETOOLONG;
 }
 
-static int nfs_validate_text_mount_data(void *options,
+static int nfs_validate_text_mount_data(const char *optv[],
 					struct nfs_parsed_mount_data *args,
 					struct nfs_fh *mountfh,
 					const char *dev_name)
@@ -2145,7 +2138,7 @@ static int nfs_validate_text_mount_data(void *options,
 	int max_pathlen = NFS_MAXPATHLEN;
 	struct sockaddr *sap = (struct sockaddr *)&args->nfs_server.address;
 
-	if (nfs_parse_mount_options((char *)options, args, mountfh) == 0)
+	if (nfs_parse_mount_options(optv, args, mountfh) == 0)
 		return -EINVAL;
 
 	if (!nfs_verify_server_address(sap))
@@ -2227,8 +2220,7 @@ nfs_compare_remount_data(struct nfs_server *nfss,
 	return 0;
 }
 
-int
-nfs_remount(struct super_block *sb, int *flags, char *options)
+int nfs_reconfigure(struct super_block *sb, int *flags, const char *optv[])
 {
 	int error;
 	struct nfs_server *nfss = sb->s_fs_info;
@@ -2246,10 +2238,10 @@ nfs_remount(struct super_block *sb, int *flags, char *options)
 	 * Only worry about little endian architectures here. The version number
 	 * on big endian architectures appears to be a null terminated string.
 	 */
-	if (!options ||
-	    ((options[0] != '\0') && (options[1] == '\0') &&
-	     ((nfsvers == 4 && (options[0] == '\1')) ||
-	      (nfsvers <= 3 && (options[0] >= '\1') && (options[0] <= '\6')))))
+	if (!optv[0] ||
+	    (!optv[1] && (optv[0][0] != '\0') && (optv[0][1] == '\0') &&
+	     ((nfsvers == 4 && (optv[0][0] == '\1')) ||
+	      (nfsvers <= 3 && (optv[0][0] >= '\1') && (optv[0][0] <= '\6')))))
 		return 0;
 
 	data = kzalloc(sizeof(*data), GFP_KERNEL);
@@ -2277,7 +2269,7 @@ nfs_remount(struct super_block *sb, int *flags, char *options)
 
 	/* overwrite those values with any that were specified */
 	error = -EINVAL;
-	if (!nfs_parse_mount_options(options, data, NULL))
+	if (!nfs_parse_mount_options(optv, data, NULL))
 		goto out;
 
 	/*
@@ -2293,6 +2285,21 @@ nfs_remount(struct super_block *sb, int *flags, char *options)
 	error = nfs_compare_remount_data(nfss, data);
 out:
 	kfree(data);
+	return error;
+}
+
+int
+nfs_remount(struct super_block *sb, int *flags, char *options)
+{
+	const char **optv;
+	int error;
+
+	error = split_options(options, NULL, NULL, NULL, NULL, &optv);
+	if (error)
+		return error;
+
+	error = nfs_reconfigure(sb, flags, optv);
+	kfree(optv);
 	return error;
 }
 EXPORT_SYMBOL_GPL(nfs_remount);
@@ -2614,9 +2621,17 @@ struct dentry *nfs_fs_mount(struct file_system_type *fs_type,
 		.fill_super = nfs_fill_super,
 	};
 	struct dentry *mntroot = ERR_PTR(-ENOMEM);
+	const char **secv = NULL, **optv = NULL;
 	struct nfs_subversion *nfs_mod;
 	struct super_block *sb;
 	int error;
+
+	error = split_options(raw_data, security_tokens, NULL,
+			      &secv, NULL, &optv);
+	if (error) {
+		mntroot = ERR_PTR(error);
+		goto out;
+	}
 
 	mount_info.parsed = nfs_alloc_parsed_mount_data();
 	mount_info.mntfh = nfs_alloc_fhandle();
@@ -2624,7 +2639,7 @@ struct dentry *nfs_fs_mount(struct file_system_type *fs_type,
 		goto out;
 
 	/* Validate the mount data */
-	error = nfs_validate_text_mount_data(raw_data, mount_info.parsed, mount_info.mntfh, dev_name);
+	error = nfs_validate_text_mount_data(optv, mount_info.parsed, mount_info.mntfh, dev_name);
 	if (error < 0) {
 		mntroot = ERR_PTR(error);
 		goto out;
@@ -2642,7 +2657,7 @@ struct dentry *nfs_fs_mount(struct file_system_type *fs_type,
 	if (IS_ERR(sb))
 		goto out;
 
-	error = security_sb_set_mnt_opts(sb, mount_info.parsed->lsm_opts);
+	error = security_sb_set_mnt_opts(sb, secv);
 	if (error) {
 		mntroot = ERR_PTR(error);
 		deactivate_locked_super(sb);
@@ -2650,13 +2665,15 @@ struct dentry *nfs_fs_mount(struct file_system_type *fs_type,
 	}
 
 	finish_super(sb);
-	mntroot = sb->s_op->root(sb, mount_info.state, empty_optv);
+	mntroot = sb->s_op->root(sb, mount_info.state, optv);
 	/* Lock the super so mount_fs can unlock it */
 	if (!IS_ERR(mntroot))
 		down_write(&mntroot->d_sb->s_umount);
 out:
 	nfs_free_parsed_mount_data(mount_info.parsed);
 	nfs_free_fhandle(mount_info.mntfh);
+	kfree(secv);
+	kfree(optv);
 	return mntroot;
 }
 EXPORT_SYMBOL_GPL(nfs_fs_mount);
