@@ -2523,13 +2523,6 @@ static void nfs_get_cache_cookie(struct super_block *sb,
 {
 }
 #endif
-
-static int nfs_set_sb_security(struct super_block *s, struct dentry *mntroot,
-			struct nfs_mount_info *mount_info)
-{
-	return security_sb_set_mnt_opts(s, mount_info->parsed->lsm_opts);
-}
-
 struct dentry *nfs_fs_mount_common(struct nfs_server *server,
 				   int flags, const char *dev_name,
 				   struct nfs_mount_info *mount_info,
@@ -2596,10 +2589,6 @@ struct dentry *nfs_fs_mount_common(struct nfs_server *server,
 	    (d_inode(mntroot)->i_op != server->nfs_client->rpc_ops->dir_inode_ops))
 		goto error_splat_root;
 
-	error = mount_info->set_security(s, mntroot, mount_info);
-	if (error)
-		goto error_splat_root;
-
 	s->s_flags |= SB_ACTIVE;
 
 out:
@@ -2623,7 +2612,6 @@ struct dentry *nfs_fs_mount(struct file_system_type *fs_type,
 {
 	struct nfs_mount_info mount_info = {
 		.fill_super = nfs_fill_super,
-		.set_security = nfs_set_sb_security,
 	};
 	struct dentry *mntroot = ERR_PTR(-ENOMEM);
 	struct nfs_subversion *nfs_mod;
@@ -2653,6 +2641,13 @@ struct dentry *nfs_fs_mount(struct file_system_type *fs_type,
 	mntroot = ERR_CAST(sb);
 	if (IS_ERR(sb))
 		goto out;
+
+	error = security_sb_set_mnt_opts(sb, mount_info.parsed->lsm_opts);
+	if (error) {
+		mntroot = ERR_PTR(error);
+		deactivate_locked_super(sb);
+		goto out;
+	}
 
 	finish_super(sb);
 	mntroot = sb->s_op->root(sb, mount_info.state, empty_optv);
