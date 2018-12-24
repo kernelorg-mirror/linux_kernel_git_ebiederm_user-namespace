@@ -2421,24 +2421,14 @@ out:
 
 static int fs_set_subtype(struct super_block *sb, const char *fstype)
 {
-	int err;
-	const char *subtype = strchr(fstype, '.');
-	if (subtype) {
-		subtype++;
-		err = -EINVAL;
-		if (!subtype[0])
-			goto err;
-	} else
+	const char *subtype = fs_subtype(fstype);
+	if (!subtype)
 		subtype = "";
 
 	sb->s_subtype = kstrdup(subtype, GFP_KERNEL);
-	err = -ENOMEM;
 	if (!sb->s_subtype)
-		goto err;
+		return -ENOMEM;
 	return 0;
-
- err:
-	return err;
 }
 
 /*

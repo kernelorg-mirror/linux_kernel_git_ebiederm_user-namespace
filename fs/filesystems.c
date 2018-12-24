@@ -258,19 +258,33 @@ static struct file_system_type *__get_fs_type(const char *name, int len)
 	return fs;
 }
 
+const char *fs_subtype(const char *name)
+{
+	const char *dot = strchr(name, '.');
+	if (!dot)
+		return NULL;
+	if (!*(dot + 1))
+		return ERR_PTR(-EINVAL);
+	return dot + 1;
+}
+
 struct file_system_type *get_fs_type(const char *name)
 {
 	struct file_system_type *fs;
-	const char *dot = strchr(name, '.');
-	int len = dot ? dot - name : strlen(name);
+	const char *subtype = fs_subtype(name);
+	int len;
 
+	if (IS_ERR(subtype))
+		return ERR_CAST(subtype);
+
+	len = subtype ? (subtype - 1) - name : strlen(name);
 	fs = __get_fs_type(name, len);
 	if (!fs && (request_module("fs-%.*s", len, name) == 0)) {
 		fs = __get_fs_type(name, len);
 		WARN_ONCE(!fs, "request_module fs-%.*s succeeded, but still no fs?\n", len, name);
 	}
 
-	if (dot && fs && !(fs->fs_flags & FS_HAS_SUBTYPE)) {
+	if (subtype && fs && !(fs->fs_flags & FS_HAS_SUBTYPE)) {
 		put_filesystem(fs);
 		fs = NULL;
 	}

@@ -3222,6 +3222,7 @@ extern int generic_block_fiemap(struct inode *inode,
 
 extern struct file_system_type *get_filesystem(struct file_system_type *fs);
 extern void put_filesystem(struct file_system_type *fs);
+extern const char *fs_subtype(const char *name);
 extern struct file_system_type *get_fs_type(const char *name);
 extern struct super_block *get_super(struct block_device *);
 extern struct super_block *get_super_thawed(struct block_device *);
