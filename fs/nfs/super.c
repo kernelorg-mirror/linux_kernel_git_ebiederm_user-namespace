@@ -52,7 +52,6 @@
 #include <linux/nfs_xdr.h>
 #include <linux/magic.h>
 #include <linux/parser.h>
-#include <linux/fsoptions.h>
 #include <linux/nsproxy.h>
 #include <linux/rcupdate.h>
 
@@ -274,21 +273,29 @@ static const struct match_table nfs_vers_tokens[] = {
 };
 
 static const char *nfs23_text_options(const char *name, void *opt, size_t size);
+static struct super_block *nfs_fs_open(struct file_system_type *, int,
+	struct user_namespace *, const char *, const char *[], void **);
 static struct dentry *nfs23_root(struct super_block *, void *, const char *[]);
+static void nfs23_release_state(void *state);
 
 struct file_system_type nfs_fs_type = {
 	.owner		= THIS_MODULE,
 	.name		= "nfs",
-	.mount		= nfs_fs_mount,
+	.open		= nfs_fs_open,
+	.open_tokens	= nfs_mount_option_tokens,
 	.kill_sb	= nfs_kill_super,
 	.text_options	= nfs23_text_options,
-	.fs_flags	= FS_RENAME_DOES_D_MOVE|FS_BINARY_MOUNTDATA,
+	.sb_flags_mask	= SB_RDONLY | SB_SYNCHRONOUS,
+	.fs_flags	= FS_RENAME_DOES_D_MOVE,
 };
 MODULE_ALIAS_FS("nfs");
 EXPORT_SYMBOL_GPL(nfs_fs_type);
 
 const struct super_operations nfs_sops = {
+	.init		= nfs_fs_init,
+	.reinit		= nfs_fs_reinit,
 	.root		= nfs23_root,
+	.release_state	= nfs23_release_state,
 	.alloc_inode	= nfs_alloc_inode,
 	.destroy_inode	= nfs_destroy_inode,
 	.write_inode	= nfs_write_inode,
@@ -300,7 +307,7 @@ const struct super_operations nfs_sops = {
 	.show_devname	= nfs_show_devname,
 	.show_path	= nfs_show_path,
 	.show_stats	= nfs_show_stats,
-	.remount_fs	= nfs_remount,
+	.reconfigure	= nfs_reconfigure,
 };
 EXPORT_SYMBOL_GPL(nfs_sops);
 
@@ -312,10 +319,12 @@ static void nfs4_validate_mount_flags(struct nfs_parsed_mount_data *);
 struct file_system_type nfs4_fs_type = {
 	.owner		= THIS_MODULE,
 	.name		= "nfs4",
-	.mount		= nfs_fs_mount,
+	.open		= nfs_fs_open,
+	.open_tokens	= nfs_mount_option_tokens,
 	.kill_sb	= nfs_kill_super,
 	.text_options	= nfs4_text_options,
-	.fs_flags	= FS_RENAME_DOES_D_MOVE|FS_BINARY_MOUNTDATA,
+	.sb_flags_mask	= SB_RDONLY | SB_SYNCHRONOUS,
+	.fs_flags	= FS_RENAME_DOES_D_MOVE,
 };
 MODULE_ALIAS_FS("nfs4");
 MODULE_ALIAS("nfs4");
@@ -2056,6 +2065,12 @@ static struct dentry *nfs23_root(struct super_block *sb, void *state,
 	return root;
 }
 
+static void nfs23_release_state(void *state)
+{
+	struct dentry *root = state;
+	dput(root);
+}
+
 /*
  * Split "dev_name" into "hostname:export_path".
  *
@@ -2287,22 +2302,7 @@ out:
 	kfree(data);
 	return error;
 }
-
-int
-nfs_remount(struct super_block *sb, int *flags, char *options)
-{
-	const char **optv;
-	int error;
-
-	error = split_options(options, NULL, NULL, NULL, NULL, &optv);
-	if (error)
-		return error;
-
-	error = nfs_reconfigure(sb, flags, optv);
-	kfree(optv);
-	return error;
-}
-EXPORT_SYMBOL_GPL(nfs_remount);
+EXPORT_SYMBOL_GPL(nfs_reconfigure);
 
 /*
  * Initialise the common bits of the superblock
@@ -2530,6 +2530,7 @@ static void nfs_get_cache_cookie(struct super_block *sb,
 {
 }
 #endif
+
 struct dentry *nfs_fs_mount_common(struct nfs_server *server,
 				   int flags, const char *dev_name,
 				   struct nfs_mount_info *mount_info,
@@ -2656,44 +2657,18 @@ out:
 	return sb;
 }
 
-struct dentry *nfs_fs_mount(struct file_system_type *fs_type,
-	int flags, const char *dev_name, void *raw_data)
+int nfs_fs_init(struct super_block *sb, void *state, const char *optv[])
 {
-	const char **secv = NULL, **optv = NULL;
-	struct dentry *mntroot;
-	struct super_block *sb;
-	void *state = NULL;
-	int error;
-
-	error = split_options(raw_data, security_tokens, NULL,
-			      &secv, NULL, &optv);
-	mntroot = ERR_PTR(error);
-	if (error)
-		goto out;
-
-	sb = nfs_fs_open(fs_type, flags, &init_user_ns, dev_name, optv, &state);
-	mntroot = ERR_CAST(sb);
-	if (IS_ERR(sb))
-		goto out;
-
-	error = security_sb_set_mnt_opts(sb, secv);
-	if (error) {
-		mntroot = ERR_PTR(error);
-		deactivate_locked_super(sb);
-		goto out;
-	}
-
-	finish_super(sb);
-	mntroot = sb->s_op->root(sb, state, optv);
-	/* Lock the super so mount_fs can unlock it */
-	if (!IS_ERR(mntroot))
-		down_write(&mntroot->d_sb->s_umount);
-out:
-	kfree(secv);
-	kfree(optv);
-	return mntroot;
+	return 0;
 }
-EXPORT_SYMBOL_GPL(nfs_fs_mount);
+EXPORT_SYMBOL_GPL(nfs_fs_init);
+
+int nfs_fs_reinit(struct super_block *sb, void *state, int flags,
+		  const char *optv[])
+{
+	return 0;
+}
+EXPORT_SYMBOL_GPL(nfs_fs_reinit);
 
 /*
  * Destroy an NFS2/3 superblock

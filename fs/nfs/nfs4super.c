@@ -19,9 +19,13 @@ static int nfs4_write_inode(struct inode *inode, struct writeback_control *wbc);
 static void nfs4_evict_inode(struct inode *inode);
 static struct dentry *nfs4_root(struct super_block *sb, void *state,
 				const char *optv[]);
+static void nfs4_release_state(void *state);
 
 static const struct super_operations nfs4_sops = {
+	.init		= nfs_fs_init,
+	.reinit		= nfs_fs_reinit,
 	.root		= nfs4_root,
+	.release_state	= nfs4_release_state,
 	.alloc_inode	= nfs_alloc_inode,
 	.destroy_inode	= nfs_destroy_inode,
 	.write_inode	= nfs4_write_inode,
@@ -33,7 +37,7 @@ static const struct super_operations nfs4_sops = {
 	.show_devname	= nfs_show_devname,
 	.show_path	= nfs_show_path,
 	.show_stats	= nfs_show_stats,
-	.remount_fs	= nfs_remount,
+	.reconfigure	= nfs_reconfigure,
 };
 
 struct nfs_subversion nfs_v4 = {
@@ -244,6 +248,12 @@ static struct dentry *nfs4_root(struct super_block *sb, void *state,
 	res = nfs_follow_remote_path(dget(sb->s_root), export_path);
 	kfree(export_path);
 	return res;
+}
+
+static void nfs4_release_state(void *state)
+{
+	const char *export_path = state;
+	kfree(export_path);
 }
 
 static struct dentry *

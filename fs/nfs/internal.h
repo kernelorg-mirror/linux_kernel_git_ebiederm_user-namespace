@@ -411,7 +411,8 @@ struct super_block *nfs_try_open(int, const char *, struct nfs_mount_info *,
 				 struct nfs_subversion *);
 struct dentry *nfs_fs_mount_common(struct nfs_server *, int, const char *,
 				   struct nfs_mount_info *, struct nfs_subversion *);
-struct dentry *nfs_fs_mount(struct file_system_type *, int, const char *, void *);
+int nfs_fs_init(struct super_block *, void *, const char *[]);
+int nfs_fs_reinit(struct super_block *, void *, int, const char *[]);
 void nfs_kill_super(struct super_block *);
 void nfs_fill_super(struct super_block *, struct nfs_mount_info *);
 
@@ -470,7 +471,7 @@ int  nfs_show_options(struct seq_file *, struct dentry *);
 int  nfs_show_devname(struct seq_file *, struct dentry *);
 int  nfs_show_path(struct seq_file *, struct dentry *);
 int  nfs_show_stats(struct seq_file *, struct dentry *);
-int nfs_remount(struct super_block *sb, int *flags, char *raw_data);
+int  nfs_reconfigure(struct super_block *sb, int *flags, const char *optv[]);
 
 /* write.c */
 extern void nfs_pageio_init_write(struct nfs_pageio_descriptor *pgio,
