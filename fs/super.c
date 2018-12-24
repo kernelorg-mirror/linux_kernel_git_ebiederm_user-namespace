@@ -1210,6 +1210,13 @@ int legacy_init_super(struct super_block *sb, const char **optv,
 }
 EXPORT_SYMBOL(legacy_init_super);
 
+int noop_reinit_super(struct super_block *sb, void *state, int flags,
+		      const char **optv)
+{
+	return 0;
+}
+EXPORT_SYMBOL(noop_reinit_super);
+
 struct dentry *mount_nodev(struct file_system_type *fs_type,
 	int flags, void *data,
 	int (*fill_super)(struct super_block *, void *, int))
