@@ -222,7 +222,6 @@ static inline void shmem_inode_unacct_blocks(struct inode *inode, long pages)
 	shmem_unacct_blocks(info->flags, pages);
 }
 
-static const struct super_operations shmem_ops;
 static const struct address_space_operations shmem_aops;
 static const struct file_operations shmem_file_operations;
 static const struct inode_operations shmem_inode_operations;
@@ -3432,7 +3431,7 @@ static void shmem_put_super(struct super_block *sb)
 	sb->s_fs_info = NULL;
 }
 
-int shmem_fill_super(struct super_block *sb, void *data, int silent)
+static int shmem_fill_super(struct super_block *sb, void *data, int silent)
 {
 	struct inode *inode;
 	struct shmem_sb_info *sbinfo;
@@ -3478,7 +3477,6 @@ int shmem_fill_super(struct super_block *sb, void *data, int silent)
 	sb->s_blocksize = PAGE_SIZE;
 	sb->s_blocksize_bits = PAGE_SHIFT;
 	sb->s_magic = TMPFS_MAGIC;
-	sb->s_op = &shmem_ops;
 	sb->s_time_gran = 1;
 #ifdef CONFIG_TMPFS_XATTR
 	sb->s_xattr = shmem_xattr_handlers;
@@ -3501,6 +3499,12 @@ int shmem_fill_super(struct super_block *sb, void *data, int silent)
 failed:
 	shmem_put_super(sb);
 	return err;
+}
+
+static int shmem_init_super(struct super_block *sb, void *state,
+			    const char *optv[])
+{
+	return legacy_init_super(sb, optv, shmem_fill_super);
 }
 
 static struct kmem_cache *shmem_inode_cachep;
@@ -3615,7 +3619,8 @@ static const struct inode_operations shmem_special_inode_operations = {
 #endif
 };
 
-static const struct super_operations shmem_ops = {
+const struct super_operations shmem_ops = {
+	.init		= shmem_init_super,
 	.alloc_inode	= shmem_alloc_inode,
 	.destroy_inode	= shmem_destroy_inode,
 #ifdef CONFIG_TMPFS
@@ -3641,17 +3646,18 @@ static const struct vm_operations_struct shmem_vm_ops = {
 #endif
 };
 
-static struct dentry *shmem_mount(struct file_system_type *fs_type,
-	int flags, const char *dev_name, void *data)
+static struct super_block *shmem_open(struct file_system_type *fs_type,
+	int flags, struct user_namespace *user_ns, const char *dev_name,
+	const char *optv[], void **state)
 {
-	return mount_nodev(fs_type, flags, data, shmem_fill_super);
+	return nodev_open_super(fs_type, flags, user_ns, &shmem_ops);
 }
 
 static struct file_system_type shmem_fs_type = {
 	.owner		= THIS_MODULE,
 	.name		= "tmpfs",
 	.permission	= userns_mount_permission,
-	.mount		= shmem_mount,
+	.open		= shmem_open,
 	.kill_sb	= kill_litter_super,
 };
 
@@ -3796,7 +3802,7 @@ bool shmem_huge_enabled(struct vm_area_struct *vma)
 static struct file_system_type shmem_fs_type = {
 	.name		= "tmpfs",
 	.permission	= userns_mount_permission,
-	.mount		= ramfs_mount,
+	.open		= ramfs_open,
 	.kill_sb	= kill_litter_super,
 };
 
