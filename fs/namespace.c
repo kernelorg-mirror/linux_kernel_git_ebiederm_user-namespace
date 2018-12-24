@@ -3326,10 +3326,14 @@ void put_mnt_ns(struct mnt_namespace *ns)
 	free_mnt_ns(ns);
 }
 
-struct vfsmount *kern_mount_data(struct file_system_type *type, void *data)
+struct vfsmount *kern_mount_root(struct dentry *root)
 {
 	struct vfsmount *mnt;
-	mnt = vfs_kern_mount(type, SB_KERNMOUNT, &init_user_ns, type->name, data);
+
+	if (IS_ERR(root))
+		return ERR_CAST(root);
+
+	mnt = sb_mount(root, root->d_sb->s_type->name, 0);
 	if (!IS_ERR(mnt)) {
 		/*
 		 * it is a longterm mount, don't release mnt until
@@ -3339,6 +3343,15 @@ struct vfsmount *kern_mount_data(struct file_system_type *type, void *data)
 		mnt->mnt_flags = MNT_INTERNAL;
 	}
 	return mnt;
+}
+
+struct vfsmount *kern_mount_data(struct file_system_type *type, void *data)
+{
+	struct dentry *root;
+
+	root = mount_fs(type, SB_KERNMOUNT, &init_user_ns, type->name, data);
+
+	return kern_mount_root(root);
 }
 EXPORT_SYMBOL_GPL(kern_mount_data);
 
