@@ -17,16 +17,6 @@
 
 static int nfs4_write_inode(struct inode *inode, struct writeback_control *wbc);
 static void nfs4_evict_inode(struct inode *inode);
-static struct dentry *nfs4_remote_mount(struct file_system_type *fs_type,
-	int flags, const char *dev_name, void *raw_data);
-
-static struct file_system_type nfs4_remote_fs_type = {
-	.owner		= THIS_MODULE,
-	.name		= "nfs4",
-	.mount		= nfs4_remote_mount,
-	.kill_sb	= nfs_kill_super,
-	.fs_flags	= FS_RENAME_DOES_D_MOVE|FS_BINARY_MOUNTDATA,
-};
 
 static const struct super_operations nfs4_sops = {
 	.alloc_inode	= nfs_alloc_inode,
@@ -84,10 +74,9 @@ static void nfs4_evict_inode(struct inode *inode)
  * Get the superblock for the NFS4 root partition
  */
 static struct dentry *
-nfs4_remote_mount(struct file_system_type *fs_type, int flags,
-		  const char *dev_name, void *info)
+nfs4_remote_mount(int flags, const char *dev_name,
+		  struct nfs_mount_info *mount_info)
 {
-	struct nfs_mount_info *mount_info = info;
 	struct nfs_server *server;
 	struct dentry *mntroot = ERR_PTR(-ENOMEM);
 
@@ -124,7 +113,7 @@ static char *nfs4_root_devname(const char *hostname)
 }
 
 static struct dentry *nfs_do_root_mount(struct file_system_type *fs_type,
-		int flags, void *data, const char *hostname)
+               int flags, void *data, const char *hostname)
 
 {
 	struct vfsmount *root_mnt;
@@ -241,14 +230,21 @@ struct dentry *nfs4_try_mount(int flags, const char *dev_name,
 	char *export_path;
 	struct dentry *res, *root;
 	struct nfs_parsed_mount_data *data = mount_info->parsed;
+	const char *root_devname;
 
 	dfprintk(MOUNT, "--> nfs4_try_mount()\n");
 
+	root_devname = nfs4_root_devname(data->nfs_server.hostname);
+	if (IS_ERR(root_devname))
+		return ERR_CAST(root_devname);
+
 	export_path = data->nfs_server.export_path;
 	data->nfs_server.export_path = "/";
-	root = nfs_do_root_mount(&nfs4_remote_fs_type, flags, mount_info,
-			data->nfs_server.hostname);
+	root = nfs4_remote_mount(flags, root_devname, mount_info);
 	data->nfs_server.export_path = export_path;
+	kfree(root_devname);
+	if (!IS_ERR(root))
+		finish_super(root->d_sb);
 
 	res = nfs_follow_remote_path(root, export_path);
 	/* Lock the super so mount_fs can unlock it */
