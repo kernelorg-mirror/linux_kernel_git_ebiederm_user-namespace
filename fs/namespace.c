@@ -2415,7 +2415,7 @@ out:
 	return err;
 }
 
-static struct vfsmount *fs_set_subtype(struct vfsmount *mnt, const char *fstype)
+static int fs_set_subtype(struct super_block *sb, const char *fstype)
 {
 	int err;
 	const char *subtype = strchr(fstype, '.');
@@ -2427,15 +2427,14 @@ static struct vfsmount *fs_set_subtype(struct vfsmount *mnt, const char *fstype)
 	} else
 		subtype = "";
 
-	mnt->mnt_sb->s_subtype = kstrdup(subtype, GFP_KERNEL);
+	sb->s_subtype = kstrdup(subtype, GFP_KERNEL);
 	err = -ENOMEM;
-	if (!mnt->mnt_sb->s_subtype)
+	if (!sb->s_subtype)
 		goto err;
-	return mnt;
+	return 0;
 
  err:
-	mntput(mnt);
-	return ERR_PTR(err);
+	return err;
 }
 
 /*
@@ -2503,6 +2502,7 @@ static int do_new_mount(struct path *path, const char *fstype, int sb_flags,
 {
 	struct file_system_type *type;
 	const char *newname = NULL;
+	struct super_block *sb;
 	struct vfsmount *mnt;
 	struct dentry *root;
 	int err;
@@ -2529,32 +2529,41 @@ static int do_new_mount(struct path *path, const char *fstype, int sb_flags,
 	}
 
 	root = mount_fs(type, sb_flags, current_user_ns(), name, data);
-	mnt = ERR_CAST(root);
-	if (!IS_ERR(root))
-		mnt = sb_mount(root, name, 0);
-	if (!IS_ERR(mnt) && (type->fs_flags & FS_HAS_SUBTYPE) &&
-	    !mnt->mnt_sb->s_subtype)
-		mnt = fs_set_subtype(mnt, fstype);
-	kfree(newname);
-	put_filesystem(type);
+	err = PTR_ERR(root);
+	if (IS_ERR(root))
+		goto out_name;
+
+	sb = root->d_sb;
+	if ((type->fs_flags & FS_HAS_SUBTYPE) && !sb->s_subtype) {
+		err = fs_set_subtype(sb, fstype);
+		if (err)
+			goto out_root;
+	}
+
+	err = security_sb_may_mount(sb);
+	if (err)
+		goto out_root;
+
+	err = -EPERM;
+	if (mount_too_revealing(root, &mnt_flags))
+		goto out_root;
+
+	mnt = sb_mount(root, name, mnt_flags);
+	err = PTR_ERR(mnt);
 	if (IS_ERR(mnt))
-		return PTR_ERR(mnt);
-
-	err = security_sb_may_mount(mnt->mnt_sb);
-	if (err) {
-		mntput(mnt);
-		return err;
-	}
-
-	if (mount_too_revealing(mnt->mnt_root, &mnt_flags)) {
-		mntput(mnt);
-		return -EPERM;
-	}
+		goto out_name;
 
 	err = do_add_mount(real_mount(mnt), path, mnt_flags);
 	if (err)
 		mntput(mnt);
+out_name:
+	kfree(newname);
+	put_filesystem(type);
 	return err;
+out_root:
+	dput(root);
+	deactivate_super(sb);
+	goto out_name;
 }
 
 static LIST_HEAD(automount_list);
