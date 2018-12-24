@@ -125,6 +125,8 @@ struct pts_fs_info {
 	struct dentry *ptmx_dentry;
 };
 
+static int devpts_init(struct super_block *sb, void *state, const char *optv[]);
+
 static inline struct pts_fs_info *DEVPTS_SB(struct super_block *sb)
 {
 	return sb->s_fs_info;
@@ -422,6 +424,7 @@ static int devpts_show_options(struct seq_file *seq, struct dentry *root)
 }
 
 static const struct super_operations devpts_sops = {
+	.init		= devpts_init,
 	.statfs		= simple_statfs,
 	.remount_fs	= devpts_remount,
 	.show_options	= devpts_show_options,
@@ -494,16 +497,22 @@ fail:
 	return error;
 }
 
+static int devpts_init(struct super_block *sb, void *state, const char *optv[])
+{
+	return legacy_init_super(sb, optv, devpts_fill_super);
+}
+
 /*
- * devpts_mount()
+ * devpts_open()
  *
  *     Mount a new (private) instance of devpts.  PTYs created in this
  *     instance are independent of the PTYs in other devpts instances.
  */
-static struct dentry *devpts_mount(struct file_system_type *fs_type,
-	int flags, const char *dev_name, void *data)
+static struct super_block *devpts_open(struct file_system_type *fs_type,
+	int flags, struct user_namespace *user_ns, const char *dev_name,
+	const char *optv[], void **state)
 {
-	return mount_nodev(fs_type, flags, data, devpts_fill_super);
+	return nodev_open_super(fs_type, flags, user_ns, &devpts_sops);
 }
 
 static void devpts_kill_sb(struct super_block *sb)
@@ -519,7 +528,7 @@ static void devpts_kill_sb(struct super_block *sb)
 static struct file_system_type devpts_fs_type = {
 	.name		= "devpts",
 	.permission	= userns_mount_permission,
-	.mount		= devpts_mount,
+	.open		= devpts_open,
 	.kill_sb	= devpts_kill_sb,
 };
 
