@@ -1256,7 +1256,7 @@ struct dentry *finish_subsuper(const struct super_block *old_sb,
 EXPORT_SYMBOL(finish_subsuper);
 
 struct dentry *
-mount_fs(struct file_system_type *type, int flags,
+mount_fs(struct file_system_type *type, const char *subtype, int flags,
 	 struct user_namespace *user_ns, const char *name, void *data)
 {
 	const char **secv = NULL, **openv = NULL, **optv = NULL;
@@ -1278,6 +1278,13 @@ mount_fs(struct file_system_type *type, int flags,
 		error = PTR_ERR(sb);
 		if (IS_ERR(sb))
 			goto out;
+
+		if (subtype && !sb->s_subtype) {
+			sb->s_subtype = kstrdup(subtype, GFP_KERNEL);
+			error = -ENOMEM;
+			if (!sb->s_subtype)
+				goto out_sb;
+		}
 
 		error = -EBUSY;
 		configure_seq = sb->s_configure_seq;
@@ -1314,6 +1321,13 @@ mount_fs(struct file_system_type *type, int flags,
 		sb = root->d_sb;
 		BUG_ON(!sb);
 		WARN_ON(!sb->s_bdi);
+
+		if (subtype && !sb->s_subtype) {
+			sb->s_subtype = kstrdup(subtype, GFP_KERNEL);
+			error = -ENOMEM;
+			if (!sb->s_subtype)
+				goto out_root;
+		}
 
 		error = security_sb_set_mnt_opts(sb, secv);
 		if (error)

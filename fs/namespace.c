@@ -976,7 +976,7 @@ static struct vfsmount *mount_rootfs(void)
 	if (IS_ERR(type))
 		return ERR_CAST(type);
 
-	root = mount_fs(type, 0, &init_user_ns, "rootfs", NULL);
+	root = mount_fs(type, NULL, 0, &init_user_ns, "rootfs", NULL);
 	put_filesystem(type);
 	if (IS_ERR(root))
 		return ERR_CAST(root);
@@ -2419,18 +2419,6 @@ out:
 	return err;
 }
 
-static int fs_set_subtype(struct super_block *sb, const char *fstype)
-{
-	const char *subtype = fs_subtype(fstype);
-	if (!subtype)
-		subtype = "";
-
-	sb->s_subtype = kstrdup(subtype, GFP_KERNEL);
-	if (!sb->s_subtype)
-		return -ENOMEM;
-	return 0;
-}
-
 /*
  * add a mount into a namespace's mount tree
  */
@@ -2492,7 +2480,7 @@ static int do_new_mount(struct path *path, const char *fstype, int sb_flags,
 			int mnt_flags, const char *name, void *data)
 {
 	struct file_system_type *type;
-	const char *newname = NULL;
+	const char *newname = NULL, *subtype = NULL;
 	struct super_block *sb;
 	struct vfsmount *mnt;
 	struct dentry *root;
@@ -2504,6 +2492,9 @@ static int do_new_mount(struct path *path, const char *fstype, int sb_flags,
 	type = get_fs_type(fstype);
 	if (IS_ERR(type))
 		return PTR_ERR(type);
+	subtype = fs_subtype(fstype);
+	if (IS_ERR(subtype))
+		return PTR_ERR(subtype);
 
 	/* Verify the mounter has permission to mount the filesystem */
 	err = new_mount_permission(type);
@@ -2519,18 +2510,12 @@ static int do_new_mount(struct path *path, const char *fstype, int sb_flags,
 			name = newname;
 	}
 
-	root = mount_fs(type, sb_flags, current_user_ns(), name, data);
+	root = mount_fs(type, subtype, sb_flags, current_user_ns(), name, data);
 	err = PTR_ERR(root);
 	if (IS_ERR(root))
 		goto out_name;
 
 	sb = root->d_sb;
-	if ((type->fs_flags & FS_HAS_SUBTYPE) && !sb->s_subtype) {
-		err = fs_set_subtype(sb, fstype);
-		if (err)
-			goto out_root;
-	}
-
 	err = security_sb_may_mount(sb);
 	if (err)
 		goto out_root;
@@ -3345,7 +3330,7 @@ struct vfsmount *kern_mount_data(struct file_system_type *type, int sb_flags,
 {
 	struct dentry *root;
 
-	root = mount_fs(type, sb_flags, &init_user_ns, type->name, data);
+	root = mount_fs(type, NULL, sb_flags, &init_user_ns, type->name, data);
 
 	return kern_mount_root(root);
 }

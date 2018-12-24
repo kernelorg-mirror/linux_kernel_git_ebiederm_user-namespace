@@ -101,7 +101,7 @@ extern struct file *alloc_empty_file_noaccount(int, const struct cred *);
  */
 extern int do_remount_sb(struct super_block *, int, const char *[], int);
 extern bool trylock_super(struct super_block *sb);
-extern struct dentry *mount_fs(struct file_system_type *, int,
+extern struct dentry *mount_fs(struct file_system_type *, const char *, int,
 			       struct user_namespace *,
 			       const char *, void *);
 extern struct super_block *user_get_super(dev_t);
