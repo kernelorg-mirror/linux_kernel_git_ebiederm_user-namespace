@@ -44,6 +44,8 @@ static int ext2_statfs (struct dentry * dentry, struct kstatfs * buf);
 static int ext2_sync_fs(struct super_block *sb, int wait);
 static int ext2_freeze(struct super_block *sb);
 static int ext2_unfreeze(struct super_block *sb);
+static int ext2_init(struct super_block *sb, void *state, const char *optv[]);
+
 
 void ext2_error(struct super_block *sb, const char *function,
 		const char *fmt, ...)
@@ -351,6 +353,8 @@ static const struct quotactl_ops ext2_quotactl_ops = {
 #endif
 
 static const struct super_operations ext2_sops = {
+	.init		= ext2_init,
+	.reinit		= noop_reinit_super,
 	.alloc_inode	= ext2_alloc_inode,
 	.destroy_inode	= ext2_destroy_inode,
 	.write_inode	= ext2_write_inode,
@@ -1155,7 +1159,6 @@ static int ext2_fill_super(struct super_block *sb, void *data, int silent)
 	/*
 	 * set up enough so that it can read an inode
 	 */
-	sb->s_op = &ext2_sops;
 	sb->s_export_op = &ext2_export_ops;
 	sb->s_xattr = ext2_xattr_handlers;
 
@@ -1217,6 +1220,11 @@ failed_sbi:
 failed:
 	fs_put_dax(dax_dev);
 	return ret;
+}
+
+static int ext2_init(struct super_block *sb, void *state, const char *optv[])
+{
+	return legacy_init_super(sb, optv, ext2_fill_super);
 }
 
 static void ext2_clear_super_error(struct super_block *sb)
@@ -1471,10 +1479,12 @@ static int ext2_statfs (struct dentry * dentry, struct kstatfs * buf)
 	return 0;
 }
 
-static struct dentry *ext2_mount(struct file_system_type *fs_type,
-	int flags, const char *dev_name, void *data)
+static struct super_block *ext2_open(struct file_system_type *fs_type,
+	int flags, struct user_namespace *user_ns, const char *dev_name,
+	const char *optv[], void **state)
 {
-	return mount_bdev(fs_type, flags, dev_name, data, ext2_fill_super);
+	return bdev_open_super(fs_type, flags, user_ns, dev_name, optv,
+			       &ext2_sops);
 }
 
 #ifdef CONFIG_QUOTA
@@ -1630,7 +1640,7 @@ out:
 static struct file_system_type ext2_fs_type = {
 	.owner		= THIS_MODULE,
 	.name		= "ext2",
-	.mount		= ext2_mount,
+	.open		= ext2_open,
 	.kill_sb	= kill_block_super,
 	.fs_flags	= FS_REQUIRES_DEV,
 };
