@@ -973,9 +973,6 @@ vfs_kern_mount(struct file_system_type *type, int flags,
 {
 	struct dentry *root;
 
-	if (!type)
-		return ERR_PTR(-ENODEV);
-
 	root = mount_fs(type, flags, user_ns, name, data);
 	if (IS_ERR(root))
 		return ERR_CAST(root);
