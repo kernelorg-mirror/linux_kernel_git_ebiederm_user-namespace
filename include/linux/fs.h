@@ -2247,6 +2247,9 @@ int legacy_init_super(struct super_block *sb, const char *optv[],
 	int (*fill_super)(struct super_block *, void *, int));
 int noop_reinit_super(struct super_block *sb, void *state, int flags,
 	const char **optv);
+struct super_block *single_open_super(struct file_system_type *fs_type,
+	int flags, struct user_namespace *user_ns,
+	const struct super_operations *s_op);
 extern struct dentry *mount_single(struct file_system_type *fs_type,
 	int flags, void *data,
 	int (*fill_super)(struct super_block *, void *, int));
