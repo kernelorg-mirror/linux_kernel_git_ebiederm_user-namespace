@@ -322,7 +322,7 @@ err:
 	return ERR_PTR(ret);
 }
 
-static int mqueue_fill_super(struct super_block *sb, void *data, int silent)
+static int mqueue_init(struct super_block *sb, void *state, const char *optv[])
 {
 	struct inode *inode;
 	struct ipc_namespace *ns = sb->s_fs_info;
@@ -349,12 +349,12 @@ static int mqueue_mount_permission(void)
 	return ns_capable(ns->user_ns, CAP_SYS_ADMIN) ? 0 : -EPERM;
 }
 
-static struct dentry *mqueue_mount(struct file_system_type *fs_type,
-			 int flags, const char *dev_name,
-			 void *data)
+static struct super_block *mqueue_open(struct file_system_type *fs_type,
+	int flags, struct user_namespace *user_ns, const char *dev_name,
+	const char *optv[], void **state)
 {
 	struct ipc_namespace *ns = current->nsproxy->ipc_ns;
-	return mount_ns(fs_type, flags, data, ns, ns->user_ns, mqueue_fill_super);
+	return ns_open_super(fs_type, flags, ns->user_ns, ns, &mqueue_super_ops);
 }
 
 static void init_once(void *foo)
@@ -1516,6 +1516,8 @@ static const struct file_operations mqueue_file_operations = {
 };
 
 static const struct super_operations mqueue_super_ops = {
+	.init = mqueue_init,
+	.reinit = noop_reinit_super,
 	.alloc_inode = mqueue_alloc_inode,
 	.destroy_inode = mqueue_destroy_inode,
 	.evict_inode = mqueue_evict_inode,
@@ -1525,13 +1527,13 @@ static const struct super_operations mqueue_super_ops = {
 static struct file_system_type mqueue_fs_type = {
 	.name = "mqueue",
 	.permission = mqueue_mount_permission,
-	.mount = mqueue_mount,
+	.open = mqueue_open,
 	.kill_sb = kill_litter_super,
 };
 
 int mq_init_ns(struct ipc_namespace *ns)
 {
-	struct dentry *root;
+	struct super_block *sb;
 
 	ns->mq_queues_count  = 0;
 	ns->mq_queues_max    = DFLT_QUEUESMAX;
@@ -1540,10 +1542,18 @@ int mq_init_ns(struct ipc_namespace *ns)
 	ns->mq_msg_default   = DFLT_MSG;
 	ns->mq_msgsize_default  = DFLT_MSGSIZE;
 
-	root = mount_ns(&mqueue_fs_type, 0, "", ns, ns->user_ns, mqueue_fill_super);
-	if (!IS_ERR(root))
-		finish_super(root->d_sb);
-	ns->mq_mnt = kern_mount_root(root);
+	sb = ns_open_super(&mqueue_fs_type, 0, ns->user_ns, ns, &mqueue_super_ops);
+	if (IS_ERR(sb))
+		return PTR_ERR(sb);
+	if (!sb->s_root) {
+		int err = sb->s_op->init(sb, NULL, empty_optv);
+		if (err) {
+			deactivate_locked_super(sb);
+			return err;
+		}
+	}
+	finish_super(sb);
+	ns->mq_mnt = kern_mount_root(dget(sb->s_root));
 	if (IS_ERR(ns->mq_mnt)) {
 		int err = PTR_ERR(ns->mq_mnt);
 		ns->mq_mnt = NULL;
