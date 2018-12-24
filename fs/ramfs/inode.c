@@ -48,8 +48,9 @@ struct ramfs_fs_info {
 
 #define RAMFS_DEFAULT_MODE	0755
 
-static const struct super_operations ramfs_ops;
 static const struct inode_operations ramfs_dir_inode_operations;
+
+static int ramfs_init(struct super_block *sb, void *state, const char *optv[]);
 
 static const struct address_space_operations ramfs_aops = {
 	.readpage	= simple_readpage,
@@ -169,7 +170,8 @@ static int ramfs_show_options(struct seq_file *m, struct dentry *root)
 	return 0;
 }
 
-static const struct super_operations ramfs_ops = {
+const struct super_operations ramfs_ops = {
+	.init		= ramfs_init,
 	.statfs		= simple_statfs,
 	.drop_inode	= generic_delete_inode,
 	.show_options	= ramfs_show_options,
@@ -216,7 +218,7 @@ static int ramfs_parse_options(char *data, struct ramfs_mount_opts *opts)
 	return 0;
 }
 
-int ramfs_fill_super(struct super_block *sb, void *data, int silent)
+static int ramfs_fill_super(struct super_block *sb, void *data, int silent)
 {
 	struct ramfs_fs_info *fsi;
 	struct inode *inode;
@@ -235,7 +237,6 @@ int ramfs_fill_super(struct super_block *sb, void *data, int silent)
 	sb->s_blocksize		= PAGE_SIZE;
 	sb->s_blocksize_bits	= PAGE_SHIFT;
 	sb->s_magic		= RAMFS_MAGIC;
-	sb->s_op		= &ramfs_ops;
 	sb->s_time_gran		= 1;
 
 	inode = ramfs_get_inode(sb, NULL, S_IFDIR | fsi->mount_opts.mode, 0);
@@ -246,10 +247,16 @@ int ramfs_fill_super(struct super_block *sb, void *data, int silent)
 	return 0;
 }
 
-struct dentry *ramfs_mount(struct file_system_type *fs_type,
-	int flags, const char *dev_name, void *data)
+static int ramfs_init(struct super_block *sb, void *state, const char *optv[])
 {
-	return mount_nodev(fs_type, flags, data, ramfs_fill_super);
+	return legacy_init_super(sb, optv, ramfs_fill_super);
+}
+
+struct super_block *ramfs_open(struct file_system_type *fs_type,
+	int flags, struct user_namespace *user_ns, const char *dev_name,
+	const char *optv[], void **state)
+{
+	return nodev_open_super(fs_type, flags, user_ns, &ramfs_ops);
 }
 
 static void ramfs_kill_sb(struct super_block *sb)
@@ -261,7 +268,7 @@ static void ramfs_kill_sb(struct super_block *sb)
 static struct file_system_type ramfs_fs_type = {
 	.name		= "ramfs",
 	.permission	= userns_mount_permission,
-	.mount		= ramfs_mount,
+	.open		= ramfs_open,
 	.kill_sb	= ramfs_kill_sb,
 };
 

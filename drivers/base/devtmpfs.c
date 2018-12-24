@@ -55,19 +55,18 @@ static int __init mount_param(char *str)
 }
 __setup("devtmpfs.mount=", mount_param);
 
-static struct dentry *dev_mount(struct file_system_type *fs_type, int flags,
-		      const char *dev_name, void *data)
+static struct super_operations devtmpfs_ops;
+
+static struct super_block *devtmpfs_open(struct file_system_type *fs_type,
+	int flags, struct user_namespace *user_ns, const char *dev_name,
+	const char *optv[], void **state)
 {
-#ifdef CONFIG_TMPFS
-	return mount_single(fs_type, flags, data, shmem_fill_super);
-#else
-	return mount_single(fs_type, flags, data, ramfs_fill_super);
-#endif
+	return single_open_super(fs_type, flags, user_ns, &devtmpfs_ops);
 }
 
 static struct file_system_type dev_fs_type = {
 	.name = "devtmpfs",
-	.mount = dev_mount,
+	.open = devtmpfs_open,
 	.kill_sb = kill_litter_super,
 };
 
@@ -420,7 +419,14 @@ out:
  */
 int __init devtmpfs_init(void)
 {
-	int err = register_filesystem(&dev_fs_type);
+	int err;
+#ifdef CONFIG_TMPFS
+	memcpy(&devtmpfs_ops, &shmem_ops, sizeof(devtmpfs_ops));
+#else
+	memcpy(&devtmpfs_ops, &ramfs_ops, sizeof(devtmpfs_ops));
+#endif
+	devtmpfs_ops.reinit = reconfigure_reinit_super;
+	err = register_filesystem(&dev_fs_type);
 	if (err) {
 		printk(KERN_ERR "devtmpfs: unable to register devtmpfs "
 		       "type %i\n", err);

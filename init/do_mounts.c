@@ -625,24 +625,25 @@ out:
 }
 
 static bool is_tmpfs;
-static struct dentry *rootfs_mount(struct file_system_type *fs_type,
-	int flags, const char *dev_name, void *data)
+static struct super_block *rootfs_open(struct file_system_type *fs_type,
+	int flags, struct user_namespace *user_ns, const char *dev_name,
+	const char *optv[], void **state)
 {
 	static unsigned long once;
-	void *fill = ramfs_fill_super;
+	const struct super_operations *s_ops = &ramfs_ops;
 
 	if (test_and_set_bit(0, &once))
 		return ERR_PTR(-ENODEV);
 
 	if (IS_ENABLED(CONFIG_TMPFS) && is_tmpfs)
-		fill = shmem_fill_super;
+		s_ops = &shmem_ops;
 
-	return mount_nodev(fs_type, flags, data, fill);
+	return nodev_open_super(fs_type, flags, user_ns, s_ops);
 }
 
 static struct file_system_type rootfs_fs_type = {
 	.name		= "rootfs",
-	.mount		= rootfs_mount,
+	.open		= rootfs_open,
 	.kill_sb	= kill_litter_super,
 };
 
