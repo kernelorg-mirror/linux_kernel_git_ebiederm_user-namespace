@@ -92,12 +92,13 @@ static int proc_mount_permission(void)
 	return ns_capable(ns->user_ns, CAP_SYS_ADMIN) ? 0 : -EPERM;
 }
 
-static struct dentry *proc_mount(struct file_system_type *fs_type,
-	int flags, const char *dev_name, void *data)
+static struct super_block *proc_open(struct file_system_type *fs_type,
+	int flags, struct user_namespace *user_ns, const char *dev_name,
+	const char *optv[], void **state)
 {
 	struct pid_namespace *ns = task_active_pid_ns(current);
 
-	return mount_ns(fs_type, flags, data, ns, ns->user_ns, proc_fill_super);
+	return ns_open_super(fs_type, flags, ns->user_ns, ns, &proc_sops);
 }
 
 static void proc_kill_sb(struct super_block *sb)
@@ -116,7 +117,7 @@ static void proc_kill_sb(struct super_block *sb)
 static struct file_system_type proc_fs_type = {
 	.name		= "proc",
 	.permission	= proc_mount_permission,
-	.mount		= proc_mount,
+	.open		= proc_open,
 	.kill_sb	= proc_kill_sb,
 };
 
@@ -208,13 +209,21 @@ struct proc_dir_entry proc_root = {
 
 int pid_ns_prepare_proc(struct pid_namespace *ns)
 {
+	struct super_block *sb;
 	struct vfsmount *mnt;
-	struct dentry *root;
 
-	root = mount_ns(&proc_fs_type, 0, "", ns, ns->user_ns, proc_fill_super);
-	if (!IS_ERR(root))
-		finish_super(root->d_sb);
-	mnt = kern_mount_root(root);
+	sb = ns_open_super(&proc_fs_type, 0, ns->user_ns, ns, &proc_sops);
+	if (IS_ERR(sb))
+		return PTR_ERR(sb);
+	if (!sb->s_root) {
+		int err = sb->s_op->init(sb, NULL, empty_optv);
+		if (err) {
+			deactivate_locked_super(sb);
+			return err;
+		}
+	}
+	finish_super(sb);
+	mnt = kern_mount_root(dget(sb->s_root));
 	if (IS_ERR(mnt))
 		return PTR_ERR(mnt);
 

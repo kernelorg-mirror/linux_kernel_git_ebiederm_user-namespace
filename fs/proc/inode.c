@@ -124,16 +124,6 @@ static int proc_show_options(struct seq_file *seq, struct dentry *root)
 	return 0;
 }
 
-static const struct super_operations proc_sops = {
-	.alloc_inode	= proc_alloc_inode,
-	.destroy_inode	= proc_destroy_inode,
-	.drop_inode	= generic_delete_inode,
-	.evict_inode	= proc_evict_inode,
-	.statfs		= simple_statfs,
-	.remount_fs	= proc_remount,
-	.show_options	= proc_show_options,
-};
-
 enum {BIAS = -1U<<31};
 
 static inline int use_pde(struct proc_dir_entry *pde)
@@ -491,7 +481,7 @@ struct inode *proc_get_inode(struct super_block *sb, struct proc_dir_entry *de)
 	return inode;
 }
 
-int proc_fill_super(struct super_block *s, void *data, int silent)
+static int proc_fill_super(struct super_block *s, void *data, int silent)
 {
 	struct pid_namespace *ns = get_pid_ns(s->s_fs_info);
 	struct inode *root_inode;
@@ -538,3 +528,20 @@ int proc_fill_super(struct super_block *s, void *data, int silent)
 	}
 	return proc_setup_thread_self(s);
 }
+
+static int proc_init(struct super_block *sb, void *state, const char *optv[])
+{
+	return legacy_init_super(sb, optv, proc_fill_super);
+}
+
+const struct super_operations proc_sops = {
+	.init		= proc_init,
+	.reinit		= noop_reinit_super,
+	.alloc_inode	= proc_alloc_inode,
+	.destroy_inode	= proc_destroy_inode,
+	.drop_inode	= generic_delete_inode,
+	.evict_inode	= proc_evict_inode,
+	.statfs		= simple_statfs,
+	.remount_fs	= proc_remount,
+	.show_options	= proc_show_options,
+};
