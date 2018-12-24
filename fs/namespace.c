@@ -967,17 +967,21 @@ fail:
 	return ERR_PTR(-ENOMEM);
 }
 
-static struct vfsmount *
-vfs_kern_mount(struct file_system_type *type, int flags,
-	       struct user_namespace *user_ns, const char *name, void *data)
+static struct vfsmount *mount_rootfs(void)
 {
+	struct file_system_type *type;
 	struct dentry *root;
 
-	root = mount_fs(type, flags, user_ns, name, data);
+	type = get_fs_type("rootfs");
+	if (!type)
+		return ERR_PTR(-ENODEV);
+
+	root = mount_fs(type, 0, &init_user_ns, "rootfs", NULL);
+	put_filesystem(type);
 	if (IS_ERR(root))
 		return ERR_CAST(root);
 
-	return sb_mount(root, name, 0);
+	return sb_mount(root, "rootfs", 0);
 }
 
 static struct mount *clone_mnt(struct mount *old, struct dentry *root,
@@ -3265,13 +3269,8 @@ static void __init init_mount_tree(void)
 	struct vfsmount *mnt;
 	struct mnt_namespace *ns;
 	struct path root;
-	struct file_system_type *type;
 
-	type = get_fs_type("rootfs");
-	if (!type)
-		panic("Can't find rootfs type");
-	mnt = vfs_kern_mount(type, 0, &init_user_ns, "rootfs", NULL);
-	put_filesystem(type);
+	mnt = mount_rootfs();
 	if (IS_ERR(mnt))
 		panic("Can't create rootfs");
 
