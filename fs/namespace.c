@@ -2504,6 +2504,7 @@ static int do_new_mount(struct path *path, const char *fstype, int sb_flags,
 	struct file_system_type *type;
 	const char *newname = NULL;
 	struct vfsmount *mnt;
+	struct dentry *root;
 	int err;
 
 	if (!fstype)
@@ -2527,11 +2528,13 @@ static int do_new_mount(struct path *path, const char *fstype, int sb_flags,
 			name = newname;
 	}
 
-	mnt = vfs_kern_mount(type, sb_flags, current_user_ns(), name, data);
+	root = mount_fs(type, sb_flags, current_user_ns(), name, data);
+	mnt = ERR_CAST(root);
+	if (!IS_ERR(root))
+		mnt = sb_mount(root, name, 0);
 	if (!IS_ERR(mnt) && (type->fs_flags & FS_HAS_SUBTYPE) &&
 	    !mnt->mnt_sb->s_subtype)
 		mnt = fs_set_subtype(mnt, fstype);
-
 	kfree(newname);
 	put_filesystem(type);
 	if (IS_ERR(mnt))
