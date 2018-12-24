@@ -1308,6 +1308,13 @@ struct dentry *mount_single(struct file_system_type *fs_type,
 }
 EXPORT_SYMBOL(mount_single);
 
+int reconfigure_reinit_super(struct super_block *sb, void *state, int flags,
+			     const char *optv[])
+{
+	return do_remount_sb(sb, flags, optv, 0);
+}
+EXPORT_SYMBOL(reconfigure_reinit_super);
+
 void finish_super(struct super_block *sb)
 {
 	/*
