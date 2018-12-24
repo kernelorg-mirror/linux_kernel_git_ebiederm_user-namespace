@@ -1268,6 +1268,19 @@ static int compare_single(struct super_block *s, void *p)
 	return 1;
 }
 
+struct super_block *single_open_super(struct file_system_type *fs_type,
+	int flags, struct user_namespace *user_ns,
+	const struct super_operations *s_op)
+{
+	struct super_block *sb;
+
+	sb = sget(fs_type, compare_single, set_anon_super, flags, user_ns, NULL);
+	if (!IS_ERR(sb) && !sb->s_op->init && s_op)
+		sb->s_op = s_op;
+	return sb;
+}
+EXPORT_SYMBOL(single_open_super);
+
 struct dentry *mount_single(struct file_system_type *fs_type,
 	int flags, void *data,
 	int (*fill_super)(struct super_block *, void *, int))
@@ -1275,8 +1288,7 @@ struct dentry *mount_single(struct file_system_type *fs_type,
 	struct super_block *s;
 	int error;
 
-	s = sget(fs_type, compare_single, set_anon_super, flags,
-		 &init_user_ns, NULL);
+	s = single_open_super(fs_type, flags, &init_user_ns, NULL);
 	if (IS_ERR(s))
 		return ERR_CAST(s);
 	if (!s->s_root) {
