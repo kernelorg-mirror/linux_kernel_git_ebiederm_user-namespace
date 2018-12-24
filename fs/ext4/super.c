@@ -74,8 +74,9 @@ static int ext4_remount(struct super_block *sb, int *flags, char *data);
 static int ext4_statfs(struct dentry *dentry, struct kstatfs *buf);
 static int ext4_unfreeze(struct super_block *sb);
 static int ext4_freeze(struct super_block *sb);
-static struct dentry *ext4_mount(struct file_system_type *fs_type, int flags,
-		       const char *dev_name, void *data);
+static struct super_block *ext4_open(struct file_system_type *fs_type,
+	int flags, struct user_namespace *user_ns, const char *dev_name,
+	const char *optv[], void **state);
 static inline int ext2_feature_set_ok(struct super_block *sb);
 static inline int ext3_feature_set_ok(struct super_block *sb);
 static int ext4_feature_set_ok(struct super_block *sb, int readonly);
@@ -84,6 +85,7 @@ static void ext4_unregister_li_request(struct super_block *sb);
 static void ext4_clear_request_list(void);
 static struct inode *ext4_get_journal_inode(struct super_block *sb,
 					    unsigned int journal_inum);
+static int ext4_init(struct super_block *sb, void *state, const char *optv[]);
 
 /*
  * Lock ordering
@@ -117,7 +119,7 @@ static struct inode *ext4_get_journal_inode(struct super_block *sb,
 static struct file_system_type ext2_fs_type = {
 	.owner		= THIS_MODULE,
 	.name		= "ext2",
-	.mount		= ext4_mount,
+	.open		= ext4_open,
 	.kill_sb	= kill_block_super,
 	.fs_flags	= FS_REQUIRES_DEV,
 };
@@ -132,7 +134,7 @@ MODULE_ALIAS("ext2");
 static struct file_system_type ext3_fs_type = {
 	.owner		= THIS_MODULE,
 	.name		= "ext3",
-	.mount		= ext4_mount,
+	.open		= ext4_open,
 	.kill_sb	= kill_block_super,
 	.fs_flags	= FS_REQUIRES_DEV,
 };
@@ -1368,6 +1370,8 @@ static const struct quotactl_ops ext4_qctl_operations = {
 #endif
 
 static const struct super_operations ext4_sops = {
+	.init		= ext4_init,
+	.reinit		= noop_reinit_super,
 	.alloc_inode	= ext4_alloc_inode,
 	.destroy_inode	= ext4_destroy_inode,
 	.write_inode	= ext4_write_inode,
@@ -4140,7 +4144,6 @@ static int ext4_fill_super(struct super_block *sb, void *data, int silent)
 	/*
 	 * set up enough so that it can read an inode
 	 */
-	sb->s_op = &ext4_sops;
 	sb->s_export_op = &ext4_export_ops;
 	sb->s_xattr = ext4_xattr_handlers;
 #ifdef CONFIG_EXT4_FS_ENCRYPTION
@@ -4560,6 +4563,11 @@ out_free_base:
 	kfree(orig_data);
 	fs_put_dax(dax_dev);
 	return err ? err : ret;
+}
+
+static int ext4_init(struct super_block *sb, void *state, const char *optv[])
+{
+	return legacy_init_super(sb, optv, ext4_fill_super);
 }
 
 /*
@@ -5886,10 +5894,12 @@ static int ext4_get_next_id(struct super_block *sb, struct kqid *qid)
 }
 #endif
 
-static struct dentry *ext4_mount(struct file_system_type *fs_type, int flags,
-		       const char *dev_name, void *data)
+static struct super_block *ext4_open(struct file_system_type *fs_type,
+	int flags, struct user_namespace *user_ns, const char *dev_name,
+	const char *optv[], void **state)
 {
-	return mount_bdev(fs_type, flags, dev_name, data, ext4_fill_super);
+	return bdev_open_super(fs_type, flags, user_ns, dev_name, optv,
+			       &ext4_sops);
 }
 
 #if !defined(CONFIG_EXT2_FS) && !defined(CONFIG_EXT2_FS_MODULE) && defined(CONFIG_EXT4_USE_FOR_EXT2)
@@ -5951,7 +5961,7 @@ static inline int ext3_feature_set_ok(struct super_block *sb)
 static struct file_system_type ext4_fs_type = {
 	.owner		= THIS_MODULE,
 	.name		= "ext4",
-	.mount		= ext4_mount,
+	.open		= ext4_open,
 	.kill_sb	= kill_block_super,
 	.fs_flags	= FS_REQUIRES_DEV,
 };
