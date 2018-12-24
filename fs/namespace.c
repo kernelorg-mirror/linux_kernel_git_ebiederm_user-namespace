@@ -3345,11 +3345,12 @@ struct vfsmount *kern_mount_root(struct dentry *root)
 	return mnt;
 }
 
-struct vfsmount *kern_mount_data(struct file_system_type *type, char *data)
+struct vfsmount *kern_mount_data(struct file_system_type *type, int sb_flags,
+				 char *data)
 {
 	struct dentry *root;
 
-	root = mount_fs(type, SB_KERNMOUNT, &init_user_ns, type->name, data);
+	root = mount_fs(type, sb_flags | SB_KERNMOUNT, &init_user_ns, type->name, data);
 
 	return kern_mount_root(root);
 }
