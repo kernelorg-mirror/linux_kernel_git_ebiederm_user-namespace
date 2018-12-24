@@ -205,7 +205,6 @@ struct dentry *nfs4_try_mount(int flags, const char *dev_name,
 			      struct nfs_mount_info *mount_info,
 			      struct nfs_subversion *nfs_mod)
 {
-	char *export_path;
 	struct dentry *res, *root;
 	struct nfs_parsed_mount_data *data = mount_info->parsed;
 	const char *root_devname;
@@ -216,15 +215,12 @@ struct dentry *nfs4_try_mount(int flags, const char *dev_name,
 	if (IS_ERR(root_devname))
 		return ERR_CAST(root_devname);
 
-	export_path = data->nfs_server.export_path;
-	data->nfs_server.export_path = "/";
 	root = nfs4_remote_mount(flags, root_devname, mount_info);
-	data->nfs_server.export_path = export_path;
 	kfree(root_devname);
 	if (!IS_ERR(root))
 		finish_super(root->d_sb);
 
-	res = nfs_follow_remote_path(root, export_path);
+	res = nfs_follow_remote_path(root, data->nfs_server.export_path);
 	/* Lock the super so mount_fs can unlock it */
 	if (!IS_ERR(res))
 		down_write(&res->d_sb->s_umount);
