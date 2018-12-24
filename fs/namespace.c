@@ -973,8 +973,8 @@ static struct vfsmount *mount_rootfs(void)
 	struct dentry *root;
 
 	type = get_fs_type("rootfs");
-	if (!type)
-		return ERR_PTR(-ENODEV);
+	if (IS_ERR(type))
+		return ERR_CAST(type);
 
 	root = mount_fs(type, 0, &init_user_ns, "rootfs", NULL);
 	put_filesystem(type);
@@ -2512,8 +2512,8 @@ static int do_new_mount(struct path *path, const char *fstype, int sb_flags,
 		return -EINVAL;
 
 	type = get_fs_type(fstype);
-	if (!type)
-		return -ENODEV;
+	if (IS_ERR(type))
+		return PTR_ERR(type);
 
 	/* Verify the mounter has permission to mount the filesystem */
 	err = new_mount_permission(type);

@@ -274,6 +274,8 @@ struct file_system_type *get_fs_type(const char *name)
 		put_filesystem(fs);
 		fs = NULL;
 	}
+	if (!fs)
+		fs = ERR_PTR(-ENODEV);
 	return fs;
 }
 

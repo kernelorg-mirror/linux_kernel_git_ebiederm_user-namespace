@@ -35,8 +35,8 @@ int i915_gemfs_init(struct drm_i915_private *i915)
 	struct vfsmount *gemfs;
 
 	type = get_fs_type("tmpfs");
-	if (!type)
-		return -ENODEV;
+	if (IS_ERR(type))
+		return PTR_ERR(type);
 
 	gemfs = kern_mount_data(type, SB_NOUSER, NULL);
 	if (IS_ERR(gemfs))

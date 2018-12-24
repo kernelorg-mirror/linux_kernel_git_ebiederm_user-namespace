@@ -319,8 +319,8 @@ static struct dentry *cpuset_mount(struct file_system_type *fs_type,
 			 int flags, const char *unused_dev_name, void *data)
 {
 	struct file_system_type *cgroup_fs = get_fs_type("cgroup");
-	struct dentry *ret = ERR_PTR(-ENODEV);
-	if (cgroup_fs) {
+	struct dentry *ret = ERR_CAST(cgroup_fs);
+	if (!IS_ERR(cgroup_fs)) {
 		char mountopts[] =
 			"cpuset,noprefix,"
 			"release_agent=/sbin/cpuset_release_agent";

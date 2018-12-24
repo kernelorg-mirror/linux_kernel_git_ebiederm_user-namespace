@@ -8002,7 +8002,7 @@ static struct dentry *trace_automount(struct dentry *mntpt, void *ingore)
 	 * mounted to the debugfs/tracing directory.
 	 */
 	type = get_fs_type("tracefs");
-	if (!type)
+	if (IS_ERR(type))
 		return NULL;
 	root = type->mount(type, 0, "tracefs", NULL);
 	root = finish_subsuper(mntpt->d_sb, root);
