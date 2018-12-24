@@ -249,19 +249,6 @@ static int jffs2_remount_fs(struct super_block *sb, int *flags, char *data)
 	return jffs2_do_remount_fs(sb, flags, data);
 }
 
-static const struct super_operations jffs2_super_operations =
-{
-	.alloc_inode =	jffs2_alloc_inode,
-	.destroy_inode =jffs2_destroy_inode,
-	.put_super =	jffs2_put_super,
-	.statfs =	jffs2_statfs,
-	.remount_fs =	jffs2_remount_fs,
-	.evict_inode =	jffs2_evict_inode,
-	.dirty_inode =	jffs2_dirty_inode,
-	.show_options =	jffs2_show_options,
-	.sync_fs =	jffs2_sync_fs,
-};
-
 /*
  * fill in the superblock
  */
@@ -295,7 +282,6 @@ static int jffs2_fill_super(struct super_block *sb, void *data, int silent)
 	spin_lock_init(&c->erase_completion_lock);
 	spin_lock_init(&c->inocache_lock);
 
-	sb->s_op = &jffs2_super_operations;
 	sb->s_export_op = &jffs2_export_ops;
 	sb->s_flags = sb->s_flags | SB_NOATIME;
 	sb->s_xattr = jffs2_xattr_handlers;
@@ -306,11 +292,32 @@ static int jffs2_fill_super(struct super_block *sb, void *data, int silent)
 	return ret;
 }
 
-static struct dentry *jffs2_mount(struct file_system_type *fs_type,
-			int flags, const char *dev_name,
-			void *data)
+static int jffs2_init(struct super_block *sb, void *state, const char *optv[])
 {
-	return mount_mtd(fs_type, flags, dev_name, data, jffs2_fill_super);
+	return legacy_init_super(sb, optv, jffs2_fill_super);
+}
+
+static const struct super_operations jffs2_super_operations =
+{
+	.init =		jffs2_init,
+	.reinit =	noop_reinit_super,
+	.alloc_inode =	jffs2_alloc_inode,
+	.destroy_inode =jffs2_destroy_inode,
+	.put_super =	jffs2_put_super,
+	.statfs =	jffs2_statfs,
+	.remount_fs =	jffs2_remount_fs,
+	.evict_inode =	jffs2_evict_inode,
+	.dirty_inode =	jffs2_dirty_inode,
+	.show_options =	jffs2_show_options,
+	.sync_fs =	jffs2_sync_fs,
+};
+
+static struct super_block *jffs2_open(struct file_system_type *fs_type,
+	int flags, struct user_namespace *user_ns, const char *dev_name,
+	const char *optv[], void **state)
+{
+	return mtd_open_super(fs_type, flags, user_ns, dev_name, optv,
+			      &jffs2_super_operations);
 }
 
 static void jffs2_put_super (struct super_block *sb)
@@ -347,7 +354,7 @@ static void jffs2_kill_sb(struct super_block *sb)
 static struct file_system_type jffs2_fs_type = {
 	.owner =	THIS_MODULE,
 	.name =		"jffs2",
-	.mount =	jffs2_mount,
+	.open =		jffs2_open,
 	.kill_sb =	jffs2_kill_sb,
 };
 MODULE_ALIAS_FS("jffs2");
