@@ -74,6 +74,8 @@ struct fuse_mount_data {
 	unsigned blksize;
 };
 
+static int fuse_init_super(struct super_block *sb, void *state, const char *optv[]);
+
 struct fuse_forget_link *fuse_alloc_forget(void)
 {
 	return kzalloc(sizeof(struct fuse_forget_link), GFP_KERNEL);
@@ -808,6 +810,8 @@ static const struct export_operations fuse_export_operations = {
 };
 
 static const struct super_operations fuse_super_operations = {
+	.init		= fuse_init_super,
+	.reinit		= noop_reinit_super,
 	.alloc_inode    = fuse_alloc_inode,
 	.destroy_inode  = fuse_destroy_inode,
 	.evict_inode	= fuse_evict_inode,
@@ -1103,7 +1107,6 @@ static int fuse_fill_super(struct super_block *sb, void *data, int silent)
 		sb->s_blocksize_bits = PAGE_SHIFT;
 	}
 	sb->s_magic = FUSE_SUPER_MAGIC;
-	sb->s_op = &fuse_super_operations;
 	sb->s_xattr = fuse_xattr_handlers;
 	sb->s_maxbytes = MAX_LFS_FILESIZE;
 	sb->s_time_gran = 1;
@@ -1226,11 +1229,16 @@ static int fuse_fill_super(struct super_block *sb, void *data, int silent)
 	return err;
 }
 
-static struct dentry *fuse_mount(struct file_system_type *fs_type,
-		       int flags, const char *dev_name,
-		       void *raw_data)
+static int fuse_init_super(struct super_block *sb, void *state, const char *optv[])
 {
-	return mount_nodev(fs_type, flags, raw_data, fuse_fill_super);
+	return legacy_init_super(sb, optv, fuse_fill_super);
+}
+
+static struct super_block *fuse_open(struct file_system_type *fs_type,
+	int flags, struct user_namespace *user_ns, const char *dev_name,
+	const char *optv[], void **state)
+{
+	return nodev_open_super(fs_type, flags, user_ns, &fuse_super_operations);
 }
 
 static void fuse_sb_destroy(struct super_block *sb)
@@ -1260,17 +1268,18 @@ static struct file_system_type fuse_fs_type = {
 	.name		= "fuse",
 	.fs_flags	= FS_HAS_SUBTYPE,
 	.permission	= userns_mount_permission,
-	.mount		= fuse_mount,
+	.open		= fuse_open,
 	.kill_sb	= fuse_kill_sb_anon,
 };
 MODULE_ALIAS_FS("fuse");
 
 #ifdef CONFIG_BLOCK
-static struct dentry *fuse_mount_blk(struct file_system_type *fs_type,
-			   int flags, const char *dev_name,
-			   void *raw_data)
+static struct super_block *fuseblk_open(struct file_system_type *fs_type,
+	int flags, struct user_namespace *user_ns, const char *dev_name,
+	const char *optv[], void **state)
 {
-	return mount_bdev(fs_type, flags, dev_name, raw_data, fuse_fill_super);
+	return bdev_open_super(fs_type, flags, user_ns, dev_name, optv,
+			       &fuse_super_operations);
 }
 
 static void fuse_kill_sb_blk(struct super_block *sb)
@@ -1282,7 +1291,7 @@ static void fuse_kill_sb_blk(struct super_block *sb)
 static struct file_system_type fuseblk_fs_type = {
 	.owner		= THIS_MODULE,
 	.name		= "fuseblk",
-	.mount		= fuse_mount_blk,
+	.open		= fuseblk_open,
 	.kill_sb	= fuse_kill_sb_blk,
 	.fs_flags	= FS_REQUIRES_DEV | FS_HAS_SUBTYPE,
 };
