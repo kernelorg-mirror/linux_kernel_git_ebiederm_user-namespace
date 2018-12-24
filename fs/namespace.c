@@ -971,14 +971,15 @@ fail:
 }
 
 static struct vfsmount *
-vfs_kern_mount(struct file_system_type *type, int flags, const char *name, void *data)
+vfs_kern_mount(struct file_system_type *type, int flags,
+	       struct user_namespace *user_ns, const char *name, void *data)
 {
 	struct dentry *root;
 
 	if (!type)
 		return ERR_PTR(-ENODEV);
 
-	root = mount_fs(type, flags, name, data);
+	root = mount_fs(type, flags, user_ns, name, data);
 	if (IS_ERR(root))
 		return ERR_CAST(root);
 
@@ -2532,7 +2533,7 @@ static int do_new_mount(struct path *path, const char *fstype, int sb_flags,
 			name = newname;
 	}
 
-	mnt = vfs_kern_mount(type, sb_flags, name, data);
+	mnt = vfs_kern_mount(type, sb_flags, current_user_ns(), name, data);
 	if (!IS_ERR(mnt) && (type->fs_flags & FS_HAS_SUBTYPE) &&
 	    !mnt->mnt_sb->s_subtype)
 		mnt = fs_set_subtype(mnt, fstype);
@@ -3273,7 +3274,7 @@ static void __init init_mount_tree(void)
 	type = get_fs_type("rootfs");
 	if (!type)
 		panic("Can't find rootfs type");
-	mnt = vfs_kern_mount(type, 0, "rootfs", NULL);
+	mnt = vfs_kern_mount(type, 0, &init_user_ns, "rootfs", NULL);
 	put_filesystem(type);
 	if (IS_ERR(mnt))
 		panic("Can't create rootfs");
@@ -3338,7 +3339,7 @@ void put_mnt_ns(struct mnt_namespace *ns)
 struct vfsmount *kern_mount_data(struct file_system_type *type, void *data)
 {
 	struct vfsmount *mnt;
-	mnt = vfs_kern_mount(type, SB_KERNMOUNT, type->name, data);
+	mnt = vfs_kern_mount(type, SB_KERNMOUNT, &init_user_ns, type->name, data);
 	if (!IS_ERR(mnt)) {
 		/*
 		 * it is a longterm mount, don't release mnt until

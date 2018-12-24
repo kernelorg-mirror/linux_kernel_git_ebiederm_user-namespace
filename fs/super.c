@@ -1269,7 +1269,8 @@ struct dentry *finish_subsuper(const struct super_block *old_sb,
 EXPORT_SYMBOL(finish_subsuper);
 
 struct dentry *
-mount_fs(struct file_system_type *type, int flags, const char *name, void *data)
+mount_fs(struct file_system_type *type, int flags,
+	 struct user_namespace *user_ns, const char *name, void *data)
 {
 	const char **lsm_opts = NULL;
 	struct dentry *root;
