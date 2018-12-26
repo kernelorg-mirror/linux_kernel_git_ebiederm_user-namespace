@@ -1189,6 +1189,27 @@ void kill_block_super(struct super_block *sb)
 EXPORT_SYMBOL(kill_block_super);
 #endif
 
+int legacy_init_super(struct super_block *sb, const char **optv,
+	int (*fill_super)(struct super_block *, void *, int))
+{
+	int silent = sb->s_flags & SB_SILENT ? 1 : 0;
+	char *options;
+	int error;
+
+	options = join_options(optv);
+	if (!options)
+		return -ENOMEM;
+
+	error = fill_super(sb, options, silent);
+	kfree(options);
+	if (error)
+		return error;
+
+	sb->s_flags |= SB_ACTIVE;
+	return 0;
+}
+EXPORT_SYMBOL(legacy_init_super);
+
 struct dentry *mount_nodev(struct file_system_type *fs_type,
 	int flags, void *data,
 	int (*fill_super)(struct super_block *, void *, int))
