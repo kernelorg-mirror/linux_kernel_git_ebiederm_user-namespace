@@ -1220,32 +1220,6 @@ struct dentry *mount_single(struct file_system_type *fs_type,
 }
 EXPORT_SYMBOL(mount_single);
 
-int security_parse_options(char *options, const char ***opts)
-{
-	const char **secv = NULL, **optv = NULL;
-	char *noptions;
-	int ret;
-
-	ret = split_options(options, security_tokens, NULL, &secv, NULL, &optv);
-	if (ret)
-		return ret;
-
-	noptions = join_options(optv);
-	if (!noptions) {
-		kfree(secv);
-		kfree(optv);
-		return -ENOMEM;
-	}
-
-	if (options)
-		strcpy(options, noptions);
-	kfree(noptions);
-	kfree(optv);
-	*opts = secv;
-	return 0;
-}
-EXPORT_SYMBOL(security_parse_options);
-
 void finish_super(struct super_block *sb)
 {
 	/*
