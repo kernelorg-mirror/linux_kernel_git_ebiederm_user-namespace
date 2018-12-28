@@ -206,6 +206,7 @@ static struct super_block *alloc_super(struct file_system_type *type, int flags,
 	if (!s)
 		return NULL;
 
+	s->s_configure_seq = 1;
 	INIT_LIST_HEAD(&s->s_mounts);
 	s->s_user_ns = get_user_ns(user_ns);
 	init_rwsem(&s->s_umount);
@@ -842,6 +843,7 @@ int do_remount_sb(struct super_block *sb, int sb_flags, void *data, int force)
 		}
 	}
 	shrink_dcache_sb(sb);
+	sb->s_configure_seq++;
 
 	/* If we are remounting RDONLY and current sb is read/write,
 	   make sure there are no rw files opened */
