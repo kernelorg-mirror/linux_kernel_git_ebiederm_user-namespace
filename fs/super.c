@@ -520,7 +520,7 @@ retry:
 	}
 	if (!s) {
 		spin_unlock(&sb_lock);
-		s = alloc_super(type, (flags & ~SB_SUBMOUNT), user_ns);
+		s = alloc_super(type, flags, user_ns);
 		if (!s)
 			return ERR_PTR(-ENOMEM);
 		goto retry;
@@ -558,16 +558,7 @@ struct super_block *sget(struct file_system_type *type,
 			int flags,
 			void *data)
 {
-	struct user_namespace *user_ns = current_user_ns();
-
-	/* We don't yet pass the user namespace of the parent
-	 * mount through to here so always use &init_user_ns
-	 * until that changes.
-	 */
-	if (flags & SB_SUBMOUNT)
-		user_ns = &init_user_ns;
-
-	return sget_userns(type, test, set, flags, user_ns, data);
+	return sget_userns(type, test, set, flags, current_user_ns(), data);
 }
 
 EXPORT_SYMBOL(sget);
