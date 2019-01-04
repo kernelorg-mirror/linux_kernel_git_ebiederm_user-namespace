@@ -495,7 +495,7 @@ struct dentry *orangefs_mount(struct file_system_type *fst,
 		goto free_op;
 	}
 
-	sb = sget(fst, NULL, set_anon_super, flags, NULL);
+	sb = sget(fst, NULL, set_anon_super, flags, current_user_ns(), NULL);
 
 	if (IS_ERR(sb)) {
 		d = ERR_CAST(sb);

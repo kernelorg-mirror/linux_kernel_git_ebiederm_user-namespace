@@ -1553,7 +1553,7 @@ static struct dentry *btrfs_mount_root(struct file_system_type *fs_type,
 
 	bdev = fs_devices->latest_bdev;
 	s = sget(fs_type, btrfs_test_super, btrfs_set_super, flags | SB_NOSEC,
-		 fs_info);
+		 current_user_ns(), fs_info);
 	if (IS_ERR(s)) {
 		error = PTR_ERR(s);
 		goto error_close_devices;

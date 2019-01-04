@@ -483,7 +483,7 @@ int userns_mount_permission(void)
 EXPORT_SYMBOL(userns_mount_permission);
 
 /**
- *	sget_userns -	find or create a superblock
+ *	sget -	find or create a superblock
  *	@type:	filesystem type superblock should belong to
  *	@test:	comparison callback
  *	@set:	setup callback
@@ -491,7 +491,7 @@ EXPORT_SYMBOL(userns_mount_permission);
  *	@user_ns: User namespace for the super_block
  *	@data:	argument to each of them
  */
-struct super_block *sget_userns(struct file_system_type *type,
+struct super_block *sget(struct file_system_type *type,
 			int (*test)(struct super_block *,void *),
 			int (*set)(struct super_block *,void *),
 			int flags, struct user_namespace *user_ns,
@@ -540,25 +540,6 @@ retry:
 	get_filesystem(type);
 	register_shrinker_prepared(&s->s_shrink);
 	return s;
-}
-
-EXPORT_SYMBOL(sget_userns);
-
-/**
- *	sget	-	find or create a superblock
- *	@type:	  filesystem type superblock should belong to
- *	@test:	  comparison callback
- *	@set:	  setup callback
- *	@flags:	  mount flags
- *	@data:	  argument to each of them
- */
-struct super_block *sget(struct file_system_type *type,
-			int (*test)(struct super_block *,void *),
-			int (*set)(struct super_block *,void *),
-			int flags,
-			void *data)
-{
-	return sget_userns(type, test, set, flags, current_user_ns(), data);
 }
 
 EXPORT_SYMBOL(sget);
@@ -1050,8 +1031,7 @@ struct dentry *mount_ns(struct file_system_type *fs_type,
 {
 	struct super_block *sb;
 
-	sb = sget_userns(fs_type, ns_test_super, ns_set_super, flags,
-			 user_ns, ns);
+	sb = sget(fs_type, ns_test_super, ns_set_super, flags, user_ns, ns);
 	if (IS_ERR(sb))
 		return ERR_CAST(sb);
 
@@ -1114,7 +1094,7 @@ struct dentry *mount_bdev(struct file_system_type *fs_type,
 		goto error_bdev;
 	}
 	s = sget(fs_type, test_bdev_super, set_bdev_super, flags | SB_NOSEC,
-		 bdev);
+		 current_user_ns(), bdev);
 	mutex_unlock(&bdev->bd_fsfreeze_mutex);
 	if (IS_ERR(s))
 		goto error_s;
@@ -1181,7 +1161,8 @@ struct dentry *mount_nodev(struct file_system_type *fs_type,
 	int (*fill_super)(struct super_block *, void *, int))
 {
 	int error;
-	struct super_block *s = sget(fs_type, NULL, set_anon_super, flags, NULL);
+	struct super_block *s =
+		sget(fs_type, NULL, set_anon_super, flags, current_user_ns(), NULL);
 
 	if (IS_ERR(s))
 		return ERR_CAST(s);
@@ -1208,8 +1189,8 @@ struct dentry *mount_single(struct file_system_type *fs_type,
 	struct super_block *s;
 	int error;
 
-	s = sget_userns(fs_type, compare_single, set_anon_super, flags,
-			&init_user_ns, NULL);
+	s = sget(fs_type, compare_single, set_anon_super, flags,
+		 &init_user_ns, NULL);
 	if (IS_ERR(s))
 		return ERR_CAST(s);
 	if (!s->s_root) {

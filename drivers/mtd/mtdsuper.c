@@ -68,7 +68,8 @@ static struct dentry *mount_mtd_aux(struct file_system_type *fs_type, int flags,
 	struct super_block *sb;
 	int ret;
 
-	sb = sget(fs_type, get_sb_mtd_compare, get_sb_mtd_set, flags, mtd);
+	sb = sget(fs_type, get_sb_mtd_compare, get_sb_mtd_set, flags,
+		  current_user_ns(), mtd);
 	if (IS_ERR(sb))
 		goto out_error;
 

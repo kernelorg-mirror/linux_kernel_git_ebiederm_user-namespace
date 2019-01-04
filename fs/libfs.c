@@ -246,8 +246,8 @@ struct dentry *mount_pseudo_xattr(struct file_system_type *fs_type, char *name,
 	struct inode *root;
 	struct qstr d_name = QSTR_INIT(name, strlen(name));
 
-	s = sget_userns(fs_type, NULL, set_anon_super, SB_KERNMOUNT|SB_NOUSER,
-			&init_user_ns, NULL);
+	s = sget(fs_type, NULL, set_anon_super, SB_KERNMOUNT|SB_NOUSER,
+		 &init_user_ns, NULL);
 	if (IS_ERR(s))
 		return ERR_CAST(s);
 

@@ -550,9 +550,9 @@ struct dentry *afs_mount(struct file_system_type *fs_type,
 	}
 
 	/* allocate a deviceless superblock */
-	sb = sget_userns(fs_type,
-			 as->dyn_root ? afs_dynroot_test_super : afs_test_super,
-			 afs_set_super, flags, &init_user_ns, as);
+	sb = sget(fs_type,
+		  as->dyn_root ? afs_dynroot_test_super : afs_test_super,
+		  afs_set_super, flags, &init_user_ns, as);
 	if (IS_ERR(sb)) {
 		ret = PTR_ERR(sb);
 		goto error_as;

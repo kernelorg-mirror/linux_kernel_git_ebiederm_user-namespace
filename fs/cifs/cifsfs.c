@@ -786,8 +786,8 @@ cifs_smb3_do_mount(struct file_system_type *fs_type,
 	/* BB should we make this contingent on mount parm? */
 	flags |= SB_NODIRATIME | SB_NOATIME;
 
-	sb = sget_userns(fs_type, cifs_match_super, cifs_set_super, flags,
-			 &init_user_ns, &mnt_data);
+	sb = sget(fs_type, cifs_match_super, cifs_set_super, flags,
+		  &init_user_ns, &mnt_data);
 	if (IS_ERR(sb)) {
 		root = ERR_CAST(sb);
 		cifs_umount(cifs_sb);

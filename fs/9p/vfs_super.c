@@ -138,7 +138,7 @@ static struct dentry *v9fs_mount(struct file_system_type *fs_type, int flags,
 		goto free_session;
 	}
 
-	sb = sget(fs_type, NULL, v9fs_set_super, flags, v9ses);
+	sb = sget(fs_type, NULL, v9fs_set_super, flags, current_user_ns(), v9ses);
 	if (IS_ERR(sb)) {
 		retval = PTR_ERR(sb);
 		goto clunk_fid;
