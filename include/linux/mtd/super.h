@@ -18,6 +18,9 @@
 #include <linux/fs.h>
 #include <linux/mount.h>
 
+struct super_block *mtd_open_super(struct file_system_type *fs_type,
+	int flags, struct user_namespace *user_ns, const char *dev_name,
+	const char *optv[], const struct super_operations *s_op);
 extern struct dentry *mount_mtd(struct file_system_type *fs_type, int flags,
 		      const char *dev_name, void *data,
 		      int (*fill_super)(struct super_block *, void *, int));
