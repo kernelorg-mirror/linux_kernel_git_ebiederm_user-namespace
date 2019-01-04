@@ -1217,7 +1217,8 @@ struct dentry *mount_single(struct file_system_type *fs_type,
 	struct super_block *s;
 	int error;
 
-	s = sget(fs_type, compare_single, set_anon_super, flags, NULL);
+	s = sget_userns(fs_type, compare_single, set_anon_super, flags,
+			&init_user_ns, NULL);
 	if (IS_ERR(s))
 		return ERR_CAST(s);
 	if (!s->s_root) {

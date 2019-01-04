@@ -8004,7 +8004,7 @@ static struct dentry *trace_automount(struct dentry *mntpt, void *ingore)
 	type = get_fs_type("tracefs");
 	if (!type)
 		return NULL;
-	root = type->mount(type, SB_SUBMOUNT, "tracefs", NULL);
+	root = type->mount(type, 0, "tracefs", NULL);
 	root = finish_subsuper(mntpt->d_sb, root);
 	put_filesystem(type);
 	if (IS_ERR(root))
