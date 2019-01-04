@@ -2216,6 +2216,9 @@ struct file_system_type {
 
 int userns_mount_permission(void);
 
+struct super_block *ns_open_super(struct file_system_type *fs_type,
+	int flags, struct user_namespace *user_ns, void *ns,
+	const struct super_operations *s_op);
 extern struct dentry *mount_ns(struct file_system_type *fs_type,
 	int flags, void *data, void *ns, struct user_namespace *user_ns,
 	int (*fill_super)(struct super_block *, void *, int));

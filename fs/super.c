@@ -1035,13 +1035,26 @@ static int ns_set_super(struct super_block *sb, void *data)
 	return set_anon_super(sb, NULL);
 }
 
+struct super_block *ns_open_super(struct file_system_type *fs_type,
+	int flags, struct user_namespace *user_ns, void *ns,
+	const struct super_operations *s_op)
+{
+	struct super_block *sb;
+
+	sb = sget(fs_type, ns_test_super, ns_set_super, flags, user_ns, ns);
+	if (!IS_ERR(sb) && !sb->s_op->init && s_op)
+		sb->s_op = s_op;
+	return sb;
+}
+EXPORT_SYMBOL(ns_open_super);
+
 struct dentry *mount_ns(struct file_system_type *fs_type,
 	int flags, void *data, void *ns, struct user_namespace *user_ns,
 	int (*fill_super)(struct super_block *, void *, int))
 {
 	struct super_block *sb;
 
-	sb = sget(fs_type, ns_test_super, ns_set_super, flags, user_ns, ns);
+	sb = ns_open_super(fs_type, flags, user_ns, ns, NULL);
 	if (IS_ERR(sb))
 		return ERR_CAST(sb);
 
