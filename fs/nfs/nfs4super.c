@@ -307,7 +307,7 @@ struct dentry *nfs4_referral_mount(const char *dev_name,
 	data->mnt_path = "/";
 
 	root = nfs_do_root_mount(&nfs4_remote_referral_fs_type,
-			SB_SUBMOUNT, data, data->hostname);
+			0, data, data->hostname);
 	data->mnt_path = export_path;
 
 	res = nfs_follow_remote_path(root, export_path);

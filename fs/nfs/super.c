@@ -2548,7 +2548,8 @@ struct dentry *nfs_fs_mount_common(struct nfs_server *server,
 			sb_mntdata.mntflags |= SB_SYNCHRONOUS;
 
 	/* Get a superblock - note that we may end up sharing one that already exists */
-	s = sget(nfs_mod->nfs_fs, compare_super, nfs_set_super, flags, &sb_mntdata);
+	s = sget_userns(nfs_mod->nfs_fs, compare_super, nfs_set_super, flags,
+			&init_user_ns, &sb_mntdata);
 	if (IS_ERR(s)) {
 		mntroot = ERR_CAST(s);
 		goto out_err_nosb;
@@ -2689,7 +2690,7 @@ struct dentry *nfs_xdev_mount(const char *dev_name, struct nfs_clone_mount *data
 	if (IS_ERR(server))
 		mntroot = ERR_CAST(server);
 	else
-		mntroot = nfs_fs_mount_common(server, SB_SUBMOUNT,
+		mntroot = nfs_fs_mount_common(server, 0,
 				dev_name, &mount_info, nfs_mod);
 	mntroot = finish_subsuper(data->sb, mntroot);
 
