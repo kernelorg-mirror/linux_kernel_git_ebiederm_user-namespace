@@ -1076,14 +1076,20 @@ static int test_bdev_super(struct super_block *s, void *data)
 	return (void *)s->s_bdev == data;
 }
 
-struct dentry *mount_bdev(struct file_system_type *fs_type,
-	int flags, const char *dev_name, void *data,
-	int (*fill_super)(struct super_block *, void *, int))
+struct super_block *bdev_open_super(struct file_system_type *fs_type,
+	int flags, struct user_namespace *user_ns, const char *dev_name,
+	const char *optv[], const struct super_operations *s_op)
 {
 	struct block_device *bdev;
 	struct super_block *s;
 	fmode_t mode = FMODE_READ | FMODE_EXCL;
 	int error = 0;
+
+	if (!dev_name)
+		return ERR_PTR(-ENOENT);
+
+	if (optv[0])
+		return ERR_PTR(-E2BIG);
 
 	if (!(flags & SB_RDONLY))
 		mode |= FMODE_WRITE;
@@ -1104,12 +1110,12 @@ struct dentry *mount_bdev(struct file_system_type *fs_type,
 		goto error_bdev;
 	}
 	s = sget(fs_type, test_bdev_super, set_bdev_super, flags | SB_NOSEC,
-		 current_user_ns(), bdev);
+		 user_ns, bdev);
 	mutex_unlock(&bdev->bd_fsfreeze_mutex);
 	if (IS_ERR(s))
 		goto error_s;
 
-	if (s->s_root) {
+	if (s->s_op->init) {
 		if ((flags ^ s->s_flags) & SB_RDONLY) {
 			deactivate_locked_super(s);
 			error = -EBUSY;
@@ -1130,24 +1136,41 @@ struct dentry *mount_bdev(struct file_system_type *fs_type,
 		s->s_mode = mode;
 		snprintf(s->s_id, sizeof(s->s_id), "%pg", bdev);
 		sb_set_blocksize(s, block_size(bdev));
-		error = fill_super(s, data, flags & SB_SILENT ? 1 : 0);
-		if (error) {
-			deactivate_locked_super(s);
-			goto error;
-		}
-
-		s->s_flags |= SB_ACTIVE;
 		bdev->bd_super = s;
+		if (s_op)
+			s->s_op = s_op;
 	}
-
-	return dget(s->s_root);
+	return s;
 
 error_s:
 	error = PTR_ERR(s);
 error_bdev:
 	blkdev_put(bdev, mode);
-error:
 	return ERR_PTR(error);
+}
+EXPORT_SYMBOL(bdev_open_super);
+
+struct dentry *mount_bdev(struct file_system_type *fs_type,
+	int flags, const char *dev_name,  void *data,
+	int (*fill_super)(struct super_block *, void *, int))
+{
+	struct super_block *s;
+
+	s = bdev_open_super(fs_type, flags, current_user_ns(), dev_name,
+			    empty_optv, NULL);
+	if (IS_ERR(s))
+		return ERR_CAST(s);
+
+	if (!s->s_root) {
+		int error;
+		error = fill_super(s, data, flags & SB_SILENT ? 1 : 0);
+		if (error) {
+			deactivate_locked_super(s);
+			return ERR_PTR(error);
+		}
+		s->s_flags |= SB_ACTIVE;
+	}
+	return dget(s->s_root);
 }
 EXPORT_SYMBOL(mount_bdev);
 

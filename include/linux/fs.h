@@ -2220,10 +2220,19 @@ extern struct dentry *mount_ns(struct file_system_type *fs_type,
 	int flags, void *data, void *ns, struct user_namespace *user_ns,
 	int (*fill_super)(struct super_block *, void *, int));
 #ifdef CONFIG_BLOCK
+struct super_block *bdev_open_super(struct file_system_type *fs_type,
+	 int flags, struct user_namespace *user_ns, const char *dev_name,
+	const char *optv[], const struct super_operations *s_op);
 extern struct dentry *mount_bdev(struct file_system_type *fs_type,
 	int flags, const char *dev_name, void *data,
 	int (*fill_super)(struct super_block *, void *, int));
 #else
+static inline struct super_block *bdev_open_super(struct file_system_type *fs_type,
+	int flags, struct user_namespace *user_ns,  const char *dev_name,
+	const char *optv[], const struct super_operations *s_op)
+{
+	return ERR_PTR(-ENODEV);
+}
 static inline struct dentry *mount_bdev(struct file_system_type *fs_type,
 	int flags, const char *dev_name, void *data,
 	int (*fill_super)(struct super_block *, void *, int))
