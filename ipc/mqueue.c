@@ -1540,7 +1540,7 @@ int mq_init_ns(struct ipc_namespace *ns)
 	ns->mq_msg_default   = DFLT_MSG;
 	ns->mq_msgsize_default  = DFLT_MSGSIZE;
 
-	root = mount_ns(&mqueue_fs_type, SB_KERNMOUNT, "", ns, ns->user_ns, mqueue_fill_super);
+	root = mount_ns(&mqueue_fs_type, 0, "", ns, ns->user_ns, mqueue_fill_super);
 	if (!IS_ERR(root))
 		finish_super(root->d_sb);
 	ns->mq_mnt = kern_mount_root(root);
