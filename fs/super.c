@@ -1230,13 +1230,25 @@ int noop_reinit_super(struct super_block *sb, void *state, int flags,
 }
 EXPORT_SYMBOL(noop_reinit_super);
 
+struct super_block *nodev_open_super(struct file_system_type *fs_type,
+	int flags, struct user_namespace *user_ns,
+	const struct super_operations *s_op)
+{
+	struct super_block *sb =
+		sget(fs_type, NULL, set_anon_super, flags, user_ns, NULL);
+	if (!IS_ERR(sb) && s_op)
+		sb->s_op = s_op;
+	return sb;
+}
+EXPORT_SYMBOL(nodev_open_super);
+
 struct dentry *mount_nodev(struct file_system_type *fs_type,
 	int flags, void *data,
 	int (*fill_super)(struct super_block *, void *, int))
 {
 	int error;
 	struct super_block *s =
-		sget(fs_type, NULL, set_anon_super, flags, current_user_ns(), NULL);
+		nodev_open_super(fs_type, flags, current_user_ns(), NULL);
 
 	if (IS_ERR(s))
 		return ERR_CAST(s);
