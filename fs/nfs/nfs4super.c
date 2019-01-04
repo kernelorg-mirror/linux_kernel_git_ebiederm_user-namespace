@@ -268,7 +268,6 @@ out:
 struct dentry *nfs4_referral_mount(const char *dev_name,
 				   struct nfs_clone_mount *data)
 {
-	char *export_path;
 	struct dentry *res, *root;
 	const char *root_devname;
 
@@ -278,14 +277,10 @@ struct dentry *nfs4_referral_mount(const char *dev_name,
 	if (IS_ERR(root_devname))
 		return ERR_CAST(root_devname);
 
-	export_path = data->mnt_path;
-	data->mnt_path = "/";
-
 	root = nfs4_remote_referral_mount(0, root_devname, data);
-	data->mnt_path = export_path;
 	kfree(root_devname);
 
-	res = nfs_follow_remote_path(root, export_path);
+	res = nfs_follow_remote_path(root, data->mnt_path);
 
 	dprintk("<-- nfs4_referral_mount() = %d%s\n",
 		PTR_ERR_OR_ZERO(res),
