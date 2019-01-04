@@ -19,21 +19,11 @@ static int nfs4_write_inode(struct inode *inode, struct writeback_control *wbc);
 static void nfs4_evict_inode(struct inode *inode);
 static struct dentry *nfs4_remote_mount(struct file_system_type *fs_type,
 	int flags, const char *dev_name, void *raw_data);
-static struct dentry *nfs4_remote_referral_mount(struct file_system_type *fs_type,
-	int flags, const char *dev_name, void *raw_data);
 
 static struct file_system_type nfs4_remote_fs_type = {
 	.owner		= THIS_MODULE,
 	.name		= "nfs4",
 	.mount		= nfs4_remote_mount,
-	.kill_sb	= nfs_kill_super,
-	.fs_flags	= FS_RENAME_DOES_D_MOVE|FS_BINARY_MOUNTDATA,
-};
-
-static struct file_system_type nfs4_remote_referral_fs_type = {
-	.owner		= THIS_MODULE,
-	.name		= "nfs4",
-	.mount		= nfs4_remote_referral_mount,
 	.kill_sb	= nfs_kill_super,
 	.fs_flags	= FS_RENAME_DOES_D_MOVE|FS_BINARY_MOUNTDATA,
 };
@@ -272,13 +262,13 @@ struct dentry *nfs4_try_mount(int flags, const char *dev_name,
 }
 
 static struct dentry *
-nfs4_remote_referral_mount(struct file_system_type *fs_type, int flags,
-			   const char *dev_name, void *raw_data)
+nfs4_remote_referral_mount(int flags, const char *dev_name,
+			   struct nfs_clone_mount *cloned)
 {
 	struct nfs_mount_info mount_info = {
 		.fill_super = nfs_fill_super,
 		.set_security = nfs_clone_sb_security,
-		.cloned = raw_data,
+		.cloned = cloned,
 	};
 	struct nfs_server *server;
 	struct dentry *mntroot = ERR_PTR(-ENOMEM);
@@ -297,6 +287,7 @@ nfs4_remote_referral_mount(struct file_system_type *fs_type, int flags,
 	}
 
 	mntroot = nfs_fs_mount_common(server, flags, dev_name, &mount_info, &nfs_v4);
+	mntroot = finish_subsuper(cloned->sb, mntroot);
 out:
 	nfs_free_fhandle(mount_info.mntfh);
 	return mntroot;
@@ -310,15 +301,20 @@ struct dentry *nfs4_referral_mount(const char *dev_name,
 {
 	char *export_path;
 	struct dentry *res, *root;
+	const char *root_devname;
 
 	dprintk("--> nfs4_referral_mount()\n");
+
+	root_devname = nfs4_root_devname(data->hostname);
+	if (IS_ERR(root_devname))
+		return ERR_CAST(root_devname);
 
 	export_path = data->mnt_path;
 	data->mnt_path = "/";
 
-	root = nfs_do_root_mount(&nfs4_remote_referral_fs_type,
-			0, data, data->hostname);
+	root = nfs4_remote_referral_mount(0, root_devname, data);
 	data->mnt_path = export_path;
+	kfree(root_devname);
 
 	res = nfs_follow_remote_path(root, export_path);
 
