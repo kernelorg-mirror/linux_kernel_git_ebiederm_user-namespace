@@ -257,11 +257,11 @@ static int propagate_one(struct mount *m)
 		/* beginning of peer group among the slaves? */
 		if (IS_MNT_SHARED(m))
 			type |= CL_MAKE_SHARED;
+		/* Crossing a privilege border? */
+		if (m->mnt.mnt_flags & MNT_PRIV_BORDER)
+			type |= CL_PRIV_BORDER;
 	}
-		
-	/* Notice when we are propagating across user namespaces */
-	if (m->mnt_ns->user_ns != user_ns)
-		type |= CL_UNPRIVILEGED;
+
 	child = copy_tree(last_source, last_source->mnt.mnt_root, type);
 	if (IS_ERR(child))
 		return PTR_ERR(child);

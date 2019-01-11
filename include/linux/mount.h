@@ -52,6 +52,7 @@ struct mnt_namespace;
 			    MNT_DOOMED | MNT_SYNC_UMOUNT | MNT_MARKED)
 
 #define MNT_INTERNAL	0x4000
+#define MNT_PRIV_BORDER	0x8000	/* Propagation from greater to lesser privilege */
 
 #define MNT_LOCK_ATIME		0x040000
 #define MNT_LOCK_NOEXEC		0x080000
