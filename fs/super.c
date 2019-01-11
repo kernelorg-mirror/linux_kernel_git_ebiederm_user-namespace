@@ -1262,11 +1262,12 @@ mount_fs(struct file_system_type *type, const char *subtype, int flags,
 	const char **secv = NULL, **openv = NULL, **optv = NULL;
 	struct dentry *root;
 	struct super_block *sb;
-	int error = -ENOMEM;
+	int error;
 	void *state = NULL;
 
 	error = split_options(data, security_tokens, type->open_tokens,
 			      &secv, &openv, &optv);
+	root = ERR_PTR(error);
 	if (error)
 		goto out;
 
@@ -1275,7 +1276,7 @@ mount_fs(struct file_system_type *type, const char *subtype, int flags,
 		unsigned long configure_seq;
 
 		sb = type->open(type, oflags, user_ns, name, openv, &state);
-		error = PTR_ERR(sb);
+		root = ERR_CAST(sb);
 		if (IS_ERR(sb))
 			goto out;
 
@@ -1312,16 +1313,14 @@ mount_fs(struct file_system_type *type, const char *subtype, int flags,
 			root = dget(sb->s_root);
 	} else {
 		char *options = join_options(optv);
-		error = -ENOMEM;
+		root = ERR_PTR(-ENOMEM);
 		if (!options)
 			goto out;
 
 		root = type->mount(type, flags, name, options);
 		kfree(options);
-		if (IS_ERR(root)) {
-			error = PTR_ERR(root);
+		if (IS_ERR(root))
 			goto out;
-		}
 		sb = root->d_sb;
 		BUG_ON(!sb);
 		WARN_ON(!sb->s_bdi);
@@ -1343,6 +1342,7 @@ mount_fs(struct file_system_type *type, const char *subtype, int flags,
 
 		finish_super(sb);
 	}
+out:
 	kfree(secv);
 	kfree(openv);
 	kfree(optv);
@@ -1353,11 +1353,8 @@ out_sb:
 	if (state && sb->s_op->release_state)
 		sb->s_op->release_state(state);
 	deactivate_locked_super(sb);
-out:
-	kfree(secv);
-	kfree(openv);
-	kfree(optv);
-	return ERR_PTR(error);
+	root = ERR_PTR(error);
+	goto out;
 }
 
 /*
