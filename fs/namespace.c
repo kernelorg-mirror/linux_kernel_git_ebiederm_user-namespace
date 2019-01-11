@@ -3462,12 +3462,19 @@ static bool mount_too_revealing(struct dentry *root, int *new_mnt_flags)
 	struct mnt_namespace *ns = current->nsproxy->mnt_ns;
 	unsigned long s_iflags;
 
-	if (ns->user_ns == &init_user_ns)
-		return false;
-
 	/* Can this filesystem be too revealing? */
 	s_iflags = root->d_sb->s_iflags;
 	if (!(s_iflags & SB_I_USERNS_VISIBLE))
+		return false;
+
+	/*
+	 * Definitely too revealing if the caller isn't privileged
+	 * enough to mount a filesystem.
+	 */
+	if (!may_mount())
+		return true;
+
+	if (ns->user_ns == &init_user_ns)
 		return false;
 
 	if ((s_iflags & required_iflags) != required_iflags) {
