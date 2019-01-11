@@ -1336,6 +1336,16 @@ extern int send_sigurg(struct fown_struct *fown);
 #define SB_ACTIVE	(1<<30)
 #define SB_NOUSER	(1<<31)
 
+/* Superblock flags that come from mount options */
+#define SB_OPT_FLAGS (SB_RDONLY      | \
+		      SB_SYNCHRONOUS | \
+		      SB_MANDLOCK    | \
+		      SB_DIRSYNC     | \
+		      SB_SILENT      | \
+		      SB_POSIXACL    | \
+		      SB_LAZYTIME    | \
+		      SB_I_VERSION)
+
 /*
  *	Umount options
  */

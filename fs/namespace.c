@@ -2860,14 +2860,7 @@ long do_mount(const char *dev_name, const char __user *dir_name,
 		mnt_flags |= path.mnt->mnt_flags & MNT_ATIME_MASK;
 	}
 
-	sb_flags = flags & (SB_RDONLY |
-			    SB_SYNCHRONOUS |
-			    SB_MANDLOCK |
-			    SB_DIRSYNC |
-			    SB_SILENT |
-			    SB_POSIXACL |
-			    SB_LAZYTIME |
-			    SB_I_VERSION);
+	sb_flags = flags & SB_OPT_FLAGS;
 
 	if ((flags & (MS_REMOUNT | MS_BIND)) == (MS_REMOUNT | MS_BIND))
 		retval = do_reconfigure_mnt(&path, mnt_flags);
