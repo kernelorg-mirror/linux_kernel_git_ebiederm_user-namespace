@@ -998,7 +998,8 @@ static struct mount *clone_mnt(struct mount *old, struct dentry *root,
 	/* Convert border crossing sharing effects to ordinary flags */
 	if ((flag & CL_PRIV_BORDER) && !(flag & (CL_SLAVE|CL_PRIVATE))) {
 		if (IS_MNT_SHARED(old))
-			flag |= CL_SLAVE;
+			flag |= CL_MAKE_SHARED;
+		flag |= CL_SLAVE;
 	}
 
 	if (flag & (CL_SLAVE | CL_PRIVATE))
