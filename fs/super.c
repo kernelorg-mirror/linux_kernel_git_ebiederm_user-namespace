@@ -1286,14 +1286,14 @@ mount_fs(struct file_system_type *type, int flags,
 	int error = -ENOMEM;
 	void *state = NULL;
 
+	error = split_options(data, security_tokens, type->open_tokens,
+			      &secv, &openv, &optv);
+	if (error)
+		goto out;
+
 	if (type->open) {
 		int oflags = flags & (type->sb_flags_mask | SB_RDONLY);
 		unsigned long configure_seq;
-
-		error = split_options(data, security_tokens, type->open_tokens,
-				      &secv, &openv, &optv);
-		if (error)
-			goto out;
 
 		sb = type->open(type, oflags, user_ns, name, openv, &state);
 		error = PTR_ERR(sb);
@@ -1321,11 +1321,13 @@ mount_fs(struct file_system_type *type, int flags,
 		else
 			root = dget(sb->s_root);
 	} else {
-		error = security_parse_options(data, &secv);
-		if (error)
+		char *options = join_options(optv);
+		error = -ENOMEM;
+		if (!options)
 			goto out;
 
-		root = type->mount(type, flags, name, data);
+		root = type->mount(type, flags, name, options);
+		kfree(options);
 		if (IS_ERR(root)) {
 			error = PTR_ERR(root);
 			goto out;
