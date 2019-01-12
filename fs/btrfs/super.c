@@ -18,7 +18,6 @@
 #include <linux/statfs.h>
 #include <linux/compat.h>
 #include <linux/parser.h>
-#include <linux/fsoptions.h>
 #include <linux/ctype.h>
 #include <linux/namei.h>
 #include <linux/miscdevice.h>
@@ -1549,57 +1548,29 @@ error:
  *   3. Call mount_subvol() to get the dentry of subvolume. Since there is
  *      "btrfs subvolume set-default", mount_subvol() is called always.
  */
-static struct dentry *btrfs_mount(struct file_system_type *fs_type, int flags,
-		const char *device_name, void *data)
+static int btrfs_init(struct super_block *sb, void *state, const char *optv[])
 {
-	const char **secv = NULL, **openv = NULL, **optv = NULL;
-	unsigned long configure_seq;
-	struct super_block *sb;
-	struct dentry *root;
-	int error;
-
-	error = split_options(data, security_tokens, open_tokens,
-			      &secv, &openv, &optv);
-	if (error)
-		return ERR_PTR(error);
-
-	sb = btrfs_open(fs_type, flags, &init_user_ns, device_name, openv, NULL);
-	root = ERR_CAST(sb);
-	if (IS_ERR(sb))
-		goto out;
-
-	configure_seq = sb->s_configure_seq;
-	sb->s_configure_seq++;
-	if (configure_seq == 1) {
-		error = btrfs_fill_super(sb, optv);
-		if (error)
-			goto error_sb;
-	} else {
-		if (!(flags & SB_RDONLY) && (s->s_flags & SB_RDONLY))
-			error = btrfs_reconfigure(s, &flags, empty_optv);
-		if (!error && ((flags ^ s->s_flags) & SB_RDONLY))
-			error = -EBUSY;
-	}
-
-	error = security_sb_set_mnt_opts(sb, secv);
-	if (error)
-		goto error_sb;
-
-	finish_super(sb);
-	root = mount_subvol(sb, optv);
-	/* Lock the super so mount_fs can unlock it */
-	if (!IS_ERR(root))
-		down_write(&root->d_sb->s_umount);
-out:
-	kfree(secv);
-	kfree(openv);
-	kfree(optv);
-	return root;
-error_sb:
-	deactivate_locked_super(sb);
-	root = ERR_PTR(error);
-	goto out;
+	return btrfs_fill_super(sb, optv);
 }
+
+static int btrfs_reinit(struct super_block *sb, void *state, int flags,
+			const char *optv[])
+{
+	/* Ignore all of the mount options... */
+	int error = 0;
+	if (!(flags & SB_RDONLY) && (sb->s_flags & SB_RDONLY))
+		error = btrfs_reconfigure(sb, &flags, empty_optv);
+	if (!error && ((flags ^ sb->s_flags) & SB_RDONLY))
+		error = -EBUSY;
+	return error;
+}
+
+static struct dentry *btrfs_root(struct super_block *sb, void *state,
+				 const char *optv[])
+{
+	return mount_subvol(sb, optv);
+}
+
 
 static void btrfs_resize_thread_pool(struct btrfs_fs_info *fs_info,
 				     u32 new_pool_size, u32 old_pool_size)
@@ -1797,28 +1768,6 @@ restore:
 		old_thread_pool_size, fs_info->thread_pool_size);
 	fs_info->metadata_ratio = old_metadata_ratio;
 	btrfs_remount_cleanup(fs_info, old_opts);
-	return ret;
-}
-
-static int btrfs_remount(struct super_block *sb, int *flags, char *data)
-{
-	const char **secv = NULL, **optv = NULL;
-	int ret;
-
-	ret = split_options(data, security_tokens, NULL, &secv, NULL, &optv);
-	if (ret)
-		goto out;
-
-	if (data) {
-		ret = security_sb_set_mnt_opts(sb, secv);
-		if (ret)
-			goto out;
-	}
-
-	ret = btrfs_reconfigure(sb, flags, optv);
-out:
-	kfree(secv);
-	kfree(optv);
 	return ret;
 }
 
@@ -2102,9 +2051,10 @@ static void btrfs_kill_super(struct super_block *sb)
 static struct file_system_type btrfs_fs_type = {
 	.owner		= THIS_MODULE,
 	.name		= "btrfs",
-	.mount		= btrfs_mount,
+	.open		= btrfs_open,
+	.open_tokens	= open_tokens,
 	.kill_sb	= btrfs_kill_super,
-	.fs_flags	= FS_REQUIRES_DEV | FS_BINARY_MOUNTDATA,
+	.fs_flags	= FS_REQUIRES_DEV,
 };
 
 MODULE_ALIAS_FS("btrfs");
@@ -2236,6 +2186,9 @@ static int btrfs_show_devname(struct seq_file *m, struct dentry *root)
 }
 
 static const struct super_operations btrfs_super_ops = {
+	.init		= btrfs_init,
+	.reinit		= btrfs_reinit,
+	.root		= btrfs_root,
 	.drop_inode	= btrfs_drop_inode,
 	.evict_inode	= btrfs_evict_inode,
 	.put_super	= btrfs_put_super,
@@ -2245,7 +2198,7 @@ static const struct super_operations btrfs_super_ops = {
 	.alloc_inode	= btrfs_alloc_inode,
 	.destroy_inode	= btrfs_destroy_inode,
 	.statfs		= btrfs_statfs,
-	.remount_fs	= btrfs_remount,
+	.reconfigure	= btrfs_reconfigure,
 	.freeze_fs	= btrfs_freeze,
 	.unfreeze_fs	= btrfs_unfreeze,
 };
