@@ -113,6 +113,10 @@ enum {
 
 	/* Special mount options */
 	Opt_userspace, Opt_deprecated, Opt_sloppy,
+
+	/* NFS version options */
+	Opt_vers_2, Opt_vers_3, Opt_vers_4, Opt_vers_4_0,
+	Opt_vers_4_1, Opt_vers_4_2,
 };
 
 static const struct match_table nfs_mount_option_tokens[] = {
@@ -184,7 +188,12 @@ static const struct match_table nfs_mount_option_tokens[] = {
 	{ Opt_fhandle, "fhandle=%s" },
 
 	/* The following needs to be listed after all other options */
-	{ Opt_nfsvers, "v%s" },
+	{ Opt_vers_2, "v2" },
+	{ Opt_vers_3, "v3" },
+	{ Opt_vers_4, "v4" },
+	{ Opt_vers_4_0, "v4.0" },
+	{ Opt_vers_4_1, "v4.1" },
+	{ Opt_vers_4_2, "v4.2" },
 
 	{ }
 };
@@ -255,11 +264,6 @@ static const struct match_table nfs_local_lock_tokens[] = {
 	{ Opt_local_lock_posix, "posix" },
 	{ Opt_local_lock_none, "none" },
 	{ }
-};
-
-enum {
-	Opt_vers_2, Opt_vers_3, Opt_vers_4, Opt_vers_4_0,
-	Opt_vers_4_1, Opt_vers_4_2,
 };
 
 static const struct match_table nfs_vers_tokens[] = {
@@ -1252,12 +1256,10 @@ static int nfs_parse_security_flavors(char *value,
 	return 1;
 }
 
-static int nfs_parse_version_string(char *string,
-		struct nfs_parsed_mount_data *mnt,
-		substring_t *args)
+static int nfs_set_version(int token, struct nfs_parsed_mount_data *mnt)
 {
 	mnt->flags &= ~NFS_MOUNT_VER3;
-	switch (match_token(string, nfs_vers_tokens, args)) {
+	switch (token) {
 	case Opt_vers_2:
 		mnt->version = 2;
 		break;
@@ -1288,6 +1290,13 @@ static int nfs_parse_version_string(char *string,
 		return 0;
 	}
 	return 1;
+}
+
+static int nfs_parse_version_string(char *string,
+		struct nfs_parsed_mount_data *mnt,
+		substring_t *args)
+{
+	return nfs_set_version(match_token(string, nfs_vers_tokens, args), mnt);
 }
 
 static int nfs_parse_fhandle_string(char *string, struct nfs_fh *mntfh)
@@ -1561,11 +1570,21 @@ static int nfs_parse_mount_options(const char *optv[],
 		/*
 		 * options that take text values
 		 */
+		case Opt_vers_2:
+		case Opt_vers_3:
+		case Opt_vers_4:
+		case Opt_vers_4_0:
+		case Opt_vers_4_1:
+		case Opt_vers_4_2:
+			rc = nfs_set_version(token, mnt);
+			if (!rc)
+				goto out_invalid_value;
+			break;
 		case Opt_nfsvers:
 			string = match_strdup(args);
 			if (string == NULL)
 				goto out_nomem;
-			rc = nfs_parse_version_string(string, mnt, args);
+			rc = nfs_parse_version_string(token, mnt, args);
 			kfree(string);
 			if (!rc)
 				goto out_invalid_value;
