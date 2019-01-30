@@ -846,6 +846,10 @@ SYSCALL_DEFINE3(fsoptions,
 	instance->configure_seq = sb->s_configure_seq;
 	sb_options = seq_string(seq_sb_options, instance);
 	up_read(&sb->s_umount);
+	if (IS_ERR(sb_options)) {
+		sb_options = NULL;
+		goto out;
+	}
 
 	ret = -ERANGE;
 	len = strlen(sb_options) + 1;
