@@ -796,6 +796,7 @@ static int seq_sb_options(struct seq_file *seq, void *vp)
 	struct fs_instance *instance = vp;
 	struct super_block *sb = instance->sb;
 	unsigned long sb_flags = sb->s_flags;
+	int ret;
 
 	seq_printf(seq, "%s", sb_flags & SB_RDONLY ? "ro" : "rw");
 	if (sb_flags & SB_SYNCHRONOUS)	seq_puts(seq, ",sync");
@@ -803,6 +804,10 @@ static int seq_sb_options(struct seq_file *seq, void *vp)
 	if (sb_flags & SB_DIRSYNC)	seq_puts(seq, ",dirsync");
 	if (sb_flags & SB_LAZYTIME)	seq_puts(seq, ",lazytime");
 	if (sb_flags & SB_I_VERSION)	seq_puts(seq, ",iversion");
+
+	ret = security_sb_show_options(seq, sb);
+	if (ret)
+		return ret;
 
 	if (sb->s_op->show_options) {
 		struct dentry *root = instance->root;
